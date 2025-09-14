@@ -21,10 +21,31 @@ def main() -> None:
 @click.option("--input", "input_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
 @click.option("--out-dir", type=click.Path(file_okay=False, path_type=Path), required=True)
 @click.option("--drain-state", type=click.Path(dir_okay=False, path_type=Path), default=None, help="Drain3 상태 파일 경로")
-def parse(input_path: Path, out_dir: Path, drain_state: Path | None) -> None:
+# Masking toggles
+@click.option("--no-mask-paths", is_flag=True, default=False)
+@click.option("--no-mask-hex", is_flag=True, default=False)
+@click.option("--no-mask-ips", is_flag=True, default=False)
+@click.option("--no-mask-mac", is_flag=True, default=False)
+@click.option("--no-mask-uuid", is_flag=True, default=False)
+@click.option("--no-mask-pid", is_flag=True, default=False)
+@click.option("--no-mask-device", is_flag=True, default=False)
+@click.option("--no-mask-num", is_flag=True, default=False)
+def parse(input_path: Path, out_dir: Path, drain_state: Path | None,
+          no_mask_paths: bool, no_mask_hex: bool, no_mask_ips: bool, no_mask_mac: bool,
+          no_mask_uuid: bool, no_mask_pid: bool, no_mask_device: bool, no_mask_num: bool) -> None:
     """원시 로그 파일을 파싱/마스킹하고 Parquet으로 저장."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    cfg = PreprocessConfig(drain_state_path=str(drain_state) if drain_state else None)
+    cfg = PreprocessConfig(
+        drain_state_path=str(drain_state) if drain_state else None,
+        mask_paths=not no_mask_paths,
+        mask_hex=not no_mask_hex,
+        mask_ips=not no_mask_ips,
+        mask_mac=not no_mask_mac,
+        mask_uuid=not no_mask_uuid,
+        mask_pid_fields=not no_mask_pid,
+        mask_device_numbers=not no_mask_device,
+        mask_numbers=not no_mask_num,
+    )
     pre = LogPreprocessor(cfg)
     df = pre.process_file(str(input_path))
     parquet_path = out_dir / "parsed.parquet"
@@ -116,6 +137,25 @@ def report_cmd(processed_dir: Path) -> None:
         if len(d) > 0:
             viol = 1.0 - float(d["in_topk"].mean())
             report_lines.append(f"DeepLog violation rate: {viol:.3f}")
+    # Top templates/messages if parsed exists and baseline flagged windows exist
+    parsed = processed_dir / "parsed.parquet"
+    base = processed_dir / "baseline_scores.parquet"
+    if parsed.exists() and base.exists():
+        import pandas as pd
+        dfp = pd.read_parquet(parsed)
+        s = pd.read_parquet(base)
+        flagged = s[s["is_anomaly"] == True].copy()
+        if len(flagged) > 0 and "template_id" in dfp.columns:
+            # For each flagged window, find dominant template_id
+            lines = []
+            for _, row in flagged.head(5).iterrows():
+                start = int(row["window_start_line"]) if "window_start_line" in row else 0
+                win = dfp[(dfp["line_no"] >= start) & (dfp["line_no"] < start + 50)]
+                top = (
+                    win["template_id"].astype(str).value_counts().head(3).to_dict()
+                )
+                lines.append(f"window@{start} top_templates={top}")
+            report_lines.extend(lines)
     # Save
     out_md = processed_dir / "report.md"
     if not report_lines:

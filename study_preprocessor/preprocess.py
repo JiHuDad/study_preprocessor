@@ -39,30 +39,32 @@ SYSLOG_RE = re.compile(
 DMESG_RE = re.compile(r"^\[\s*\d+\.\d+\]\s+(?P<msg>.*)$")
 
 
-def mask_message(message: str) -> str:
+def mask_message(message: str, cfg: Optional["PreprocessConfig"] = None) -> str:
     """Apply masking rules to reduce cardinality.
 
     Order matters: apply path and IDs before generic numeric replaces to avoid
     over-masking structural tokens.
     """
+    cfg = cfg or PreprocessConfig()
     masked = message
 
-    # Paths
-    masked = PATH.sub("<PATH>", masked)
-    # Hex addresses
-    masked = HEX_ADDR.sub("<HEX>", masked)
-    # IPs & MAC
-    masked = IPV4.sub("<IP>", masked)
-    masked = IPV6.sub("<IP6>", masked)
-    masked = MAC.sub("<MAC>", masked)
-    # UUID
-    masked = UUID.sub("<UUID>", masked)
-    # Common id=value fields
-    masked = PID.sub(lambda m: m.group(0).split("=")[0] + "=<ID>", masked)
-    # Device names with trailing digits
-    masked = DEVICE_NUM.sub(lambda m: f"{m.group(1)}<ID>", masked)
-    # Generic decimals last
-    masked = DECIMAL.sub("<NUM>", masked)
+    if cfg.mask_paths:
+        masked = PATH.sub("<PATH>", masked)
+    if cfg.mask_hex:
+        masked = HEX_ADDR.sub("<HEX>", masked)
+    if cfg.mask_ips:
+        masked = IPV4.sub("<IP>", masked)
+        masked = IPV6.sub("<IP6>", masked)
+    if cfg.mask_mac:
+        masked = MAC.sub("<MAC>", masked)
+    if cfg.mask_uuid:
+        masked = UUID.sub("<UUID>", masked)
+    if cfg.mask_pid_fields:
+        masked = PID.sub(lambda m: m.group(0).split("=")[0] + "=<ID>", masked)
+    if cfg.mask_device_numbers:
+        masked = DEVICE_NUM.sub(lambda m: f"{m.group(1)}<ID>", masked)
+    if cfg.mask_numbers:
+        masked = DECIMAL.sub("<NUM>", masked)
     return masked
 
 
@@ -93,6 +95,14 @@ def parse_line(line: str) -> Tuple[Optional[datetime], Optional[str], Optional[s
 @dataclass
 class PreprocessConfig:
     drain_state_path: Optional[str] = None
+    mask_paths: bool = True
+    mask_hex: bool = True
+    mask_ips: bool = True
+    mask_mac: bool = True
+    mask_uuid: bool = True
+    mask_pid_fields: bool = True
+    mask_device_numbers: bool = True
+    mask_numbers: bool = True
 
 
 class LogPreprocessor:
@@ -114,7 +124,7 @@ class LogPreprocessor:
     def iter_rows(self, lines: Iterable[str]) -> Iterator[Dict[str, Any]]:
         for idx, line in enumerate(lines):
             ts, host, proc, msg = parse_line(line)
-            masked = mask_message(msg)
+            masked = mask_message(msg, self.config)
 
             template_id: Optional[str] = None
             template_str: Optional[str] = None
