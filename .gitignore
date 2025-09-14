@@ -1,0 +1,22 @@
+# Virtual envs & caches
+.venv/
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build/metadata
+*.egg-info/
+dist/
+build/
+
+# Data artifacts (regenerable)
+data/processed/
+data/**/*.parquet
+data/**/*.json
+# Large synthetic sample (regenerable)
+data/raw/synth_long.log
+
+# Drain3 local config (optional)
+drain3.ini
