@@ -58,3 +58,7 @@ uv run study-preprocess report --processed-dir data/processed
   - 메모: 샘플 데이터셋이 작아 violation_rate가 0.0로 측정됨(정상)
 - [2025-09-14] MS-CRED 입력 CLI 및 리포트 생성 완료
   - 생성 파일: `data/processed/window_counts.parquet`, `data/processed/report.md`
+- [2025-09-14] 합성 로그 기반 평가 결과(PRF1)
+  - 파일: `data/processed/synth/eval.txt`
+  - Baseline PRF1: P=1.000 R=0.061 F1=0.114
+  - DeepLog PRF1: P=0.062 R=1.000 F1=0.117

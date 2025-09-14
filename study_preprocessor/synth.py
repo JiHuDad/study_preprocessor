@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
+import pandas as pd
 
 
 BASE_TEMPLATES = [
@@ -41,10 +42,12 @@ def generate_synthetic_log(
     out.parent.mkdir(parents=True, exist_ok=True)
     now = start_time or datetime.now().replace(microsecond=0)
 
+    labels: list[tuple[int, int]] = []
     with out.open("w", encoding="utf-8") as f:
         for i in range(num_lines):
             ts = now + timedelta(seconds=i)
-            if random.random() < anomaly_rate:
+            is_anom = random.random() < anomaly_rate
+            if is_anom:
                 # pick anomaly: unseen or burst of errors
                 tpl = random.choice(ANOMALY_TEMPLATES)
                 msg = tpl.format(
@@ -65,6 +68,10 @@ def generate_synthetic_log(
                 )
             line = _fmt_syslog(ts, host, proc, msg)
             f.write(line + "\n")
+            labels.append((i, 1 if is_anom else 0))
+    # Save labels next to the log file
+    lab_path = Path(str(out) + ".labels.parquet")
+    pd.DataFrame(labels, columns=["line_no", "is_anomaly"]).to_parquet(lab_path, index=False)
     return out
 
 

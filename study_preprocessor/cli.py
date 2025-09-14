@@ -9,6 +9,7 @@ from .detect import baseline_detect, BaselineParams
 from .builders.deeplog import build_deeplog_inputs, train_deeplog, infer_deeplog_topk
 from .builders.mscred import build_mscred_window_counts
 from .synth import generate_synthetic_log
+from .eval import evaluate_baseline, evaluate_deeplog
 
 
 @click.group()
@@ -131,5 +132,27 @@ def gen_synth_cmd(out_path: Path, num_lines: int, anomaly_rate: float) -> None:
     """합성 장기 로그 생성."""
     p = generate_synthetic_log(str(out_path), num_lines=num_lines, anomaly_rate=anomaly_rate)
     click.echo(f"Generated synthetic log: {p}")
+
+
+@main.command("eval")
+@click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)
+@click.option("--labels", "labels_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
+@click.option("--window-size", type=int, default=50)
+@click.option("--seq-len", type=int, default=50)
+def eval_cmd(processed_dir: Path, labels_path: Path, window_size: int, seq_len: int) -> None:
+    """베이스라인/DeepLog 평가(Precision/Recall/F1)."""
+    out_lines = []
+    base = processed_dir / "baseline_scores.parquet"
+    if base.exists():
+        p, r, f1 = evaluate_baseline(str(base), str(labels_path), window_size)
+        out_lines.append(f"Baseline PRF1: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    dlinf = processed_dir / "deeplog_infer.parquet"
+    if dlinf.exists():
+        p, r, f1 = evaluate_deeplog(str(dlinf), str(labels_path), seq_len)
+        out_lines.append(f"DeepLog PRF1: P={p:.3f} R={r:.3f} F1={f1:.3f}")
+    if not out_lines:
+        out_lines = ["No artifacts to evaluate."]
+    (processed_dir / "eval.txt").write_text("\n".join(out_lines))
+    click.echo("\n".join(out_lines))
 
 
