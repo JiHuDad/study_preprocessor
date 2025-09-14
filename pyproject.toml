@@ -1,0 +1,31 @@
+[project]
+name = "study-preprocessor"
+version = "0.1.0"
+description = "Kernel/system log preprocessing for DeepLog and MS-CRED"
+authors = [{ name = "Kaeul Kim" }]
+requires-python = ">=3.11"
+readme = "prd.md"
+license = "MIT"
+dependencies = [
+    "click>=8.2.1",
+    "drain3>=0.9.11",
+    "orjson>=3.11.3",
+    "pandas>=2.3.2",
+    "pyarrow>=21.0.0",
+    "regex>=2025.9.1",
+    "tqdm>=4.67.1",
+]
+
+[project.scripts]
+study-preprocess = "study_preprocessor.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["study_preprocessor*"]
+exclude = ["data*", "config*", ".*", "tests*"]
+
+[tool.uv]
+package = true

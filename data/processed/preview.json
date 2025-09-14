@@ -1,0 +1,72 @@
+[
+  {
+    "line_no": 0,
+    "timestamp": "2025-09-14 05:04:41",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678901] usb 1-1: new high-speed USB device number 2 using ehci-pci",
+    "masked": "[<NUM>] usb 1-1: new high-speed USB device number <NUM> using ehci-pci",
+    "template_id": "1",
+    "template": "[<NUM>] usb 1-1: new high-speed USB device number <NUM> using ehci-pci"
+  },
+  {
+    "line_no": 1,
+    "timestamp": "2025-09-14 05:04:42",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678902] CPU0: Core temperature above threshold, cpu clock throttled",
+    "masked": "[<NUM>] CPU<ID>: Core temperature above threshold, cpu clock throttled",
+    "template_id": "2",
+    "template": "[<NUM>] CPU<ID>: Core temperature above threshold, cpu clock throttled"
+  },
+  {
+    "line_no": 2,
+    "timestamp": "2025-09-14 05:04:43",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678903] CPU0: Core temperature/speed normal",
+    "masked": "[<NUM>] CPU<ID>: Core temperature<PATH> normal",
+    "template_id": "3",
+    "template": "[<NUM>] CPU<ID>: Core temperature<PATH> normal"
+  },
+  {
+    "line_no": 3,
+    "timestamp": "2025-09-14 05:04:44",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678904] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx",
+    "masked": "[<NUM>] eth<ID>: Link is Up - 1000Mbps<PATH> - flow control rx<PATH>",
+    "template_id": "4",
+    "template": "[<NUM>] eth<ID>: Link is Up - 1000Mbps<PATH> - flow control rx<PATH>"
+  },
+  {
+    "line_no": 4,
+    "timestamp": "2025-09-14 05:04:45",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678905] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)",
+    "masked": "[<NUM>] EXT<ID>-fs (sda<ID>): mounted filesystem with ordered data mode. Opts: (null)",
+    "template_id": "5",
+    "template": "[<NUM>] EXT<ID>-fs (sda<ID>): mounted filesystem with ordered data mode. Opts: (null)"
+  },
+  {
+    "line_no": 5,
+    "timestamp": "2025-09-14 05:04:46",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678906] audit: type=1400 audit(12345.68:2): apparmor=\\\"DENIED\\\" operation=\\\"open\\\" profile=\\\"snap.snap-store.ubuntu-software\\\" name=\\\"/etc/shadow\\\" pid=1234 comm=\\\"snap-store\\\" requested_mask=\\\"r\\\" denied_mask=\\\"r\\\" fsuid=1000 ouid=0",
+    "masked": "[<NUM>] audit: type=<NUM> audit(<NUM>:<NUM>): apparmor=\\\"DENIED\\\" operation=\\\"open\\\" profile=\\\"snap.snap-store.ubuntu-software\\\" name=\\\"<PATH>\\\" pid=<ID> comm=\\\"snap-store\\\" requested_mask=\\\"r\\\" denied_mask=\\\"r\\\" fsuid=<NUM> ouid=<NUM>",
+    "template_id": "6",
+    "template": "[<NUM>] audit: type=<NUM> audit(<NUM>:<NUM>): apparmor=\\\"DENIED\\\" operation=\\\"open\\\" profile=\\\"snap.snap-store.ubuntu-software\\\" name=\\\"<PATH>\\\" pid=<ID> comm=\\\"snap-store\\\" requested_mask=\\\"r\\\" denied_mask=\\\"r\\\" fsuid=<NUM> ouid=<NUM>"
+  },
+  {
+    "line_no": 6,
+    "timestamp": "2025-09-14 05:04:47",
+    "host": "host1",
+    "process": "kernel",
+    "raw": "[12345.678907] usb 1-1: USB disconnect, device number 2",
+    "masked": "[<NUM>] usb 1-1: USB disconnect, device number <NUM>",
+    "template_id": "7",
+    "template": "[<NUM>] usb 1-1: USB disconnect, device number <NUM>"
+  }
+]

@@ -1,0 +1,2 @@
+[console_scripts]
+study-preprocess = study_preprocessor.cli:main
