@@ -20,3 +20,6 @@ data/raw/synth_long.log
 
 # Drain3 local config (optional)
 drain3.ini
+
+# Editor settings
+.vscode/
