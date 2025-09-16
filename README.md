@@ -1,16 +1,24 @@
 ### study-preprocessor 사용 가이드
 
-이 문서는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 방법을 단계별로 안내합니다. 모든 예시는 `uv` 기반으로 실행합니다.
+이 문서는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 방법을 단계별로 안내합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
 
 #### 1) 설치/환경
-- 사전 요구: macOS/Linux, Python 3.11+, Homebrew 권장
-- uv 설치: `brew install uv`
-- 의존성은 실행 시 자동 설치됩니다(프로젝트 루트에서 실행).
+- 사전 요구: macOS/Linux, Python 3.11+
+- 가상환경 생성 및 활성화:
+```
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+python -m pip install -U pip wheel
+```
+- 패키지 설치(개발 편의를 위해 editable 설치):
+```
+pip install -e .
+```
 
 #### 2) 단일 .log 파일 전처리
 - 기본 실행:
 ```
-uv run study-preprocess parse \
+study-preprocess parse \
   --input /path/to/your.log \
   --out-dir /path/to/outdir \
   --drain-state .cache/drain3.json
@@ -24,7 +32,7 @@ uv run study-preprocess parse \
   - `--no-mask-pid`, `--no-mask-device`, `--no-mask-num`
   - 예: 숫자/디바이스 접미사 마스킹을 끄고 실행
 ```
-uv run study-preprocess parse \
+study-preprocess parse \
   --input /path/to/your.log \
   --out-dir /path/to/outdir \
   --no-mask-device --no-mask-num
@@ -41,12 +49,12 @@ OUT=/path/to/processed
 STATE=.cache/drain3.json
 mkdir -p "$OUT"
 for f in /var/log/*.log; do
-  uv run study-preprocess parse --input "$f" --out-dir "$OUT/$(basename "$f" .log)" --drain-state "$STATE"
+  study-preprocess parse --input "$f" --out-dir "$OUT/$(basename "$f" .log)" --drain-state "$STATE"
 done
 ```
 - 결과 병합(선택):
 ```
-uv run python - <<'PY'
+python - <<'PY'
 import os, pandas as pd
 base = '/path/to/processed'
 parts = []
@@ -67,13 +75,13 @@ PY
 #### 4) DeepLog/MSCRED 입력 생성
 - DeepLog 입력(사전/시퀀스):
 ```
-uv run study-preprocess build-deeplog \
+study-preprocess build-deeplog \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir
 ```
 - MS-CRED 입력(윈도우 카운트):
 ```
-uv run study-preprocess build-mscred \
+study-preprocess build-mscred \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir \
   --window-size 50 --stride 25
@@ -82,41 +90,41 @@ uv run study-preprocess build-mscred \
 #### 5) 이상탐지 실행
 - 베이스라인(새 템플릿 비율 + 빈도 급변):
 ```
-uv run study-preprocess detect \
+study-preprocess detect \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir \
   --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
 ```
 - DeepLog 학습/추론:
 ```
-uv run study-preprocess deeplog-train \
+study-preprocess deeplog-train \
   --seq /path/to/outdir/sequences.parquet \
   --vocab /path/to/outdir/vocab.json \
   --out .cache/deeplog.pth --seq-len 50 --epochs 3
 
-uv run study-preprocess deeplog-infer \
+study-preprocess deeplog-infer \
   --seq /path/to/outdir/sequences.parquet \
   --model .cache/deeplog.pth --k 3
 ```
 - 리포트/요약 생성:
 ```
-uv run study-preprocess report --processed-dir /path/to/outdir
+study-preprocess report --processed-dir /path/to/outdir
 ```
   - 포함: 베이스라인 이상 윈도우 비율, 상위 윈도우/템플릿, DeepLog 위반율
 
 #### 6) 합성 데이터로 E2E 검증(옵션)
 ```
 # 합성 로그 + 라벨 생성
-uv run study-preprocess gen-synth --out data/raw/synth_long.log --lines 1000 --anomaly-rate 0.03
+study-preprocess gen-synth --out data/raw/synth_long.log --lines 1000 --anomaly-rate 0.03
 
 # 전처리 → 빌더 → 탐지 → 학습/추론 → 리포트/평가
-uv run study-preprocess parse --input data/raw/synth_long.log --out-dir data/processed/synth --drain-state .cache/drain3.json
-uv run study-preprocess build-deeplog --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth
-uv run study-preprocess detect --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
-uv run study-preprocess deeplog-train --seq data/processed/synth/sequences.parquet --vocab data/processed/synth/vocab.json --out .cache/deeplog_synth.pth --seq-len 20 --epochs 2
-uv run study-preprocess deeplog-infer --seq data/processed/synth/sequences.parquet --model .cache/deeplog_synth.pth --k 3
-uv run study-preprocess report --processed-dir data/processed/synth
-uv run study-preprocess eval --processed-dir data/processed/synth --labels data/raw/synth_long.log.labels.parquet --window-size 50 --seq-len 20
+study-preprocess parse --input data/raw/synth_long.log --out-dir data/processed/synth --drain-state .cache/drain3.json
+study-preprocess build-deeplog --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth
+study-preprocess detect --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
+study-preprocess deeplog-train --seq data/processed/synth/sequences.parquet --vocab data/processed/synth/vocab.json --out .cache/deeplog_synth.pth --seq-len 20 --epochs 2
+study-preprocess deeplog-infer --seq data/processed/synth/sequences.parquet --model .cache/deeplog_synth.pth --k 3
+study-preprocess report --processed-dir data/processed/synth
+study-preprocess eval --processed-dir data/processed/synth --labels data/raw/synth_long.log.labels.parquet --window-size 50 --seq-len 20
 ```
 
 #### 7) 문제 해결 팁

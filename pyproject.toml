@@ -28,5 +28,4 @@ build-backend = "setuptools.build_meta"
 include = ["study_preprocessor*"]
 exclude = ["data*", "config*", ".*", "tests*"]
 
-[tool.uv]
-package = true
+ 
