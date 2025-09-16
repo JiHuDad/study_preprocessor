@@ -10,7 +10,12 @@ python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 python -m pip install -U pip wheel
 ```
-- 패키지 설치(개발 편의를 위해 editable 설치):
+- 패키지 설치(둘 중 하나 선택)
+  1) 고정 버전 설치(requirements.txt):
+  ```
+  pip install -r requirements.txt
+  ```
+  2) 개발 편의를 위한 editable 설치:
 ```
 pip install -e .
 ```
