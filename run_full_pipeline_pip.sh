@@ -181,14 +181,50 @@ if [ -f "$OUTPUT_DIR/report.md" ]; then
     echo ""
 fi
 
+# 8단계: 자동 결과 분석
+echo "8️⃣  결과 분석 및 시각화 중..."
+echo ""
+
+# 상세 분석 실행
+if [ -f "analyze_results.py" ]; then
+    echo "🔍 상세 분석 결과:"
+    echo "============================================================"
+    $PYTHON_CMD analyze_results.py --data-dir "$OUTPUT_DIR"
+    echo ""
+else
+    echo "⚠️  analyze_results.py 파일을 찾을 수 없어 상세 분석을 건너뜁니다."
+fi
+
+# 시각화 실행
+if [ -f "visualize_results.py" ]; then
+    echo "📊 시각화 및 요약:"
+    echo "============================================================"
+    $PYTHON_CMD visualize_results.py --data-dir "$OUTPUT_DIR"
+    echo ""
+    
+    echo "📄 간단 요약:"
+    echo "============================================================"
+    $PYTHON_CMD visualize_results.py --data-dir "$OUTPUT_DIR" --summary
+    echo ""
+else
+    echo "⚠️  visualize_results.py 파일을 찾을 수 없어 시각화를 건너뜁니다."
+fi
+
 echo "🔍 자세한 분석을 위해 다음 파일들을 확인하세요:"
 echo "  - 베이스라인 이상 윈도우: $OUTPUT_DIR/baseline_preview.json"
 echo "  - 로그 템플릿별 분석은 $OUTPUT_DIR/parsed.parquet 파일에서 확인 가능"
+echo ""
+echo "💡 추가 분석 도구 사용법:"
+echo "  - 상세 분석: $PYTHON_CMD analyze_results.py --data-dir $OUTPUT_DIR"
+echo "  - 시각화: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR"
+echo "  - 간단 요약: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR --summary"
 echo ""
 echo "💡 설치 및 사용 팁:"
 echo "  - 가상환경 활성화: source .venv/bin/activate"
 echo "  - 의존성 설치: pip install -r requirements.txt"
 echo "  - 개발 설치: pip install -e ."
+echo ""
+echo "📚 결과 해석 가이드: RESULTS_GUIDE.md 파일을 참조하세요"
 echo ""
 echo "🚀 다른 로그 파일로 다시 실행하려면:"
 echo "  $0 <새로운_로그파일> [새로운_출력디렉토리]"
