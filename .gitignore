@@ -1,5 +1,5 @@
 # Virtual envs & caches
-.venv/
+.venv*/
 .cache/
 __pycache__/
 *.pyc
@@ -13,10 +13,12 @@ build/
 
 # Data artifacts (regenerable)
 data/processed/
+data/test*/
 data/**/*.parquet
 data/**/*.json
 # Large synthetic sample (regenerable)
 data/raw/synth_long.log
+data/raw/test_*.log*
 
 # Drain3 local config (optional)
 drain3.ini
