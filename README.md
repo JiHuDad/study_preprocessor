@@ -165,7 +165,9 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 ## 🆕 새로운 분석 기능
 
 ### 📊 배치 로그 분석
-여러 로그 파일을 한 번에 분석하고 비교:
+
+#### 🔹 기본 배치 분석
+단일 디렉토리의 로그 파일들을 분석:
 
 ```bash
 # 폴더 내 모든 로그 파일 분석
@@ -173,9 +175,29 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 
 # 특정 파일을 Target으로 지정
 ./run_batch_analysis.sh /path/to/logs/ server1.log my_analysis
+```
+
+#### 🌟 향상된 배치 분석 (추천)
+하위 디렉토리 재귀 스캔으로 날짜별/카테고리별 구조 지원:
+
+```bash
+# 하위 디렉토리 포함 전체 스캔
+./run_enhanced_batch_analysis.sh /var/log/
+
+# 세부 옵션 지정 (디렉토리, Target파일, 깊이, 최대파일수, 결과폴더)
+./run_enhanced_batch_analysis.sh /logs/2025/09/ app.log 3 20 analysis_result
 
 # 결과 확인
-cat my_analysis/BATCH_ANALYSIS_SUMMARY.md
+cat analysis_result/ENHANCED_ANALYSIS_SUMMARY.md
+```
+
+**지원하는 디렉토리 구조**:
+```
+logs/
+├── 2025-09-15/server1/application.log    # 날짜별 구조
+├── 2025-09-16/server2/system.log
+├── web-servers/nginx.log                 # 서비스별 구조  
+└── databases/mysql.log
 ```
 
 ### 🕐 시간 기반 이상 탐지
