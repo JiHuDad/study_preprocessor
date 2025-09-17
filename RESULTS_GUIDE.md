@@ -127,12 +127,56 @@ print(f"위반율: {len(violations)/len(deeplog)*100:.1f}%")
 3. **패턴 분석**: 이상으로 판정된 실제 로그 내용 검토
 4. **False Positive 관리**: 정상이지만 이상으로 판정된 케이스 분석
 
-## 🔧 추가 분석
+## 🔧 추가 분석 도구
 
-더 자세한 분석이 필요한 경우:
+### 기본 분석 도구
+```bash
+# 상세 분석
+python analyze_results.py --data-dir 출력디렉토리
+
+# 시각화 및 요약
+python visualize_results.py --data-dir 출력디렉토리
+```
+
+### 🕐 시간 기반 이상 탐지
+과거 동일 시간대/요일의 패턴과 비교하여 이상을 탐지합니다.
 
 ```bash
-# CLI 도구로 상세 분석
+# 시간 패턴 기반 분석
+python temporal_anomaly_detector.py --data-dir data/processed
+
+# 결과 확인
+cat data/processed/temporal_analysis/temporal_report.md
+```
+
+**분석 내용**:
+- 시간대별 정상 프로파일 학습 (0-23시)
+- 요일별 패턴 분석
+- 볼륨 이상 감지 (예상 대비 50% 이상 차이)
+- 새로운/누락된 템플릿 탐지
+
+### 📊 파일별 비교 이상 탐지  
+여러 로그 파일 간의 패턴 차이를 분석하여 이상을 탐지합니다.
+
+```bash
+# 파일 간 비교 분석
+python comparative_anomaly_detector.py \
+  --target data/server1/parsed.parquet \
+  --baselines data/server2/parsed.parquet data/server3/parsed.parquet
+
+# 결과 확인
+cat data/server1/comparative_analysis/comparative_report.md
+```
+
+**분석 내용**:
+- 로그 볼륨, 템플릿 수, 에러율 비교
+- 템플릿 분포 KL Divergence 계산
+- 고유/누락 템플릿 분석
+- Z-score 기반 이상치 탐지
+
+### CLI 도구
+```bash
+# 기본 CLI 도구
 .venv/bin/python -m study_preprocessor.cli detect --help
 .venv/bin/python -m study_preprocessor.cli eval --help
 ```

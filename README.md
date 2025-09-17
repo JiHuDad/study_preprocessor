@@ -161,3 +161,41 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 - `baseline_scores.parquet`: `score`, `is_anomaly`, `window_start_line`
 - `deeplog_infer.parquet`: `idx`, `target`, `in_topk` (top-k 위반 여부)
 - `report.md`: 상위 이상 윈도우와 기여 템플릿/요약 지표
+
+## 🆕 새로운 분석 기능
+
+### 📊 배치 로그 분석
+여러 로그 파일을 한 번에 분석하고 비교:
+
+```bash
+# 폴더 내 모든 로그 파일 분석
+./run_batch_analysis.sh /path/to/logs/
+
+# 특정 파일을 Target으로 지정
+./run_batch_analysis.sh /path/to/logs/ server1.log my_analysis
+
+# 결과 확인
+cat my_analysis/BATCH_ANALYSIS_SUMMARY.md
+```
+
+### 🕐 시간 기반 이상 탐지
+시간대별/요일별 패턴 학습으로 이상 탐지:
+
+```bash
+python temporal_anomaly_detector.py --data-dir data/processed
+cat data/processed/temporal_analysis/temporal_report.md
+```
+
+### 📈 파일별 비교 이상 탐지  
+여러 파일 간 패턴 차이로 이상 탐지:
+
+```bash
+python comparative_anomaly_detector.py \
+  --target server1/parsed.parquet \
+  --baselines server2/parsed.parquet server3/parsed.parquet
+```
+
+**분석 방법 비교**:
+- **기존 윈도우 방식**: 단일 파일 내 시간순 패턴 변화
+- **시간 기반 탐지**: 과거 동일 시간대와 현재 비교  
+- **파일별 비교**: 여러 시스템/서비스 간 상대적 차이
