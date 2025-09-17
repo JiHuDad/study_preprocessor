@@ -51,9 +51,13 @@ def visualize_results(data_dir: str = "data/processed"):
     print_chart("템플릿 출현 빈도 (Top 10)", template_data)
     
     # 2. 시간대별 로그 분포
-    parsed_df['hour'] = pd.to_datetime(parsed_df['timestamp']).dt.hour
-    hourly_counts = parsed_df['hour'].value_counts().sort_index()
-    hourly_data = {f"{h:02d}시": count for h, count in hourly_counts.items()}
+    try:
+        parsed_df['hour'] = pd.to_datetime(parsed_df['timestamp']).dt.hour
+        hourly_counts = parsed_df['hour'].value_counts().sort_index()
+        hourly_data = {f"{h:02d}시": count for h, count in hourly_counts.items()}
+    except Exception as e:
+        print(f"시간대별 분포 처리 오류: {e}")
+        hourly_data = {"시간정보없음": len(parsed_df)}
     
     print_chart("시간대별 로그 분포", hourly_data)
     
@@ -127,13 +131,24 @@ def create_summary_report(data_dir: str = "data/processed"):
     anomaly_rate = len(baseline_scores[baseline_scores['is_anomaly']==True])/len(baseline_scores)*100
     violation_rate = len(deeplog_df[deeplog_df['in_topk']==False])/len(deeplog_df)*100 if len(deeplog_df) > 0 else 0
     
+    # 안전한 시간 정보 처리
+    try:
+        min_time = parsed_df['timestamp'].min()
+        max_time = parsed_df['timestamp'].max()
+        if pd.isna(min_time) or pd.isna(max_time):
+            time_range = "시간 정보 없음"
+        else:
+            time_range = f"{min_time} ~ {max_time}"
+    except Exception:
+        time_range = "시간 정보 처리 오류"
+    
     report = f"""
 # 로그 이상 탐지 결과 요약
 
 ## 기본 정보
 - 분석 데이터: {data_dir}
 - 총 로그 라인: {len(parsed_df):,}개
-- 분석 기간: {parsed_df['timestamp'].min()} ~ {parsed_df['timestamp'].max()}
+- 분석 기간: {time_range}
 
 ## 핵심 지표
 - **이상률**: {anomaly_rate:.1f}% ({len(baseline_scores[baseline_scores['is_anomaly']==True])}개 / {len(baseline_scores)}개 윈도우)

@@ -29,8 +29,27 @@ def analyze_results(data_dir: str = "data/processed"):
     print(f"\n📊 **기본 통계**")
     print(f"- 총 로그 라인 수: {len(parsed_df)}")
     print(f"- 발견된 템플릿 수: {len(vocab)}")
-    print(f"- 분석 기간: {parsed_df['timestamp'].min()} ~ {parsed_df['timestamp'].max()}")
-    print(f"- 호스트: {', '.join(parsed_df['host'].unique())}")
+    
+    # 안전한 timestamp 처리
+    try:
+        min_time = parsed_df['timestamp'].min()
+        max_time = parsed_df['timestamp'].max()
+        if pd.isna(min_time) or pd.isna(max_time):
+            print(f"- 분석 기간: 시간 정보 없음")
+        else:
+            print(f"- 분석 기간: {min_time} ~ {max_time}")
+    except Exception as e:
+        print(f"- 분석 기간: 시간 정보 처리 오류 ({e})")
+    
+    # 안전한 host 처리
+    try:
+        hosts = parsed_df['host'].dropna().unique()
+        if len(hosts) > 0:
+            print(f"- 호스트: {', '.join(str(h) for h in hosts if h is not None)}")
+        else:
+            print(f"- 호스트: 정보 없음")
+    except Exception as e:
+        print(f"- 호스트: 정보 처리 오류 ({e})")
     
     # 3. 템플릿 분석
     print(f"\n🔧 **로그 템플릿 분석**")
