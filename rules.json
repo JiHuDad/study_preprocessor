@@ -1,0 +1,152 @@
+{
+  "masking_rules": {
+    "version": "1.0",
+    "description": "로그 전처리를 위한 마스킹 규칙 정의",
+    "patterns": {
+      "hex_addresses": {
+        "pattern": "0x[0-9a-fA-F]+",
+        "replacement": "<HEX>",
+        "description": "16진수 메모리 주소 마스킹",
+        "examples": ["0x7fff12345678", "0xdeadbeef"],
+        "enabled": true
+      },
+      "ipv4_addresses": {
+        "pattern": "\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b",
+        "replacement": "<IP>",
+        "description": "IPv4 주소 마스킹",
+        "examples": ["192.168.1.1", "10.0.0.255"],
+        "enabled": true
+      },
+      "ipv6_addresses": {
+        "pattern": "\\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\\b",
+        "replacement": "<IP6>",
+        "description": "IPv6 주소 마스킹",
+        "examples": ["2001:0db8:85a3:0000:0000:8a2e:0370:7334"],
+        "enabled": true
+      },
+      "mac_addresses": {
+        "pattern": "\\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\\b",
+        "replacement": "<MAC>",
+        "description": "MAC 주소 마스킹",
+        "examples": ["00:1b:44:11:3a:b7", "aa:bb:cc:dd:ee:ff"],
+        "enabled": true
+      },
+      "uuid_identifiers": {
+        "pattern": "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\\b",
+        "replacement": "<UUID>",
+        "description": "UUID 마스킹",
+        "examples": ["550e8400-e29b-41d4-a716-446655440000"],
+        "enabled": true
+      },
+      "process_ids": {
+        "pattern": "\\b(?:pid|tid|uid|gid)=\\d+\\b",
+        "replacement": "\\1=<ID>",
+        "description": "프로세스/사용자 ID 마스킹",
+        "examples": ["pid=1234", "uid=0", "gid=100"],
+        "enabled": true
+      },
+      "decimal_numbers": {
+        "pattern": "(?<![\\w./-])-?\\d+(?:\\.\\d+)?(?![\\w./-])",
+        "replacement": "<NUM>",
+        "description": "일반 숫자 마스킹 (파일 경로 제외)",
+        "examples": ["123", "45.67", "-89"],
+        "enabled": true
+      },
+      "device_numbers": {
+        "pattern": "\\b([a-zA-Z]+)(\\d+)\\b",
+        "replacement": "\\1<ID>",
+        "description": "디바이스 번호 마스킹",
+        "examples": ["eth0 -> eth<ID>", "sda1 -> sda<ID>", "CPU0 -> CPU<ID>"],
+        "enabled": true
+      },
+      "file_paths": {
+        "pattern": "(?:(?:/|~)[\\w.\\-_/]+)",
+        "replacement": "<PATH>",
+        "description": "파일 경로 마스킹",
+        "examples": ["/usr/bin/python", "~/documents/file.txt", "/var/log/syslog"],
+        "enabled": true
+      },
+      "timestamps": {
+        "kernel_time": {
+          "pattern": "\\[\\s*\\d+\\.\\d+\\]",
+          "replacement": "[<TIME>]",
+          "description": "커널 타임스탬프 마스킹",
+          "examples": ["[  123.456789]", "[12345.678901]"],
+          "enabled": false
+        },
+        "syslog_time": {
+          "pattern": "[A-Z][a-z]{2}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}",
+          "replacement": "<SYSLOG_TIME>",
+          "description": "Syslog 타임스탬프 마스킹",
+          "examples": ["Sep 14 05:04:41", "Jan  1 00:00:00"],
+          "enabled": false
+        }
+      }
+    }
+  },
+  "drain3_config": {
+    "depth": 4,
+    "similarity_threshold": 0.4,
+    "max_node_depth": 100,
+    "max_clusters": 1000,
+    "description": "Drain3 템플릿 마이닝 설정"
+  },
+  "detection_config": {
+    "window_size": 50,
+    "stride": 25,
+    "ewm_alpha": 0.3,
+    "anomaly_quantile": 0.95,
+    "freq_weight": 0.6,
+    "unseen_weight": 0.4,
+    "description": "이상 탐지 알고리즘 매개변수"
+  },
+  "deeplog_config": {
+    "sequence_length": 50,
+    "vocab_size_threshold": 1000,
+    "epochs": 3,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "top_k": 3,
+    "description": "DeepLog LSTM 모델 설정"
+  },
+  "mscred_config": {
+    "window_size": 50,
+    "stride": 25,
+    "feature_dim": 100,
+    "description": "MS-CRED 윈도우 기반 설정"
+  },
+  "batch_analysis_config": {
+    "max_depth": 3,
+    "max_files": 20,
+    "log_patterns": [
+      "*.log",
+      "*.txt", 
+      "*.out",
+      "*.log.*",
+      "*.syslog",
+      "*.messages",
+      "*.access",
+      "*.error",
+      "*.debug"
+    ],
+    "min_file_size": 1024,
+    "max_file_size": 104857600,
+    "description": "배치 분석 설정"
+  },
+  "temporal_analysis_config": {
+    "time_bins": {
+      "hourly": 24,
+      "daily": 7,
+      "weekly": 4
+    },
+    "profile_window": "30d",
+    "anomaly_threshold": 2.0,
+    "description": "시간 기반 이상 탐지 설정"
+  },
+  "comparative_analysis_config": {
+    "similarity_methods": ["cosine", "kl_divergence", "jaccard"],
+    "distance_threshold": 0.7,
+    "min_baseline_files": 2,
+    "description": "파일 간 비교 이상 탐지 설정"
+  }
+}
