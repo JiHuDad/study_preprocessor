@@ -518,12 +518,30 @@ class EnhancedBatchAnalyzer:
         if target_result['success']:
             stats = target_result['stats']
             validation = target_result.get('validation', {})
+            
+            # 안전한 시간 범위 처리
+            time_range = stats.get('time_range', {})
+            start_time = time_range.get('start') if time_range else None
+            end_time = time_range.get('end') if time_range else None
+            if start_time and end_time and start_time != 'None' and end_time != 'None':
+                time_range_str = f"{start_time} ~ {end_time}"
+            else:
+                time_range_str = "시간 정보 없음"
+            
+            # 안전한 호스트 정보 처리
+            hosts = stats.get('hosts', [])
+            if hosts and any(h for h in hosts if h is not None):
+                valid_hosts = [str(h) for h in hosts if h is not None]
+                hosts_str = f"{len(valid_hosts)}개 ({', '.join(valid_hosts[:3])}{'...' if len(valid_hosts) > 3 else ''})"
+            else:
+                hosts_str = "호스트 정보 없음"
+            
             report += f"""- ✅ **성공**: {stats['total_logs']:,}개 로그, {stats['unique_templates']}개 템플릿
 - **카테고리**: {target_result.get('category', 'root')}
 - **파일 크기**: {validation.get('file_size_mb', 0):.1f}MB
 - **로그 형식**: {validation.get('format', 'unknown')}
-- **시간 범위**: {stats['time_range']['start']} ~ {stats['time_range']['end']}
-- **호스트**: {len(stats['hosts'])}개 ({', '.join(stats['hosts'][:3])}{'...' if len(stats['hosts']) > 3 else ''})
+- **시간 범위**: {time_range_str}
+- **호스트**: {hosts_str}
 """
         else:
             validation = target_result.get('validation', {})
