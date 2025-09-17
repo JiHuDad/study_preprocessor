@@ -1,0 +1,2 @@
+Baseline PRF1: P=1.000 R=0.056 F1=0.105
+DeepLog PRF1: P=0.099 R=1.000 F1=0.180

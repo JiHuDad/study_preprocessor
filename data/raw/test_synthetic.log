@@ -1,0 +1,500 @@
+Sep 17 01:28:07 host1 kernel: [  40958.062837] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:28:08 host1 kernel: [  75840.496674] CPU3: Core temperature/speed normal
+Sep 17 01:28:09 host1 kernel: [  32674.064008] usb 1-1: USB disconnect, device number 3
+Sep 17 01:28:10 host1 kernel: [  67274.002535] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:11 host1 kernel: [  42146.997461] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:28:12 host1 kernel: [  16821.732245] audit: type=1400 audit(69625:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3382 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:13 host1 kernel: [  34181.631930] audit: type=1400 audit(72234:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5760 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:14 host1 kernel: [  20684.361434] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:15 host1 kernel: [  18996.148829] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:28:16 host1 kernel: [  67464.092820] usb 1-1: USB disconnect, device number 1
+Sep 17 01:28:17 host1 kernel: [  8049.598132] audit: type=1400 audit(93272:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3327 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:18 host1 kernel: [  47947.953214] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:28:19 host1 kernel: [  11384.158216] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:20 host1 kernel: [  73707.456799] CPU3: Core temperature/speed normal
+Sep 17 01:28:21 host1 kernel: [  42446.762933] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:28:22 host1 kernel: [  94805.265946] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:28:23 host1 kernel: [  53389.596768] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:24 host1 kernel: [  6680.546389] usb 1-1: USB disconnect, device number 9
+Sep 17 01:28:25 host1 kernel: [  95109.740291] kernel BUG at /usr/src/linux/mm/page_alloc.c:269
+Sep 17 01:28:26 host1 kernel: [  25189.049584] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:28:27 host1 kernel: [  62077.916374] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:28:28 host1 kernel: [  12838.161857] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:28:29 host1 kernel: [  94147.266656] usb 1-1: USB disconnect, device number 9
+Sep 17 01:28:30 host1 kernel: [  53961.821908] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:31 host1 kernel: [  82685.826441] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:32 host1 kernel: [  53412.221133] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:33 host1 kernel: [  46841.289748] audit: type=1400 audit(28609:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8671 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:34 host1 kernel: [  24081.088721] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:35 host1 kernel: [  28906.376690] usb 1-1: USB disconnect, device number 1
+Sep 17 01:28:36 host1 kernel: [  91521.912140] CPU1: Core temperature/speed normal
+Sep 17 01:28:37 host1 kernel: [  96174.120457] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:38 host1 kernel: [  12429.454917] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:39 host1 kernel: [  97303.395719] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:28:40 host1 kernel: [  60595.046330] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:41 host1 kernel: [  83639.335347] CPU0: Core temperature/speed normal
+Sep 17 01:28:42 host1 kernel: [  23530.725636] usb 1-1: new high-speed USB device number 5 using ehci-pci
+Sep 17 01:28:43 host1 kernel: [  54244.433190] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:28:44 host1 kernel: [  29070.934291] audit: type=1400 audit(13810:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6873 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:45 host1 kernel: [  752.345251] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:28:46 host1 kernel: [  87052.962081] usb 1-1: USB disconnect, device number 4
+Sep 17 01:28:47 host1 kernel: [  97904.431603] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:28:48 host1 kernel: [  252.281849] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:49 host1 kernel: [  46852.203219] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:50 host1 kernel: [  50763.858400] CPU3: Core temperature/speed normal
+Sep 17 01:28:51 host1 kernel: [  92431.734053] nvme7: I/O error on namespace 7
+Sep 17 01:28:52 host1 kernel: [  58046.846643] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:28:53 host1 kernel: [  57729.927424] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:54 host1 kernel: [  63823.466035] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:28:55 host1 kernel: [  52528.936453] CPU0: Core temperature/speed normal
+Sep 17 01:28:56 host1 kernel: [  85981.133573] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:28:57 host1 kernel: [  76807.005314] audit: type=1400 audit(74886:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8021 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:28:58 host1 kernel: [  97235.574856] usb 1-1: USB disconnect, device number 5
+Sep 17 01:28:59 host1 kernel: [  49562.085805] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:00 host1 kernel: [  15589.282278] usb 1-1: USB disconnect, device number 1
+Sep 17 01:29:01 host1 kernel: [  8097.658858] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:02 host1 kernel: [  8332.426400] usb 1-1: USB disconnect, device number 7
+Sep 17 01:29:03 host1 kernel: [  21020.378658] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:04 host1 kernel: [  86104.096074] audit: type=1400 audit(23306:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6965 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:05 host1 kernel: [  34674.990363] CPU1: Core temperature/speed normal
+Sep 17 01:29:06 host1 kernel: [  88681.539677] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:07 host1 kernel: [  30732.634114] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:08 host1 kernel: [  74194.496125] CPU0: Core temperature/speed normal
+Sep 17 01:29:09 host1 kernel: [  66671.887059] CPU1: Core temperature/speed normal
+Sep 17 01:29:10 host1 kernel: [  58973.347728] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:11 host1 kernel: [  49692.376345] usb 1-1: USB disconnect, device number 9
+Sep 17 01:29:12 host1 kernel: [  40344.258891] usb 1-1: USB disconnect, device number 1
+Sep 17 01:29:13 host1 kernel: [  1562.255477] CPU3: Core temperature/speed normal
+Sep 17 01:29:14 host1 kernel: [  99388.227006] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:29:15 host1 kernel: [  67082.369956] audit: type=1400 audit(30049:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3246 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:16 host1 kernel: [  14393.408285] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:17 host1 kernel: [  99154.802033] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:29:18 host1 kernel: [  8252.162168] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:19 host1 kernel: [  28071.535885] usb 1-1: new high-speed USB device number 5 using ehci-pci
+Sep 17 01:29:20 host1 kernel: [  63052.894989] audit: type=1400 audit(79440:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2349 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:21 host1 kernel: [  20766.700129] nvme0: I/O error on namespace 0
+Sep 17 01:29:22 host1 kernel: [  10244.554637] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:29:23 host1 kernel: [  68434.608663] CPU2: Core temperature/speed normal
+Sep 17 01:29:24 host1 kernel: [  97520.804011] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:25 host1 kernel: [  45733.531094] CPU0: Core temperature/speed normal
+Sep 17 01:29:26 host1 kernel: [  7476.065925] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:27 host1 kernel: [  20849.781647] usb 1-1: USB disconnect, device number 1
+Sep 17 01:29:28 host1 kernel: [  65068.975461] usb 1-1: USB disconnect, device number 7
+Sep 17 01:29:29 host1 kernel: [  4798.905057] audit: type=1400 audit(78077:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1326 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:30 host1 kernel: [  31704.576784] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:31 host1 kernel: [  44806.721306] CPU1: Core temperature/speed normal
+Sep 17 01:29:32 host1 kernel: [  70731.977681] nvme8: I/O error on namespace 8
+Sep 17 01:29:33 host1 kernel: [  55264.025039] usb 1-1: USB disconnect, device number 3
+Sep 17 01:29:34 host1 kernel: [  34026.147425] usb 1-1: USB disconnect, device number 7
+Sep 17 01:29:35 host1 kernel: [  27.877182] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:29:36 host1 kernel: [  77078.935232] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:37 host1 kernel: [  68393.650555] usb 1-1: USB disconnect, device number 5
+Sep 17 01:29:38 host1 kernel: [  24310.375782] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:29:39 host1 kernel: [  8383.753351] nvme8: I/O error on namespace 8
+Sep 17 01:29:40 host1 kernel: [  14459.871960] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:29:41 host1 kernel: [  22372.473329] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:42 host1 kernel: [  79675.136604] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:43 host1 kernel: [  10760.807523] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:29:44 host1 kernel: [  1623.572915] audit: type=1400 audit(84051:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1232 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:45 host1 kernel: [  18572.478632] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:46 host1 kernel: [  70128.234791] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:47 host1 kernel: [  41942.227888] audit: type=1400 audit(74733:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5283 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:48 host1 kernel: [  97140.178777] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:49 host1 kernel: [  88845.539048] CPU1: Core temperature/speed normal
+Sep 17 01:29:50 host1 kernel: [  94362.524909] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:51 host1 kernel: [  38097.615407] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:29:52 host1 kernel: [  16780.187608] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:29:53 host1 kernel: [  43200.514237] usb 1-1: USB disconnect, device number 7
+Sep 17 01:29:54 host1 kernel: [  32161.862577] usb 1-1: USB disconnect, device number 2
+Sep 17 01:29:55 host1 kernel: [  4868.375167] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:56 host1 kernel: [  59537.566939] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:29:57 host1 kernel: [  36673.601312] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:29:58 host1 kernel: [  45839.861062] audit: type=1400 audit(66998:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5216 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:29:59 host1 kernel: [  99028.781586] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:00 host1 kernel: [  31262.755419] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:01 host1 kernel: [  89876.172651] usb 1-1: USB disconnect, device number 2
+Sep 17 01:30:02 host1 kernel: [  43387.075282] usb 1-1: USB disconnect, device number 2
+Sep 17 01:30:03 host1 kernel: [  86497.888998] audit: type=1400 audit(85623:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6492 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:04 host1 kernel: [  85659.196626] usb 1-1: USB disconnect, device number 5
+Sep 17 01:30:05 host1 kernel: [  27856.505051] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:30:06 host1 kernel: [  77668.962525] audit: type=1400 audit(77573:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9172 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:07 host1 kernel: [  53891.504024] audit: type=1400 audit(13060:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6358 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:08 host1 kernel: [  94245.725212] kernel BUG at /usr/src/linux/mm/page_alloc.c:703
+Sep 17 01:30:09 host1 kernel: [  30239.142277] CPU2: Core temperature/speed normal
+Sep 17 01:30:10 host1 kernel: [  31834.762227] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:30:11 host1 kernel: [  87511.433220] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:30:12 host1 kernel: [  29056.136019] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:13 host1 kernel: [  25527.066970] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:14 host1 kernel: [  15683.876813] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:30:15 host1 kernel: [  31956.979388] audit: type=1400 audit(68383:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1356 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:16 host1 kernel: [  83744.649843] audit: type=1400 audit(12586:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2267 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:17 host1 kernel: [  333.289702] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:30:18 host1 kernel: [  20081.821842] usb 1-1: USB disconnect, device number 7
+Sep 17 01:30:19 host1 kernel: [  40514.777346] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:20 host1 kernel: [  37508.118349] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:21 host1 kernel: [  26221.279980] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:22 host1 kernel: [  53888.594411] CPU2: Core temperature/speed normal
+Sep 17 01:30:23 host1 kernel: [  94311.070343] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:24 host1 kernel: [  60268.664891] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:30:25 host1 kernel: [  52176.131113] CPU3: Core temperature/speed normal
+Sep 17 01:30:26 host1 kernel: [  92395.609636] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:30:27 host1 kernel: [  10785.881317] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:28 host1 kernel: [  18131.223241] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:30:29 host1 kernel: [  90806.563203] audit: type=1400 audit(11849:3): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1639 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:30 host1 kernel: [  91480.519352] audit: type=1400 audit(92630:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9330 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:31 host1 kernel: [  56437.187841] CPU1: Core temperature/speed normal
+Sep 17 01:30:32 host1 kernel: [  32165.080567] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:33 host1 kernel: [  34349.331215] usb 1-1: USB disconnect, device number 4
+Sep 17 01:30:34 host1 kernel: [  85224.986491] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:35 host1 kernel: [  52244.048968] audit: type=1400 audit(11536:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=824 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:36 host1 kernel: [  30210.034924] CPU2: Core temperature/speed normal
+Sep 17 01:30:37 host1 kernel: [  15899.462008] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:38 host1 kernel: [  97793.350178] audit: type=1400 audit(16703:3): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=114 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:39 host1 kernel: [  44496.286348] usb 1-1: USB disconnect, device number 3
+Sep 17 01:30:40 host1 kernel: [  87638.687569] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:41 host1 kernel: [  26018.843741] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:42 host1 kernel: [  42437.670339] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:43 host1 kernel: [  24822.691421] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:30:44 host1 kernel: [  88295.514639] CPU1: Core temperature/speed normal
+Sep 17 01:30:45 host1 kernel: [  19569.901107] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:30:46 host1 kernel: [  68364.713830] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:30:47 host1 kernel: [  78940.166675] audit: type=1400 audit(12457:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9694 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:30:48 host1 kernel: [  50364.930855] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:30:49 host1 kernel: [  23600.672433] CPU2: Core temperature/speed normal
+Sep 17 01:30:50 host1 kernel: [  7696.344879] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:51 host1 kernel: [  93304.064687] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:52 host1 kernel: [  92077.174964] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:30:53 host1 kernel: [  91119.462807] CPU1: Core temperature/speed normal
+Sep 17 01:30:54 host1 kernel: [  73097.691160] CPU3: Core temperature/speed normal
+Sep 17 01:30:55 host1 kernel: [  74575.447626] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:30:56 host1 kernel: [  93940.850977] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:30:57 host1 kernel: [  26040.661172] usb 1-1: USB disconnect, device number 1
+Sep 17 01:30:58 host1 kernel: [  64397.126083] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:30:59 host1 kernel: [  31615.928047] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:00 host1 kernel: [  28597.915696] usb 1-1: USB disconnect, device number 6
+Sep 17 01:31:01 host1 kernel: [  96508.265732] audit: type=1400 audit(52213:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=500 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:02 host1 kernel: [  2488.223650] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:03 host1 kernel: [  71341.509183] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:31:04 host1 kernel: [  48044.392990] usb 1-1: USB disconnect, device number 6
+Sep 17 01:31:05 host1 kernel: [  61446.329680] usb 1-1: USB disconnect, device number 5
+Sep 17 01:31:06 host1 kernel: [  90088.866283] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:07 host1 kernel: [  53990.496005] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:08 host1 kernel: [  17.953971] audit: type=1400 audit(93734:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2036 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:09 host1 kernel: [  1515.089943] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:10 host1 kernel: [  74338.989673] usb 1-1: USB disconnect, device number 4
+Sep 17 01:31:11 host1 kernel: [  39922.770543] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:12 host1 kernel: [  20308.661549] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:31:13 host1 kernel: [  89715.008225] kernel BUG at /usr/src/linux/mm/page_alloc.c:624
+Sep 17 01:31:14 host1 kernel: [  85007.975703] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:15 host1 kernel: [  33356.033906] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:16 host1 kernel: [  50508.937844] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:17 host1 kernel: [  39797.466798] audit: type=1400 audit(21830:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8273 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:18 host1 kernel: [  70862.496232] kernel BUG at /usr/src/linux/mm/page_alloc.c:86
+Sep 17 01:31:19 host1 kernel: [  34680.834753] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:20 host1 kernel: [  12734.408563] CPU1: Core temperature/speed normal
+Sep 17 01:31:21 host1 kernel: [  7760.720872] usb 1-1: USB disconnect, device number 7
+Sep 17 01:31:22 host1 kernel: [  1561.776349] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:23 host1 kernel: [  93430.515535] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:24 host1 kernel: [  6277.678077] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:25 host1 kernel: [  55987.848061] usb 1-1: USB disconnect, device number 3
+Sep 17 01:31:26 host1 kernel: [  33043.951306] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:27 host1 kernel: [  92992.824963] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:31:28 host1 kernel: [  43247.668193] audit: type=1400 audit(26382:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=7838 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:29 host1 kernel: [  89105.432965] usb 1-1: USB disconnect, device number 8
+Sep 17 01:31:30 host1 kernel: [  54664.782151] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:31 host1 kernel: [  81941.614019] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:31:32 host1 kernel: [  33110.525369] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:33 host1 kernel: [  89029.882372] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:34 host1 kernel: [  43253.506000] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:31:35 host1 kernel: [  83903.781371] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:31:36 host1 kernel: [  19730.056762] audit: type=1400 audit(35105:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5028 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:37 host1 kernel: [  87563.151176] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:38 host1 kernel: [  54280.565630] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:39 host1 kernel: [  27769.495901] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:40 host1 kernel: [  43455.214367] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:31:41 host1 kernel: [  3458.327443] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:31:42 host1 kernel: [  66340.571688] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:43 host1 kernel: [  59230.414276] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:44 host1 kernel: [  66595.208346] kernel BUG at /usr/src/linux/mm/page_alloc.c:577
+Sep 17 01:31:45 host1 kernel: [  64363.757942] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:46 host1 kernel: [  13997.829928] usb 1-1: USB disconnect, device number 2
+Sep 17 01:31:47 host1 kernel: [  25991.789174] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:31:48 host1 kernel: [  18847.272094] usb 1-1: USB disconnect, device number 8
+Sep 17 01:31:49 host1 kernel: [  89220.751235] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:50 host1 kernel: [  12629.646420] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:31:51 host1 kernel: [  59704.283023] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:31:52 host1 kernel: [  13123.913126] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:53 host1 kernel: [  35502.980217] audit: type=1400 audit(59072:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2920 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:31:54 host1 kernel: [  2813.686447] CPU1: Core temperature/speed normal
+Sep 17 01:31:55 host1 kernel: [  46670.887336] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:31:56 host1 kernel: [  2551.603741] usb 1-1: USB disconnect, device number 3
+Sep 17 01:31:57 host1 kernel: [  33205.380152] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:31:58 host1 kernel: [  16439.270101] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:31:59 host1 kernel: [  53092.511984] audit: type=1400 audit(56242:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=4614 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:00 host1 kernel: [  53587.815371] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:01 host1 kernel: [  53348.658350] usb 1-1: USB disconnect, device number 7
+Sep 17 01:32:02 host1 kernel: [  92689.751905] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:03 host1 kernel: [  33204.442051] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:04 host1 kernel: [  65718.197809] audit: type=1400 audit(13220:3): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=585 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:05 host1 kernel: [  94102.380249] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:06 host1 kernel: [  88750.742233] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:32:07 host1 kernel: [  17900.653991] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:32:08 host1 kernel: [  54572.950040] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:09 host1 kernel: [  84487.885384] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:10 host1 kernel: [  2096.769192] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:11 host1 kernel: [  61524.474676] usb 1-1: USB disconnect, device number 7
+Sep 17 01:32:12 host1 kernel: [  41116.788265] audit: type=1400 audit(87401:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5615 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:13 host1 kernel: [  59304.939133] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:14 host1 kernel: [  59894.454638] usb 1-1: USB disconnect, device number 6
+Sep 17 01:32:15 host1 kernel: [  70731.178798] CPU3: Core temperature/speed normal
+Sep 17 01:32:16 host1 kernel: [  67462.304571] audit: type=1400 audit(86073:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=526 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:17 host1 kernel: [  62068.822540] usb 1-1: USB disconnect, device number 7
+Sep 17 01:32:18 host1 kernel: [  40967.024246] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:19 host1 kernel: [  18317.678217] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:20 host1 kernel: [  83935.675647] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:21 host1 kernel: [  45255.701466] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:22 host1 kernel: [  80174.987930] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:23 host1 kernel: [  98771.052277] CPU0: Core temperature/speed normal
+Sep 17 01:32:24 host1 kernel: [  99535.537162] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:25 host1 kernel: [  68366.253378] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:26 host1 kernel: [  67794.120156] usb 1-1: USB disconnect, device number 5
+Sep 17 01:32:27 host1 kernel: [  71512.870214] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:28 host1 kernel: [  75409.815017] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:32:29 host1 kernel: [  76366.679131] nvme8: I/O error on namespace 8
+Sep 17 01:32:30 host1 kernel: [  86238.060180] usb 1-1: USB disconnect, device number 2
+Sep 17 01:32:31 host1 kernel: [  85843.506216] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:32 host1 kernel: [  71428.149745] audit: type=1400 audit(60141:3): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3958 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:33 host1 kernel: [  40616.889728] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:34 host1 kernel: [  222.547225] CPU1: Core temperature/speed normal
+Sep 17 01:32:35 host1 kernel: [  53401.693855] CPU2: Core temperature/speed normal
+Sep 17 01:32:36 host1 kernel: [  34121.995956] usb 1-1: USB disconnect, device number 1
+Sep 17 01:32:37 host1 kernel: [  61571.564891] CPU3: Core temperature/speed normal
+Sep 17 01:32:38 host1 kernel: [  52587.707068] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:39 host1 kernel: [  83293.437824] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:40 host1 kernel: [  17942.873359] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:41 host1 kernel: [  20296.152971] usb 1-1: USB disconnect, device number 7
+Sep 17 01:32:42 host1 kernel: [  13146.994959] audit: type=1400 audit(37195:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9149 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:43 host1 kernel: [  34431.191139] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:32:44 host1 kernel: [  74603.273768] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:45 host1 kernel: [  79050.994879] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:32:46 host1 kernel: [  64290.307609] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:47 host1 kernel: [  60406.019725] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:48 host1 kernel: [  17426.902738] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:49 host1 kernel: [  68317.939567] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:32:50 host1 kernel: [  54965.429944] CPU1: Core temperature/speed normal
+Sep 17 01:32:51 host1 kernel: [  16286.275799] CPU0: Core temperature/speed normal
+Sep 17 01:32:52 host1 kernel: [  70356.758593] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:32:53 host1 kernel: [  3461.921813] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:54 host1 kernel: [  26796.420887] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:32:55 host1 kernel: [  8872.288411] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:32:56 host1 kernel: [  36701.032613] audit: type=1400 audit(34902:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5711 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:57 host1 kernel: [  64431.077858] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:32:58 host1 kernel: [  58547.007597] audit: type=1400 audit(99254:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6165 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:32:59 host1 kernel: [  60894.427944] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:33:00 host1 kernel: [  29522.628261] usb 1-1: USB disconnect, device number 1
+Sep 17 01:33:01 host1 kernel: [  52252.829608] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:02 host1 kernel: [  26916.412052] usb 1-1: USB disconnect, device number 8
+Sep 17 01:33:03 host1 kernel: [  81598.416293] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:04 host1 kernel: [  71541.765219] audit: type=1400 audit(39016:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1561 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:33:05 host1 kernel: [  85078.454538] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:06 host1 kernel: [  85672.174449] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:33:07 host1 kernel: [  42448.123159] CPU1: Core temperature/speed normal
+Sep 17 01:33:08 host1 kernel: [  26903.950354] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:09 host1 kernel: [  32150.678699] usb 1-1: USB disconnect, device number 9
+Sep 17 01:33:10 host1 kernel: [  65443.801791] audit: type=1400 audit(10245:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9243 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:33:11 host1 kernel: [  98674.450151] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:12 host1 kernel: [  24088.656957] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:13 host1 kernel: [  94118.816022] usb 1-1: USB disconnect, device number 8
+Sep 17 01:33:14 host1 kernel: [  98100.917854] kernel BUG at /usr/src/linux/mm/page_alloc.c:480
+Sep 17 01:33:15 host1 kernel: [  54611.071762] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:16 host1 kernel: [  27960.077859] usb 1-1: USB disconnect, device number 1
+Sep 17 01:33:17 host1 kernel: [  65278.737898] CPU3: Core temperature/speed normal
+Sep 17 01:33:18 host1 kernel: [  24889.235282] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:33:19 host1 kernel: [  5185.247455] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:20 host1 kernel: [  90396.837285] audit: type=1400 audit(44024:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=7606 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:33:21 host1 kernel: [  14631.028897] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:22 host1 kernel: [  63183.427242] kernel BUG at /usr/src/linux/mm/page_alloc.c:335
+Sep 17 01:33:23 host1 kernel: [  14874.435400] nvme7: I/O error on namespace 7
+Sep 17 01:33:24 host1 kernel: [  42739.225040] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:25 host1 kernel: [  87785.844179] audit: type=1400 audit(56399:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9637 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:33:26 host1 kernel: [  26621.046542] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:27 host1 kernel: [  44432.521701] usb 1-1: USB disconnect, device number 9
+Sep 17 01:33:28 host1 kernel: [  87489.518815] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:29 host1 kernel: [  71745.903368] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:30 host1 kernel: [  49720.677428] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:31 host1 kernel: [  6621.190495] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:32 host1 kernel: [  39271.003096] usb 1-1: USB disconnect, device number 9
+Sep 17 01:33:33 host1 kernel: [  19818.121321] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:34 host1 kernel: [  67184.920837] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:33:35 host1 kernel: [  85483.818521] CPU2: Core temperature/speed normal
+Sep 17 01:33:36 host1 kernel: [  43026.078410] kernel BUG at /usr/src/linux/mm/page_alloc.c:666
+Sep 17 01:33:37 host1 kernel: [  79910.961615] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:33:38 host1 kernel: [  96414.518200] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:39 host1 kernel: [  94017.523778] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:40 host1 kernel: [  49510.565379] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:33:41 host1 kernel: [  30183.218500] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:33:42 host1 kernel: [  44817.554032] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:43 host1 kernel: [  48822.886977] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:44 host1 kernel: [  16507.393000] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:33:45 host1 kernel: [  58838.809879] usb 1-1: USB disconnect, device number 2
+Sep 17 01:33:46 host1 kernel: [  63914.052938] usb 1-1: new high-speed USB device number 6 using ehci-pci
+Sep 17 01:33:47 host1 kernel: [  19762.853453] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:48 host1 kernel: [  18232.374647] CPU1: Core temperature/speed normal
+Sep 17 01:33:49 host1 kernel: [  69689.833135] audit: type=1400 audit(18240:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=9684 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:33:50 host1 kernel: [  62602.649422] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:33:51 host1 kernel: [  3055.532535] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:33:52 host1 kernel: [  28152.205508] CPU1: Core temperature/speed normal
+Sep 17 01:33:53 host1 kernel: [  80416.094168] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:33:54 host1 kernel: [  70353.131574] usb 1-1: USB disconnect, device number 3
+Sep 17 01:33:55 host1 kernel: [  54744.004058] nvme9: I/O error on namespace 9
+Sep 17 01:33:56 host1 kernel: [  71364.346784] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:33:57 host1 kernel: [  15949.291298] usb 1-1: USB disconnect, device number 2
+Sep 17 01:33:58 host1 kernel: [  22617.578153] CPU0: Core temperature/speed normal
+Sep 17 01:33:59 host1 kernel: [  85777.685143] CPU3: Core temperature/speed normal
+Sep 17 01:34:00 host1 kernel: [  62935.259607] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:01 host1 kernel: [  16831.065443] usb 1-1: new high-speed USB device number 5 using ehci-pci
+Sep 17 01:34:02 host1 kernel: [  28574.839325] CPU1: Core temperature/speed normal
+Sep 17 01:34:03 host1 kernel: [  4274.849469] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:04 host1 kernel: [  7124.822765] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:05 host1 kernel: [  61360.185930] usb 1-1: new high-speed USB device number 8 using ehci-pci
+Sep 17 01:34:06 host1 kernel: [  3650.043908] audit: type=1400 audit(52148:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2166 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:07 host1 kernel: [  30945.849945] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:34:08 host1 kernel: [  56856.597102] CPU0: Core temperature/speed normal
+Sep 17 01:34:09 host1 kernel: [  91212.185715] audit: type=1400 audit(91426:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=4018 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:10 host1 kernel: [  17143.267039] kernel BUG at /usr/src/linux/mm/page_alloc.c:786
+Sep 17 01:34:11 host1 kernel: [  28722.636613] audit: type=1400 audit(82482:5): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3791 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:12 host1 kernel: [  68128.710934] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:13 host1 kernel: [  98316.091394] usb 1-1: USB disconnect, device number 7
+Sep 17 01:34:14 host1 kernel: [  52134.492178] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:34:15 host1 kernel: [  55301.793537] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:16 host1 kernel: [  18975.524301] CPU0: Core temperature/speed normal
+Sep 17 01:34:17 host1 kernel: [  10006.783543] audit: type=1400 audit(83803:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8485 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:18 host1 kernel: [  61008.327123] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:19 host1 kernel: [  74454.167215] usb 1-1: USB disconnect, device number 2
+Sep 17 01:34:20 host1 kernel: [  19098.420128] kernel BUG at /usr/src/linux/mm/page_alloc.c:344
+Sep 17 01:34:21 host1 kernel: [  97442.222584] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:34:22 host1 kernel: [  58583.064870] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:23 host1 kernel: [  67807.599864] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:34:24 host1 kernel: [  14502.563403] CPU2: Core temperature/speed normal
+Sep 17 01:34:25 host1 kernel: [  76076.146269] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:26 host1 kernel: [  46848.372808] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:34:27 host1 kernel: [  2621.810945] audit: type=1400 audit(88058:2): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2159 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:28 host1 kernel: [  71577.899072] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:34:29 host1 kernel: [  48912.940934] kernel BUG at /usr/src/linux/mm/page_alloc.c:599
+Sep 17 01:34:30 host1 kernel: [  43968.682809] audit: type=1400 audit(75070:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=4887 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:31 host1 kernel: [  51742.819079] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:32 host1 kernel: [  62742.475510] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:33 host1 kernel: [  43990.505507] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:34 host1 kernel: [  48281.467572] CPU2: Core temperature/speed normal
+Sep 17 01:34:35 host1 kernel: [  27261.097668] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:34:36 host1 kernel: [  74174.796240] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:37 host1 kernel: [  45789.717393] kernel BUG at /usr/src/linux/mm/page_alloc.c:628
+Sep 17 01:34:38 host1 kernel: [  32631.499890] CPU3: Core temperature/speed normal
+Sep 17 01:34:39 host1 kernel: [  62534.315129] CPU2: Core temperature/speed normal
+Sep 17 01:34:40 host1 kernel: [  5134.164018] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:41 host1 kernel: [  52780.196905] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:34:42 host1 kernel: [  8245.988928] audit: type=1400 audit(88189:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5868 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:43 host1 kernel: [  30655.305733] usb 1-1: USB disconnect, device number 2
+Sep 17 01:34:44 host1 kernel: [  93540.096549] CPU2: Core temperature/speed normal
+Sep 17 01:34:45 host1 kernel: [  73455.034768] CPU3: Core temperature/speed normal
+Sep 17 01:34:46 host1 kernel: [  1793.090252] CPU0: Core temperature/speed normal
+Sep 17 01:34:47 host1 kernel: [  34741.562901] CPU1: Core temperature/speed normal
+Sep 17 01:34:48 host1 kernel: [  82899.830772] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:49 host1 kernel: [  25856.153165] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:34:50 host1 kernel: [  51776.249592] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:51 host1 kernel: [  62158.966502] CPU1: Core temperature/speed normal
+Sep 17 01:34:52 host1 kernel: [  65478.120299] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:53 host1 kernel: [  24324.114630] audit: type=1400 audit(43735:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=7024 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:34:54 host1 kernel: [  49746.719243] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:55 host1 kernel: [  13556.287159] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:34:56 host1 kernel: [  45841.255001] nvme3: I/O error on namespace 3
+Sep 17 01:34:57 host1 kernel: [  23251.256645] usb 1-1: new high-speed USB device number 1 using ehci-pci
+Sep 17 01:34:58 host1 kernel: [  32689.772060] CPU3: Core temperature above threshold, cpu clock throttled
+Sep 17 01:34:59 host1 kernel: [  67712.260443] kernel BUG at /usr/src/linux/mm/page_alloc.c:897
+Sep 17 01:35:00 host1 kernel: [  79055.041086] usb 1-1: USB disconnect, device number 4
+Sep 17 01:35:01 host1 kernel: [  67477.298571] nvme1: I/O error on namespace 1
+Sep 17 01:35:02 host1 kernel: [  44755.661224] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:03 host1 kernel: [  67199.239964] usb 1-1: USB disconnect, device number 4
+Sep 17 01:35:04 host1 kernel: [  26791.396592] usb 1-1: new high-speed USB device number 5 using ehci-pci
+Sep 17 01:35:05 host1 kernel: [  69859.566066] CPU3: Core temperature/speed normal
+Sep 17 01:35:06 host1 kernel: [  15989.014723] usb 1-1: new high-speed USB device number 4 using ehci-pci
+Sep 17 01:35:07 host1 kernel: [  65888.005901] audit: type=1400 audit(83912:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2421 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:08 host1 kernel: [  1509.233997] CPU2: Core temperature/speed normal
+Sep 17 01:35:09 host1 kernel: [  50906.519662] usb 1-1: new high-speed USB device number 3 using ehci-pci
+Sep 17 01:35:10 host1 kernel: [  64925.050573] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:35:11 host1 kernel: [  79911.878985] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:12 host1 kernel: [  25865.827365] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:13 host1 kernel: [  60116.545724] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:14 host1 kernel: [  15360.592260] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:35:15 host1 kernel: [  82363.160128] usb 1-1: USB disconnect, device number 5
+Sep 17 01:35:16 host1 kernel: [  37736.546438] audit: type=1400 audit(65753:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=5834 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:17 host1 kernel: [  57154.453121] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:18 host1 kernel: [  65904.740751] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:35:19 host1 kernel: [  38418.108276] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:20 host1 kernel: [  81301.841053] eth2: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:21 host1 kernel: [  8985.353455] EXT4-fs (sda3): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:22 host1 kernel: [  42583.124236] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:23 host1 kernel: [  15094.514707] CPU0: Core temperature/speed normal
+Sep 17 01:35:24 host1 kernel: [  61824.117743] CPU0: Core temperature above threshold, cpu clock throttled
+Sep 17 01:35:25 host1 kernel: [  24682.637025] usb 1-1: USB disconnect, device number 3
+Sep 17 01:35:26 host1 kernel: [  97960.121523] audit: type=1400 audit(33277:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6887 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:27 host1 kernel: [  17657.940186] kernel BUG at /usr/src/linux/mm/page_alloc.c:153
+Sep 17 01:35:28 host1 kernel: [  65869.993503] CPU3: Core temperature/speed normal
+Sep 17 01:35:29 host1 kernel: [  80248.697138] audit: type=1400 audit(73125:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1839 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:30 host1 kernel: [  13313.592343] audit: type=1400 audit(85846:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8653 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:31 host1 kernel: [  23668.661384] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:32 host1 kernel: [  86818.710845] CPU2: Core temperature/speed normal
+Sep 17 01:35:33 host1 kernel: [  5857.343994] usb 1-1: USB disconnect, device number 5
+Sep 17 01:35:34 host1 kernel: [  62533.961730] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:35 host1 kernel: [  43612.054539] CPU2: Core temperature/speed normal
+Sep 17 01:35:36 host1 kernel: [  40777.004635] CPU0: Core temperature/speed normal
+Sep 17 01:35:37 host1 kernel: [  64249.668102] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:38 host1 kernel: [  67239.849720] CPU2: Core temperature above threshold, cpu clock throttled
+Sep 17 01:35:39 host1 kernel: [  31180.175102] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:35:40 host1 kernel: [  3594.207074] audit: type=1400 audit(53757:8): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6339 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:41 host1 kernel: [  63881.642922] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:35:42 host1 kernel: [  1886.526248] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:43 host1 kernel: [  97933.612058] nvme2: I/O error on namespace 2
+Sep 17 01:35:44 host1 kernel: [  33.555111] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:45 host1 kernel: [  41813.143351] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:46 host1 kernel: [  98248.390661] usb 1-1: USB disconnect, device number 6
+Sep 17 01:35:47 host1 kernel: [  44805.407504] usb 1-1: USB disconnect, device number 4
+Sep 17 01:35:48 host1 kernel: [  83636.486040] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:35:49 host1 kernel: [  63226.553472] eth1: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:50 host1 kernel: [  24433.062165] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:51 host1 kernel: [  70937.503755] CPU1: Core temperature above threshold, cpu clock throttled
+Sep 17 01:35:52 host1 kernel: [  41157.479936] audit: type=1400 audit(51251:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=3403 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:53 host1 kernel: [  58145.471755] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:35:54 host1 kernel: [  72350.925376] CPU1: Core temperature/speed normal
+Sep 17 01:35:55 host1 kernel: [  28470.840633] usb 1-1: new high-speed USB device number 2 using ehci-pci
+Sep 17 01:35:56 host1 kernel: [  42750.190059] audit: type=1400 audit(63476:7): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=4978 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:35:57 host1 kernel: [  90106.565471] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:35:58 host1 kernel: [  41111.410228] usb 1-1: new high-speed USB device number 9 using ehci-pci
+Sep 17 01:35:59 host1 kernel: [  49943.982410] CPU3: Core temperature/speed normal
+Sep 17 01:36:00 host1 kernel: [  20970.721001] nvme8: I/O error on namespace 8
+Sep 17 01:36:01 host1 kernel: [  57574.966714] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:36:02 host1 kernel: [  5237.546196] CPU2: Core temperature/speed normal
+Sep 17 01:36:03 host1 kernel: [  21044.018601] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:36:04 host1 kernel: [  27582.441413] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:36:05 host1 kernel: [  63408.401990] CPU1: Core temperature/speed normal
+Sep 17 01:36:06 host1 kernel: [  59685.700260] CPU2: Core temperature/speed normal
+Sep 17 01:36:07 host1 kernel: [  34506.026357] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:36:08 host1 kernel: [  51492.680097] usb 1-1: new high-speed USB device number 5 using ehci-pci
+Sep 17 01:36:09 host1 kernel: [  46153.136239] audit: type=1400 audit(43707:1): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=8895 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:36:10 host1 kernel: [  7713.051806] audit: type=1400 audit(80323:6): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=6343 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:36:11 host1 kernel: [  977.992209] usb 1-1: USB disconnect, device number 1
+Sep 17 01:36:12 host1 kernel: [  84566.101241] eth3: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:36:13 host1 kernel: [  44243.112747] CPU2: Core temperature/speed normal
+Sep 17 01:36:14 host1 kernel: [  40811.391884] usb 1-1: USB disconnect, device number 4
+Sep 17 01:36:15 host1 kernel: [  17436.251609] usb 1-1: USB disconnect, device number 5
+Sep 17 01:36:16 host1 kernel: [  20083.032680] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:36:17 host1 kernel: [  11332.734601] usb 1-1: new high-speed USB device number 7 using ehci-pci
+Sep 17 01:36:18 host1 kernel: [  90366.096958] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:36:19 host1 kernel: [  45480.512158] CPU1: Core temperature/speed normal
+Sep 17 01:36:20 host1 kernel: [  23361.820973] usb 1-1: USB disconnect, device number 5
+Sep 17 01:36:21 host1 kernel: [  43740.677793] eth0: Link is Up - 1000Mbps/Full - flow control rx/tx
+Sep 17 01:36:22 host1 kernel: [  33283.315604] audit: type=1400 audit(46310:4): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=2015 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:36:23 host1 kernel: [  73440.336260] usb 1-1: USB disconnect, device number 4
+Sep 17 01:36:24 host1 kernel: [  93946.471867] EXT4-fs (sda1): mounted filesystem with ordered data mode. Opts: (null)
+Sep 17 01:36:25 host1 kernel: [  84662.544259] audit: type=1400 audit(96550:9): apparmor="DENIED" operation="open" profile="snap.snap-store.ubuntu-software" name="/etc/shadow" pid=1830 comm="snap-store" requested_mask="r" denied_mask="r" fsuid=1000 ouid=0
+Sep 17 01:36:26 host1 kernel: [  86065.037897] EXT4-fs (sda2): mounted filesystem with ordered data mode. Opts: (null)

@@ -137,7 +137,26 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 - 타임스탬프 파싱 실패: 라인 인덱스(`line_no`) 기준으로도 정렬되며, 포맷이 다른 경우 전처리 규칙 보강 필요
 - 메모리: 대형 파일은 디렉터리 단위로 나눠 처리 후 병합 권장
 
-#### 8) 산출물 해석 요약
+#### 8) 자동화 스크립트 (한번에 실행)
+전체 파이프라인을 한번에 실행할 수 있는 스크립트 제공:
+
+**uv 환경용:**
+```bash
+./run_full_pipeline.sh /path/to/your.log [출력디렉토리]
+```
+
+**pip/venv 환경용:**
+```bash
+./run_full_pipeline_pip.sh /path/to/your.log [출력디렉토리]
+```
+
+자동 기능:
+- 가상환경 자동 감지 및 활성화 (.venv, venv)
+- 의존성 자동 설치 (필요시)
+- 에러 처리 및 진행 상황 표시
+- 결과 파일 자동 정리 및 요약
+
+#### 9) 산출물 해석 요약
 - `parsed.parquet`: `raw`, `masked`, `template_id`, `template`, `timestamp`, `host` 등
 - `baseline_scores.parquet`: `score`, `is_anomaly`, `window_start_line`
 - `deeplog_infer.parquet`: `idx`, `target`, `in_topk` (top-k 위반 여부)
