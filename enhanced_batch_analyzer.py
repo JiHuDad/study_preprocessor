@@ -181,15 +181,9 @@ class EnhancedBatchAnalyzer:
         print(f"📋 파일 정보: {validation['file_size_mb']:.1f}MB, {validation.get('total_lines', '?')}라인, 형식: {validation['format']}")
         
         try:
-            # study-preprocess 명령어로 전처리 실행 (가상환경 python 사용)
-            venv_python = Path(".venv/bin/python")
-            if venv_python.exists():
-                python_cmd = str(venv_python)
-            else:
-                python_cmd = sys.executable
-            
+            # study-preprocess 바이너리로 전처리 실행
             cmd = [
-                python_cmd, "-m", "study_preprocessor.cli", "parse",
+                "study-preprocess", "parse",
                 "--input", str(log_file),
                 "--out-dir", str(output_dir),
                 "--drain-state", str(self.work_dir / f"drain_{file_name}.json")

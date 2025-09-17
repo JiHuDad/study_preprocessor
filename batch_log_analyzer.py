@@ -55,7 +55,7 @@ class BatchLogAnalyzer:
         try:
             # study-preprocess 명령어로 전처리 실행
             cmd = [
-                sys.executable, "-m", "study_preprocessor.cli", "parse",
+                "study-preprocess", "parse",
                 "--input", str(log_file),
                 "--out-dir", str(output_dir),
                 "--drain-state", str(self.work_dir / f"drain_{file_name}.json")
