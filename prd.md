@@ -164,10 +164,44 @@ uv run python -c "from study_preprocessor.builders.mscred import build_mscred_wi
 - **구현**:
   - `log_sample_analyzer.py`: 이상탐지 결과에서 실제 로그 샘플 추출
   - 전후 맥락 3줄과 함께 로그 표시
+  - **타입별 20개 샘플**: Baseline, DeepLog, 시간 기반, 비교 분석별로 최대 20개씩 (기존 10개 → 20개)
   - 이상 유형별 설명 및 패턴 분석 제공
   - 마크다운 형식 종합 리포트 생성 (`anomaly_analysis_report.md`)
   - CLI 명령어: `study-preprocess analyze-samples`
   - `study-preprocess report --with-samples` 옵션으로 통합 분석
+
+##### 외부 Target 파일 지원 🆕
+- **문제 정의**: Target 파일이 베이스라인 디렉토리와 다른 위치에 있을 때 분석 불가
+- **해결책**: 절대/상대 경로로 지정된 외부 Target 파일 지원
+- **구현**:
+  - `enhanced_batch_analyzer.py`의 `select_target_and_baselines` 메서드 확장
+  - Target 파일 존재 여부 자동 검증
+  - 외부 Target 사용 시 모든 베이스라인 파일을 비교 대상으로 활용
+  - 사용법: `./run_enhanced_batch_analysis.sh /baseline/ /target/problem.log`
+
+##### 종합 리포트 통합 🆕
+- **문제 정의**: 분석 결과가 여러 파일에 분산되어 종합적인 이해 어려움
+- **해결책**: 모든 분석 결과를 하나의 종합 리포트로 통합
+- **구현**:
+  - `COMPREHENSIVE_ANALYSIS_REPORT.md`: 모든 분석 결과 + 실제 로그 샘플 통합
+  - `ENHANCED_ANALYSIS_SUMMARY.md`: 호환성을 위한 기존 요약 리포트 유지
+  - 실제 이상 로그 샘플들을 리포트에 직접 임베드
+  - 4가지 분석 방법(Baseline, DeepLog, 시간, 비교)의 모든 결과 포함
+
+##### Target 검증 강화 🆕
+- **문제 정의**: 잘못된 Target 파일 지정 시 의도하지 않은 분석 수행
+- **해결책**: Target 파일 검증 로직 강화 및 안전한 에러 처리
+- **구현**:
+  - Target 파일을 찾을 수 없을 때 즉시 에러로 중단 (기존: 자동으로 첫 번째 파일 선택)
+  - 명확한 에러 메시지와 사용 가능한 파일 목록 제공
+  - 잘못된 분석 결과 생성 방지
+
+##### 플랫폼 호환성 개선 🆕
+- **문제 정의**: macOS와 Linux 간 스크립트 호환성 문제
+- **해결책**: 크로스 플랫폼 호환 명령어 사용
+- **구현**:
+  - `run_enhanced_batch_analysis.sh`의 `realpath` 명령어를 `sed` 기반으로 교체
+  - macOS와 Linux 모두에서 동일하게 동작
 
 ##### CLI 확장
 - **Target vs Baseline 구분**: Target은 분석할 파일, Log Directory는 baseline 학습용 파일들

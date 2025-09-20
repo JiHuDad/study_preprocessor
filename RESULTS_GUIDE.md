@@ -4,10 +4,50 @@
 
 이 문서는 log anomaly detection pipeline의 결과를 해석하는 방법을 설명합니다.
 
+## 🆕 **최신 업데이트 (2025-09-20)**
+
+### ✨ **새로운 결과 파일들:**
+- **📄 `COMPREHENSIVE_ANALYSIS_REPORT.md`**: 모든 분석 결과와 로그 샘플을 통합한 종합 리포트
+- **📊 `log_samples_analysis/`**: 실제 이상 로그 20개 샘플과 맥락 분석
+- **🛡️ Baseline 품질 검증**: 자동 필터링된 고품질 Baseline 결과
+- **🎯 외부 Target 지원**: 다른 디렉토리 파일의 분석 결과
+
 ## 📁 결과 파일 구조
 
+### 🆕 **통합 분석 결과** (enhanced_batch_analyzer.py)
 ```
-data/processed/  (또는 다른 데이터셋 디렉토리)
+analysis_directory/
+├── COMPREHENSIVE_ANALYSIS_REPORT.md 🆕  # 통합 종합 리포트 (모든 결과 + 로그 샘플)
+├── ENHANCED_ANALYSIS_SUMMARY.md         # 호환성 요약 리포트
+├── processed_target_file/               # Target 파일 완전 분석 결과
+│   ├── parsed.parquet                   # 파싱된 원본 로그 데이터
+│   ├── baseline_scores.parquet 🆕       # Baseline 이상 탐지 결과
+│   ├── baseline_preview.json           # Baseline 분석 미리보기
+│   ├── sequences.parquet               # 템플릿 시퀀스 데이터
+│   ├── vocab.json                      # 템플릿 ID → 인덱스 매핑
+│   ├── deeplog_infer.parquet          # DeepLog 딥러닝 모델 결과
+│   ├── deeplog.pth                    # 학습된 DeepLog 모델
+│   ├── window_counts.parquet 🆕       # MS-CRED 입력 데이터
+│   ├── temporal_analysis/             # 시간 기반 이상 탐지
+│   │   ├── temporal_report.md
+│   │   ├── temporal_anomalies.json
+│   │   └── temporal_profiles.json
+│   ├── comparative_analysis/          # 파일 간 비교 분석
+│   │   ├── comparative_report.md
+│   │   ├── comparative_anomalies.json
+│   │   └── file_profiles.json
+│   ├── log_samples_analysis/ 🆕       # 이상 로그 샘플 분석 (20개)
+│   │   ├── anomaly_analysis_report.md # 사람이 읽기 쉬운 리포트
+│   │   └── anomaly_samples.json       # 상세 샘플 데이터
+│   └── report.md                      # CLI 생성 리포트
+└── processed_baseline_files/          # Baseline 파일들 (전처리만)
+    ├── parsed.parquet
+    └── preview.json
+```
+
+### **단일 파일 분석 결과**
+```
+data/processed/  (또는 지정된 출력 디렉토리)
 ├── parsed.parquet          # 파싱된 원본 로그 데이터
 ├── sequences.parquet       # 템플릿 시퀀스 데이터
 ├── vocab.json             # 템플릿 ID → 인덱스 매핑
@@ -211,11 +251,56 @@ python baseline_validator.py /path/to/baseline/logs/ --output-dir validation_res
 - 로그 볼륨 (최소 100개)
 - 희귀 템플릿 비율 (30% 이하)
 
+## 🆕 **로그 샘플 분석** (`log_samples_analysis/`)
+
+### **📄 anomaly_analysis_report.md**
+사람이 읽기 쉬운 형태의 이상 로그 샘플 분석 리포트
+
+**구조**:
+- **📊 분석 요약**: 전체 이상 개수 및 분포
+- **📈 Baseline 이상 샘플**: 윈도우 기반 이상 탐지 결과 (최대 20개)
+- **🧠 DeepLog 이상 샘플**: LSTM 모델 예측 실패 샘플 (최대 20개)
+- **🕐 시간 기반 이상 샘플**: 시간 패턴 이상 (최대 20개)
+- **📊 비교 분석 이상 샘플**: 파일 간 비교 이상 (최대 20개)
+
+**샘플 형태**:
+```markdown
+**윈도우 시작라인 825** (점수: 0.638)
+```
+Line 825: 2025-09-20 11:10:16 hostname sshd[6623]: CRITICAL: Out of memory error...
+Line 826: 2025-09-20 11:10:23 hostname systemd[1456]: CRITICAL: Out of memory error...
+Line 827: 2025-09-20 11:10:30 hostname kernel[2166]: ERROR: Authentication failed...
+```
+
+**🔍 분석**: 이 윈도우는 여러 CRITICAL 레벨 오류가 연속으로 발생하여 이상으로 감지되었습니다.
+```
+
+### **📊 anomaly_samples.json**
+상세한 샘플 데이터 (프로그래밍 방식 접근용)
+
+**구조**:
+```json
+{
+  "baseline_anomaly": {
+    "anomaly_count": 3,
+    "analyzed_count": 3,
+    "samples": [...]
+  },
+  "deeplog_anomaly": {
+    "anomaly_count": 111,
+    "analyzed_count": 10,
+    "samples": [...]
+  }
+}
+```
+
 ### CLI 도구
 ```bash
-# 새로운 CLI 명령어들
-study-preprocess analyze-samples --help
-study-preprocess report --with-samples
+# 🆕 로그 샘플 분석 (단독 실행)
+study-preprocess analyze-samples <processed_dir> --max-samples 20 --context-lines 3
+
+# 🆕 리포트 생성 (로그 샘플 포함)
+study-preprocess report <processed_dir> --with-samples
 
 # 기본 CLI 도구
 .venv/bin/python -m study_preprocessor.cli detect --help

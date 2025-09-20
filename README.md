@@ -2,6 +2,15 @@
 
 이 문서는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 방법을 단계별로 안내합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
 
+## 🆕 **최신 업데이트 (2025-09-20)**
+
+### ✨ **새로운 주요 기능들:**
+- **🎯 외부 Target 파일 지원**: 다른 디렉토리의 파일을 Target으로 지정 가능
+- **📊 로그 샘플 개수 증가**: 타입별 최대 20개 샘플 표시 (기존 10개 → 20개)
+- **🔍 Target 파일 검증 강화**: 잘못된 Target 지정 시 안전한 에러 처리
+- **📄 종합 리포트 통합**: 모든 분석 결과를 하나의 `COMPREHENSIVE_ANALYSIS_REPORT.md`로 통합
+- **🛡️ Baseline 품질 검증**: 자동으로 문제있는 Baseline 파일 필터링
+
 #### 1) 설치/환경
 - 사전 요구: macOS/Linux, Python 3.11+
 - 가상환경 생성 및 활성화:
@@ -228,20 +237,28 @@ ERROR (에러 메시지 포함):
 하위 디렉토리 재귀 스캔으로 날짜별/카테고리별 구조 지원:
 
 ```bash
-# 하위 디렉토리 포함 전체 스캔
+# 기본 사용법: 자동 날짜/시간 폴더 생성
 ./run_enhanced_batch_analysis.sh /var/log/
 
-# 세부 옵션 지정 (디렉토리, Target파일, 깊이, 최대파일수, 결과폴더)
-./run_enhanced_batch_analysis.sh /logs/2025/09/ app.log 3 20 analysis_result
+# Target 파일 지정 (같은 디렉토리 내)
+./run_enhanced_batch_analysis.sh /var/log/ system.log
 
-# 결과 확인
-cat analysis_result/ENHANCED_ANALYSIS_SUMMARY.md
+# 🆕 외부 Target 파일 지원 (다른 디렉토리)
+./run_enhanced_batch_analysis.sh /var/log/baseline/ /var/log/target/problem.log
+
+# 세부 옵션 지정 (디렉토리, Target파일, 깊이, 최대파일수, 결과폴더)
+./run_enhanced_batch_analysis.sh /logs/2025/09/ app.log 3 20 my_analysis
+
+# 결과 확인 - 🆕 통합 종합 리포트
+cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
 ```
 
-**💡 새로운 기능**: 이제 향상된 배치 분석에서 **이상 로그 샘플 추출**이 자동으로 포함됩니다!
-- 🔍 실제 문제가 되는 로그들을 사람이 읽기 쉬운 형태로 추출
-- 📄 전후 맥락과 함께 이상 패턴 설명 제공
-- 🎯 이상탐지 결과를 실제 로그와 연결하여 해석 용이
+**🆕 최신 향상 사항**:
+- 🎯 **외부 Target 파일**: 다른 디렉토리의 파일을 Target으로 지정 가능
+- 📊 **20개 로그 샘플**: 타입별 최대 20개 이상 로그 샘플 자동 추출 (기존 10개 → 20개)
+- 📄 **종합 리포트**: 모든 분석 결과를 `COMPREHENSIVE_ANALYSIS_REPORT.md` 하나로 통합
+- 🛡️ **Baseline 품질 검증**: 문제있는 Baseline 파일 자동 필터링
+- 🔍 **Target 검증 강화**: 잘못된 Target 지정 시 안전한 에러 처리
 
 **지원하는 디렉토리 구조**:
 ```

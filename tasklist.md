@@ -49,10 +49,27 @@
 - [x] Integrate baseline filtering into enhanced batch analyzer
 - [x] Add automation script for baseline validation (run_baseline_validation.sh)
 
-##### 로그 샘플 분석 시스템 (NEW!)
-- [x] Implement log sample analyzer (log_sample_analyzer.py)
-- [x] Extract human-readable anomalous log samples with context
-- [x] Generate comprehensive anomaly analysis reports
+##### 로그 샘플 분석 시스템 🆕
+- [x] Create log sample analyzer (log_sample_analyzer.py)
+- [x] Implement anomaly log extraction with context (3 lines before/after)
+- [x] Generate human-readable anomaly analysis reports
+- [x] Integrate log sample analysis into CLI and batch analyzer
+- [x] Increase sample count from 10 to 20 per anomaly type
+
+##### 통합 분석 파이프라인 🆕
+- [x] Implement full pipeline in enhanced batch analyzer (Baseline + DeepLog + MS-CRED + Temporal + Comparative + CLI Report)
+- [x] Add external Target file support (different directory from baselines)
+- [x] Implement Target file validation with safe error handling
+- [x] Create comprehensive report integration (COMPREHENSIVE_ANALYSIS_REPORT.md)
+- [x] Ensure Target file priority in max_files limitation
+
+##### 최신 사용성 개선 🆕
+- [x] Fix realpath compatibility issue for macOS/Linux cross-platform support
+- [x] Improve Target directory guidance in run_enhanced_batch_analysis.sh
+- [x] Fix log sample analysis runtime errors (TypeError, AttributeError, KeyError)
+- [x] Enable log sample reports by default in CLI
+- [x] Consolidate all analysis results into single comprehensive report
+
 - [x] Integrate sample analysis into CLI (analyze-samples command)
 - [x] Add sample analysis to batch processing pipeline
 - [x] Create demo script for end-to-end functionality (demo_log_samples.sh)

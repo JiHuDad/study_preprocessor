@@ -4,6 +4,15 @@
 
 여러 로그 파일을 한 번에 분석하고 비교할 수 있는 배치 분석 시스템입니다.
 
+## 🆕 **최신 업데이트 (2025-09-20)**
+
+### ✨ **새로운 주요 기능들:**
+- **🎯 외부 Target 파일 지원**: 다른 디렉토리의 파일을 Target으로 지정 가능
+- **📊 로그 샘플 개수 증가**: 타입별 최대 20개 샘플 표시 (기존 10개 → 20개)
+- **🔍 Target 파일 검증 강화**: 잘못된 Target 지정 시 안전한 에러 처리
+- **📄 종합 리포트 통합**: 모든 분석 결과를 `COMPREHENSIVE_ANALYSIS_REPORT.md`로 통합
+- **🛡️ Baseline 품질 검증**: 자동으로 문제있는 Baseline 파일 필터링
+
 ## 🆚 두 가지 배치 분석 도구
 
 ### 1. **기본 배치 분석기** (`batch_log_analyzer.py`)
@@ -21,11 +30,20 @@
 하위 디렉토리를 재귀적으로 스캔하여 날짜별/카테고리별 구조를 지원합니다.
 
 ```bash
-# 향상된 분석 (하위 디렉토리 포함)
+# 기본 사용법: 자동 날짜/시간 폴더 생성
 ./run_enhanced_batch_analysis.sh /path/to/logs/
 
-# 세부 옵션 지정
-./run_enhanced_batch_analysis.sh /path/to/logs/ target.log 3 20 result_dir
+# Target 파일 지정 (같은 디렉토리 내)
+./run_enhanced_batch_analysis.sh /path/to/logs/ target.log
+
+# 🆕 외부 Target 파일 지원 (다른 디렉토리)
+./run_enhanced_batch_analysis.sh /path/to/baseline/ /path/to/target/problem.log
+
+# 세부 옵션 지정 (디렉토리, Target파일, 깊이, 최대파일수, 결과폴더)
+./run_enhanced_batch_analysis.sh /path/to/logs/ target.log 3 20 my_analysis
+
+# 결과 확인 - 🆕 통합 종합 리포트
+cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
 ```
 
 ## 🎯 향상된 배치 분석 상세 사용법
@@ -144,22 +162,32 @@ logs/
 
 ```
 작업디렉토리/
-├── ENHANCED_ANALYSIS_SUMMARY.md          # 📄 종합 요약 리포트
-├── processed_category1_file1/             # 📁 파일별 분석 결과
+├── COMPREHENSIVE_ANALYSIS_REPORT.md 🆕   # 📄 통합 종합 리포트 (모든 결과 + 로그 샘플)
+├── ENHANCED_ANALYSIS_SUMMARY.md          # 📄 호환성 요약 리포트
+├── processed_category1_file1/             # 📁 Target 파일 분석 결과 (완전 분석)
 │   ├── parsed.parquet
-│   ├── baseline_scores.parquet
+│   ├── baseline_scores.parquet 🆕         # Baseline 이상 탐지 결과
+│   ├── baseline_preview.json
 │   ├── deeplog_infer.parquet
+│   ├── deeplog.pth                        # DeepLog 모델 파일
+│   ├── sequences.parquet
+│   ├── vocab.json
+│   ├── window_counts.parquet 🆕           # MS-CRED 입력 데이터
 │   ├── temporal_analysis/
 │   │   ├── temporal_report.md
-│   │   └── temporal_anomalies.json
+│   │   ├── temporal_anomalies.json
+│   │   └── temporal_profiles.json
 │   ├── comparative_analysis/
 │   │   ├── comparative_report.md
-│   │   └── comparative_anomalies.json
-│   └── log_samples_analysis/ 🆕          # 📁 이상 로그 샘플 분석
-│       ├── anomaly_analysis_report.md    # 사람이 읽기 쉬운 리포트
-│       └── anomaly_samples.json          # 상세 샘플 데이터
-└── processed_category2_file2/             # 📁 다른 파일 분석 결과
-    └── ...
+│   │   ├── comparative_anomalies.json
+│   │   └── file_profiles.json
+│   ├── log_samples_analysis/ 🆕          # 📁 20개 이상 로그 샘플 분석
+│   │   ├── anomaly_analysis_report.md    # 사람이 읽기 쉬운 리포트
+│   │   └── anomaly_samples.json          # 상세 샘플 데이터
+│   └── report.md                          # CLI 생성 리포트
+└── processed_category2_file2/             # 📁 Baseline 파일 결과 (전처리만)
+    ├── parsed.parquet
+    └── preview.json
 ```
 
 ## 🚨 이상 탐지 결과 해석
