@@ -402,10 +402,11 @@ class LogSampleAnalyzer:
             top_template_id = dominant_templates[0]['template_id']
             top_template_logs = window_logs[window_logs['template_id'] == top_template_id]
             if len(top_template_logs) > 0:
+                percentage = dominant_templates[0].get('percentage', 0)
                 representatives.append({
                     'type': 'dominant_template',
                     'log': self._format_log_entries(top_template_logs.head(1))[0],
-                    'reason': f"가장 빈번한 템플릿 (전체의 {dominant_templates[0]['percentage']:.1f}%)"
+                    'reason': f"가장 빈번한 템플릿 (전체의 {percentage:.1f}%)"
                 })
         
         # 2. 에러 로그가 있다면 첫 번째 에러
@@ -466,14 +467,15 @@ class LogSampleAnalyzer:
         if unseen_rate > 0.2:
             indicators.append(f"새로운 템플릿 비율이 높음 ({unseen_rate:.1%})")
         
-        if freq_z > 2.0:
+        if freq_z is not None and freq_z > 2.0:
             indicators.append(f"템플릿 빈도 급증 (Z-score: {freq_z:.2f})")
         
         if len(error_logs) > 0:
             indicators.append(f"에러 로그 {len(error_logs)}개 발견")
         
         if len(warning_logs) > len(window_logs) * 0.1:
-            indicators.append(f"경고 로그가 전체의 {len(warning_logs)/len(window_logs)*100:.1f}%")
+            warning_percentage = (len(warning_logs)/len(window_logs)*100) if len(window_logs) > 0 else 0
+            indicators.append(f"경고 로그가 전체의 {warning_percentage:.1f}%")
         
         # 템플릿 다양성 체크
         unique_templates = len(window_logs['template_id'].unique())
@@ -569,7 +571,9 @@ class LogSampleAnalyzer:
         
         elif 'template' in metric_type:
             if target_value > baseline_mean:
-                return f"템플릿 수가 baseline 평균 {baseline_mean:.0f}개보다 {target_value:.0f}개로 많습니다. 더 다양한 이벤트가 발생했을 수 있습니다."
+                baseline_str = f"{baseline_mean:.0f}" if baseline_mean is not None else "N/A"
+                target_str = f"{target_value:.0f}" if target_value is not None else "N/A"
+                return f"템플릿 수가 baseline 평균 {baseline_str}개보다 {target_str}개로 많습니다. 더 다양한 이벤트가 발생했을 수 있습니다."
             else:
                 return f"템플릿 수가 baseline 평균보다 적습니다. 활동이 제한적이었을 수 있습니다."
         
@@ -735,11 +739,15 @@ def generate_baseline_sample_analysis(sample: Dict, sample_num: int) -> str:
     time_range = sample.get('time_range', {})
     analysis = sample.get('analysis', {})
     
+    score_str = f"{score:.3f}" if score is not None else "N/A"
+    unseen_rate = sample.get('unseen_rate', 0)
+    unseen_rate_str = f"{unseen_rate:.1%}" if unseen_rate is not None else "N/A"
+    
     report = f"""### 🚨 이상 윈도우 #{sample_num} (라인 {window_start}~)
 
 **기본 정보**:
-- 이상 점수: {score:.3f}
-- 새 템플릿 비율: {sample['unseen_rate']:.1%}
+- 이상 점수: {score_str}
+- 새 템플릿 비율: {unseen_rate_str}
 - 시간 범위: {time_range.get('start', 'N/A')} ~ {time_range.get('end', 'N/A')}
 - 윈도우 내 로그 수: {sample['total_logs_in_window']}개
 
@@ -872,12 +880,15 @@ def generate_comparative_sample_analysis(sample: Dict, sample_num: int) -> str:
     # 메트릭 관련 이상
     if 'metric_comparison' in sample:
         metric_comp = sample['metric_comparison']
+        deviation = metric_comp.get('deviation_percentage', None)
+        deviation_str = f"{deviation:.1f}%" if deviation is not None else 'N/A'
+        
         report += f"""
 **메트릭 비교**:
 - Target 값: {metric_comp.get('target_value', 'N/A')}
 - Baseline 평균: {metric_comp.get('baseline_mean', 'N/A')}
 - Z-Score: {metric_comp.get('z_score', 'N/A')}
-- 편차: {metric_comp.get('deviation_percentage', 'N/A'):.1f}%
+- 편차: {deviation_str}
 """
     
     # 대표 로그들

@@ -468,10 +468,17 @@ class EnhancedBatchAnalyzer:
         print(f"  - Baseline 성공: {len(successful_baselines)}/{len(baseline_results)}개")
         
         # 5. 분석 실행 (기존 코드와 동일)
+        deeplog_result = {'success': False, 'error': 'Target preprocessing failed'}
         temporal_result = {'success': False, 'error': 'Target preprocessing failed'}
         comparative_result = {'success': False, 'error': 'Target preprocessing failed'}
         
         if target_result['success']:
+            # DeepLog 분석 
+            print(f"\n{'='*60}")
+            print("🧠 DeepLog 딥러닝 분석")
+            print(f"{'='*60}")
+            deeplog_result = self.run_deeplog_analysis(target_result)
+            
             # 시간 기반 분석
             print(f"\n{'='*60}")
             print("🕐 시간 기반 이상 탐지")
@@ -499,7 +506,7 @@ class EnhancedBatchAnalyzer:
         print(f"{'='*60}")
         
         summary_report = self.generate_enhanced_summary_report(
-            target_result, baseline_results, temporal_result, comparative_result,
+            target_result, baseline_results, deeplog_result, temporal_result, comparative_result,
             sample_analysis_result, input_dir, max_depth
         )
         
@@ -539,6 +546,115 @@ class EnhancedBatchAnalyzer:
             'total_files_found': len(log_files),
             'files_processed': total_count
         }
+    
+    def run_deeplog_analysis(self, target_result: Dict) -> Dict:
+        """DeepLog 학습 및 추론 실행."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"🧠 DeepLog 분석: {target_result['file_path'].name}")
+        
+        try:
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            
+            # 1. DeepLog 입력 생성 (vocab.json, sequences.parquet)
+            print("  📊 DeepLog 입력 생성 중...")
+            
+            try:
+                from study_preprocessor.builders.deeplog import build_deeplog_inputs
+                build_deeplog_inputs(str(parsed_file), str(target_result['output_dir']))
+                
+                # 필수 파일 확인
+                vocab_file = target_result['output_dir'] / "vocab.json"
+                sequences_file = target_result['output_dir'] / "sequences.parquet"
+                
+                if not vocab_file.exists() or not sequences_file.exists():
+                    return {'success': False, 'error': 'DeepLog input files not generated'}
+                
+                print(f"  ✅ 입력 파일 생성: vocab.json, sequences.parquet")
+                
+            except Exception as e:
+                print(f"❌ DeepLog 입력 생성 실패: {e}")
+                return {'success': False, 'error': f'DeepLog input build failed: {e}'}
+            
+            # 2. DeepLog 학습
+            print("  🎯 DeepLog 모델 학습 중...")
+            model_path = target_result['output_dir'] / "deeplog.pth"
+            
+            try:
+                from study_preprocessor.builders.deeplog import train_deeplog
+                train_deeplog(
+                    str(sequences_file),
+                    str(vocab_file), 
+                    str(model_path),
+                    seq_len=50,
+                    epochs=2  # 빠른 실행을 위해 2로 감소
+                )
+                
+                if not model_path.exists():
+                    return {'success': False, 'error': 'DeepLog model file not generated'}
+                
+                print(f"  ✅ 모델 학습 완료: {model_path.name}")
+                
+            except Exception as e:
+                print(f"❌ DeepLog 학습 실패: {e}")
+                return {'success': False, 'error': f'DeepLog training failed: {e}'}
+            
+            # 3. DeepLog 추론 (메모리 최적화를 위해 조건부 실행)
+            print("  🔍 DeepLog 추론 중...")
+            
+            try:
+                # 시퀀스 크기 확인
+                import pandas as pd
+                df_check = pd.read_parquet(sequences_file)
+                total_sequences = len(df_check)
+                
+                # 메모리 절약을 위해 큰 파일은 샘플링
+                if total_sequences > 50000:
+                    print(f"  ⚠️ 대용량 시퀀스 ({total_sequences:,}개) - 샘플링하여 추론")
+                    sample_df = df_check.sample(n=min(50000, total_sequences), random_state=42)
+                    sample_file = target_result['output_dir'] / "sequences_sample.parquet"
+                    sample_df.to_parquet(sample_file, index=False)
+                    inference_input = str(sample_file)
+                else:
+                    inference_input = str(sequences_file)
+                
+                from study_preprocessor.builders.deeplog import infer_deeplog_topk
+                infer_df = infer_deeplog_topk(inference_input, str(model_path), k=3)
+                
+                # 결과 저장
+                infer_file = target_result['output_dir'] / "deeplog_infer.parquet"
+                infer_df.to_parquet(infer_file, index=False)
+                
+                if not infer_file.exists():
+                    return {'success': False, 'error': 'DeepLog inference file not generated'}
+                
+                print(f"  ✅ 추론 완료: {len(infer_df):,}개 시퀀스 분석")
+                
+            except Exception as e:
+                print(f"❌ DeepLog 추론 실패: {e}")
+                return {'success': False, 'error': f'DeepLog inference failed: {e}'}
+            
+            # 결과 요약
+            import pandas as pd
+            deeplog_df = pd.read_parquet(infer_file)
+            violations = deeplog_df[deeplog_df['in_topk'] == False]
+            violation_rate = len(violations) / len(deeplog_df) if len(deeplog_df) > 0 else 0
+            
+            print(f"✅ DeepLog 분석 완료: 위반율 {violation_rate:.1%} ({len(violations)}/{len(deeplog_df)})")
+            
+            return {
+                'success': True,
+                'model_path': model_path,
+                'inference_file': infer_file,
+                'total_sequences': len(deeplog_df),
+                'violations': len(violations),
+                'violation_rate': violation_rate
+            }
+            
+        except Exception as e:
+            print(f"❌ DeepLog 분석 예외: {e}")
+            return {'success': False, 'error': str(e)}
     
     def run_temporal_analysis(self, target_result: Dict) -> Dict:
         """시간 기반 이상 탐지 실행 (기존과 동일)."""
@@ -631,7 +747,7 @@ class EnhancedBatchAnalyzer:
             return {'success': False, 'error': str(e)}
     
     def generate_enhanced_summary_report(self, target_result: Dict, baseline_results: List[Dict],
-                                       temporal_result: Dict, comparative_result: Dict,
+                                       deeplog_result: Dict, temporal_result: Dict, comparative_result: Dict,
                                        sample_analysis_result: Dict, input_dir: str, max_depth: int) -> str:
         """향상된 요약 리포트 생성."""
         
@@ -706,6 +822,26 @@ class EnhancedBatchAnalyzer:
                 else:
                     validation = result.get('validation', {})
                     report += f"{i}. ❌ **{result['file_path'].name}**: {result['error']} ({validation.get('file_size_mb', 0):.1f}MB)\n"
+        
+        # DeepLog 결과 추가
+        report += "\n## 🧠 DeepLog 딥러닝 분석 결과\n\n"
+        if deeplog_result['success']:
+            total_sequences = deeplog_result['total_sequences']
+            violations = deeplog_result['violations']
+            violation_rate = deeplog_result['violation_rate']
+            
+            report += f"**전체 시퀀스**: {total_sequences:,}개\n"
+            report += f"**예측 실패**: {violations:,}개\n"
+            report += f"**위반율**: {violation_rate:.1%}\n\n"
+            
+            if violation_rate > 0.5:  # 50% 이상
+                report += "🚨 **높은 위반율**: 로그 패턴이 매우 예측하기 어려운 상태입니다.\n"
+            elif violation_rate > 0.2:  # 20% 이상
+                report += "🔍 **중간 위반율**: 일부 예측 어려운 로그 패턴이 존재합니다.\n"
+            else:
+                report += "✅ **낮은 위반율**: 대부분 예측 가능한 로그 패턴입니다.\n"
+        else:
+            report += f"❌ DeepLog 분석 실패: {deeplog_result.get('error', 'Unknown error')}\n"
         
         # 나머지는 기존과 동일...
         report += "\n## 🕐 시간 기반 이상 탐지 결과\n\n"
