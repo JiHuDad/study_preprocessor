@@ -146,30 +146,55 @@ if [ -f "$WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md" ]; then
 fi
 
 echo "📂 상세 결과 확인:"
-echo "  📄 요약 리포트: $WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md"
+echo "  📄 종합 리포트: $WORK_DIR/COMPREHENSIVE_ANALYSIS_REPORT.md"
 echo "  📁 작업 폴더: $WORK_DIR/"
 echo ""
 
 # 결과 파일들 나열
 echo "📊 생성된 결과 파일들:"
 find "$WORK_DIR" -name "*.md" -o -name "*.json" | sort | while read file; do
-    rel_path=$(realpath --relative-to="." "$file")
+    # macOS 호환: 현재 디렉토리 기준 상대 경로 계산
+    rel_path=$(echo "$file" | sed "s|^$(pwd)/||")
     echo "  📝 $rel_path"
 done
 
 echo ""
 echo "🔧 추가 분석 명령어:"
 if [ -d "$WORK_DIR" ]; then
-    processed_dirs=$(find "$WORK_DIR" -name "processed_*" -type d | head -1)
-    if [ -n "$processed_dirs" ]; then
-        echo "  $PYTHON_CMD analyze_results.py --data-dir $processed_dirs"
-        echo "  $PYTHON_CMD visualize_results.py --data-dir $processed_dirs"
+    # Target 디렉토리 찾기 (가장 큰 디렉토리 또는 target 키워드 포함)
+    target_processed_dir=""
+    
+    # 1. 요약 리포트에서 Target 파일명 추출 시도
+    if [ -f "$WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md" ]; then
+        target_name=$(grep "^### Target 파일:" "$WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md" | sed 's/### Target 파일: //' | tr -d ' ')
+        if [ -n "$target_name" ]; then
+            # Target 파일명에서 확장자 제거하고 processed_ 디렉토리 찾기
+            target_base=$(echo "$target_name" | sed 's/\.[^.]*$//')
+            target_processed_dir=$(find "$WORK_DIR" -name "processed_${target_base}" -type d | head -1)
+        fi
+    fi
+    
+    # 2. Target 디렉토리를 찾지 못했으면 가장 큰 processed 디렉토리 사용
+    if [ -z "$target_processed_dir" ]; then
+        target_processed_dir=$(find "$WORK_DIR" -name "processed_*" -type d | while read dir; do
+            size=$(du -s "$dir" 2>/dev/null | cut -f1)
+            echo "$size $dir"
+        done | sort -nr | head -1 | cut -d' ' -f2)
+    fi
+    
+    if [ -n "$target_processed_dir" ] && [ -d "$target_processed_dir" ]; then
+        echo "  $PYTHON_CMD analyze_results.py --data-dir $target_processed_dir"
+        echo "  $PYTHON_CMD visualize_results.py --data-dir $target_processed_dir"
+    else
+        echo "  ⚠️  Target 처리 디렉토리를 찾을 수 없습니다"
+        echo "  📁 사용 가능한 디렉토리들:"
+        find "$WORK_DIR" -name "processed_*" -type d | sed 's/^/    /'
     fi
 fi
 
 echo ""
-echo "💡 Tip: 요약 리포트를 보려면 다음 명령어를 사용하세요:"
-echo "  cat $WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md"
+echo "💡 Tip: 종합 리포트를 보려면 다음 명령어를 사용하세요:"
+echo "  cat $WORK_DIR/COMPREHENSIVE_ANALYSIS_REPORT.md"
 echo ""
 echo "📁 스캔된 디렉토리 구조:"
 echo "  find $LOG_DIR -name '*.log' -o -name '*.txt' | head -10"

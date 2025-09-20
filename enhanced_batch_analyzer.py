@@ -270,22 +270,33 @@ class EnhancedBatchAnalyzer:
         """Target 파일과 Baseline 파일들을 선택합니다."""
         
         if target_file:
-            # 지정된 Target 파일 찾기
-            target_matches = [
-                (f, c) for f, c in log_files 
-                if f.name == target_file or str(f) == target_file
-            ]
+            # 절대 경로 또는 상대 경로로 지정된 Target 파일 처리
+            target_path = Path(target_file)
             
-            if target_matches:
-                target = target_matches[0]
-                baselines = [(f, c) for f, c in log_files if (f, c) != target]
+            # 1. 절대/상대 경로로 지정된 파일이 실제로 존재하는지 확인
+            if target_path.exists() and target_path.is_file():
+                print(f"🎯 외부 Target 파일 발견: {target_file}")
+                # 외부 파일을 Target으로 사용, 카테고리는 부모 디렉토리명
+                category = target_path.parent.name
+                target = (target_path, category)
+                baselines = log_files  # 모든 발견된 로그 파일들을 Baseline으로 사용
             else:
-                print(f"⚠️  지정된 Target 파일을 찾을 수 없음: {target_file}")
-                print("📋 사용 가능한 파일들:")
-                for i, (f, c) in enumerate(log_files[:10], 1):
-                    print(f"  {i}. {f.name} (카테고리: {c})")
-                target = log_files[0] if log_files else None
-                baselines = log_files[1:] if len(log_files) > 1 else []
+                # 2. 기존 방식: 발견된 로그 파일들 중에서 Target 찾기
+                target_matches = [
+                    (f, c) for f, c in log_files 
+                    if f.name == target_file or str(f) == target_file
+                ]
+                
+                if target_matches:
+                    target = target_matches[0]
+                    baselines = [(f, c) for f, c in log_files if (f, c) != target]
+                else:
+                    print(f"❌ 지정된 Target 파일을 찾을 수 없음: {target_file}")
+                    print("📋 사용 가능한 파일들:")
+                    for i, (f, c) in enumerate(log_files[:10], 1):
+                        print(f"  {i}. {f.name} (카테고리: {c})")
+                    print(f"\n💡 올바른 Target 파일명을 지정하거나, Target 파일을 생략하여 자동 선택하세요.")
+                    raise ValueError(f"Target 파일을 찾을 수 없습니다: {target_file}")
         else:
             # 가장 큰 파일을 Target으로 선택
             target = log_files[0] if log_files else None
@@ -380,7 +391,7 @@ class EnhancedBatchAnalyzer:
                 sys.executable, "log_sample_analyzer.py",
                 str(target_result['output_dir']),
                 "--output-dir", str(target_result['output_dir'] / "log_samples_analysis"),
-                "--max-samples", "5",
+                "--max-samples", "20",
                 "--context-lines", "3"
             ]
             
@@ -419,6 +430,58 @@ class EnhancedBatchAnalyzer:
         except Exception as e:
             print(f"❌ 로그 샘플 분석 예외: {e}")
             return {'success': False, 'error': str(e)}
+
+    def run_cli_report(self, target_result: Dict) -> Dict:
+        """CLI 리포트 생성 실행 (로그 샘플 분석 포함)."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"📄 CLI 리포트 생성: {target_result['file_path'].name}")
+        
+        try:
+            # CLI report 실행 (로그 샘플 분석 포함)
+            print("  📊 CLI 리포트 및 로그 샘플 분석 생성 중...")
+            
+            cmd = [
+                sys.executable, "-c", 
+                f"""
+import sys
+sys.path.append('.')
+from study_preprocessor.cli import main
+import click
+from pathlib import Path
+
+# CLI report 실행
+ctx = click.Context(main)
+ctx.invoke(main.commands['report'], 
+          processed_dir=Path('{target_result['output_dir']}'), 
+          with_samples=True)  # 로그 샘플 분석을 기본으로 포함
+print("CLI report generation completed")
+"""
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode != 0:
+                print(f"❌ CLI 리포트 생성 실패: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
+            
+            # 결과 파일 확인
+            report_file = target_result['output_dir'] / "report.md"
+            
+            if not report_file.exists():
+                return {'success': False, 'error': 'CLI report file not generated'}
+            
+            print(f"  ✅ CLI 리포트 생성 완료: {report_file.name}")
+            
+            return {
+                'success': True,
+                'report_file': report_file
+            }
+            
+        except Exception as e:
+            print(f"❌ CLI 리포트 생성 예외: {e}")
+            return {'success': False, 'error': str(e)}
     
     def run_enhanced_analysis(self, input_dir: str, target_file: str = None, 
                             max_depth: int = 3, max_files: int = 20) -> Dict:
@@ -435,18 +498,18 @@ class EnhancedBatchAnalyzer:
             print("❌ 로그 파일을 찾을 수 없습니다")
             return {'success': False, 'error': 'No log files found'}
         
-        # 파일 수 제한
-        if len(log_files) > max_files:
-            print(f"⚠️  파일 수가 많아 상위 {max_files}개만 분석합니다")
-            log_files = log_files[:max_files]
-        
-        # 2. Target 및 Baseline 선택
+        # 2. Target 및 Baseline 선택 (파일 수 제한 전에 수행)
         target_info, baseline_infos = self.select_target_and_baselines(log_files, target_file)
         if not target_info:
             print("❌ Target 파일이 없습니다")
             return {'success': False, 'error': 'No target file'}
         
-        # 3. 전처리 실행
+        # 3. 파일 수 제한 (Target은 항상 포함, Baseline만 제한)
+        if len(baseline_infos) > max_files - 1:  # Target 1개 제외하고 제한
+            print(f"⚠️  Baseline 파일이 많아 상위 {max_files - 1}개만 분석합니다")
+            baseline_infos = baseline_infos[:max_files - 1]
+        
+        # 4. 전처리 실행
         print(f"\n{'='*60}")
         print("📋 전처리 단계")
         print(f"{'='*60}")
@@ -460,24 +523,38 @@ class EnhancedBatchAnalyzer:
             result = self.preprocess_log_file(baseline_file, baseline_category)
             baseline_results.append(result)
         
-        # 4. 성공한 파일들만으로 분석 진행
+        # 5. 성공한 파일들만으로 분석 진행
         successful_baselines = [r for r in baseline_results if r['success']]
         
         print(f"\n📊 전처리 결과 요약:")
         print(f"  - Target: {'✅' if target_result['success'] else '❌'} {target_info[0].name}")
         print(f"  - Baseline 성공: {len(successful_baselines)}/{len(baseline_results)}개")
         
-        # 5. 분석 실행 (기존 코드와 동일)
+        # 6. Full Pipeline 분석 실행
+        baseline_result = {'success': False, 'error': 'Target preprocessing failed'}
         deeplog_result = {'success': False, 'error': 'Target preprocessing failed'}
+        mscred_result = {'success': False, 'error': 'Target preprocessing failed'}
         temporal_result = {'success': False, 'error': 'Target preprocessing failed'}
         comparative_result = {'success': False, 'error': 'Target preprocessing failed'}
         
         if target_result['success']:
+            # Baseline 이상 탐지
+            print(f"\n{'='*60}")
+            print("📈 Baseline 이상 탐지")
+            print(f"{'='*60}")
+            baseline_result = self.run_baseline_analysis(target_result)
+            
             # DeepLog 분석 
             print(f"\n{'='*60}")
             print("🧠 DeepLog 딥러닝 분석")
             print(f"{'='*60}")
             deeplog_result = self.run_deeplog_analysis(target_result)
+            
+            # MS-CRED 입력 생성
+            print(f"\n{'='*60}")
+            print("📊 MS-CRED 입력 생성")
+            print(f"{'='*60}")
+            mscred_result = self.run_mscred_build(target_result)
             
             # 시간 기반 분석
             print(f"\n{'='*60}")
@@ -492,29 +569,35 @@ class EnhancedBatchAnalyzer:
                 print(f"{'='*60}")
                 comparative_result = self.run_comparative_analysis(target_result, successful_baselines)
         
-        # 6. 로그 샘플 분석 (Target이 성공한 경우에만)
-        sample_analysis_result = {'success': False, 'error': 'Target preprocessing failed'}
+        # 7. CLI 리포트 생성 (로그 샘플 분석 포함, Target이 성공한 경우에만)
+        cli_report_result = {'success': False, 'error': 'Target preprocessing failed'}
         if target_result['success']:
             print(f"\n{'='*60}")
-            print("🔍 이상 로그 샘플 분석")
+            print("📄 CLI 리포트 생성 (로그 샘플 분석 포함)")
             print(f"{'='*60}")
-            sample_analysis_result = self.run_log_sample_analysis(target_result)
+            cli_report_result = self.run_cli_report(target_result)
         
-        # 7. 요약 리포트 생성
+        # 8. 요약 리포트 생성
         print(f"\n{'='*60}")
         print("📄 요약 리포트 생성")
         print(f"{'='*60}")
         
-        summary_report = self.generate_enhanced_summary_report(
-            target_result, baseline_results, deeplog_result, temporal_result, comparative_result,
-            sample_analysis_result, input_dir, max_depth
+        summary_report = self.generate_comprehensive_report(
+            target_result, baseline_results, baseline_result, deeplog_result, temporal_result, comparative_result,
+            cli_report_result, input_dir, max_depth
         )
         
-        summary_file = self.work_dir / "ENHANCED_ANALYSIS_SUMMARY.md"
-        with open(summary_file, 'w', encoding='utf-8') as f:
+        comprehensive_report_file = self.work_dir / "COMPREHENSIVE_ANALYSIS_REPORT.md"
+        with open(comprehensive_report_file, 'w', encoding='utf-8') as f:
             f.write(summary_report)
         
-        print(f"📋 요약 리포트 저장: {summary_file}")
+        # 기존 요약 파일도 호환성을 위해 생성
+        legacy_summary_file = self.work_dir / "ENHANCED_ANALYSIS_SUMMARY.md"
+        with open(legacy_summary_file, 'w', encoding='utf-8') as f:
+            f.write(summary_report)
+        
+        print(f"📋 종합 리포트 저장: {comprehensive_report_file}")
+        print(f"📋 호환성 리포트: {legacy_summary_file}")
         
         # 결과 요약 출력
         print(f"\n{'='*60}")
@@ -525,6 +608,11 @@ class EnhancedBatchAnalyzer:
         total_count = len(baseline_results) + 1
         print(f"📊 전처리 성공: {success_count}/{total_count}개 파일")
         
+        if baseline_result['success']:
+            baseline_anomalies = baseline_result['anomaly_windows']
+            baseline_rate = baseline_result['anomaly_rate']
+            print(f"📈 Baseline 이상: {baseline_anomalies}개 윈도우 ({baseline_rate:.1%})")
+        
         if temporal_result['success']:
             temporal_anomalies = len(temporal_result.get('anomalies', []))
             print(f"🕐 시간 기반 이상: {temporal_anomalies}개")
@@ -533,7 +621,15 @@ class EnhancedBatchAnalyzer:
             comp_anomalies = len(comparative_result.get('anomalies', []))
             print(f"📊 비교 분석 이상: {comp_anomalies}개")
         
-        print(f"📄 요약 리포트: {summary_file}")
+        if mscred_result['success']:
+            mscred_windows = mscred_result['num_windows']
+            mscred_templates = mscred_result['num_templates']
+            print(f"📊 MS-CRED 입력: {mscred_windows}개 윈도우 × {mscred_templates}개 템플릿")
+        
+        if cli_report_result['success']:
+            print(f"📄 CLI 리포트: {cli_report_result['report_file']}")
+        
+        print(f"📄 종합 리포트: {comprehensive_report_file}")
         
         return {
             'success': True,
@@ -541,12 +637,84 @@ class EnhancedBatchAnalyzer:
             'baseline_results': baseline_results,
             'temporal_result': temporal_result,
             'comparative_result': comparative_result,
-            'sample_analysis_result': sample_analysis_result,
-            'summary_file': summary_file,
+            'cli_report_result': cli_report_result,
+            'comprehensive_report_file': comprehensive_report_file,
+            'summary_file': legacy_summary_file,  # 호환성
             'total_files_found': len(log_files),
             'files_processed': total_count
         }
     
+    def run_baseline_analysis(self, target_result: Dict) -> Dict:
+        """Baseline 이상 탐지 실행."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"📈 Baseline 이상 탐지: {target_result['file_path'].name}")
+        
+        try:
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            
+            # Baseline 이상 탐지 실행
+            print("  📊 Window 기반 이상 탐지 중...")
+            
+            cmd = [
+                sys.executable, "-c", 
+                f"""
+import sys
+sys.path.append('.')
+from study_preprocessor.detect import baseline_detect
+from study_preprocessor.detect import BaselineParams
+
+# Baseline 이상 탐지 실행
+baseline_detect(
+    parsed_parquet='{parsed_file}',
+    out_dir='{target_result['output_dir']}',
+    params=BaselineParams(
+        window_size=50,
+        stride=25,
+        ewm_alpha=0.3,
+        anomaly_quantile=0.95
+    )
+)
+print("Baseline detection completed")
+"""
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode != 0:
+                print(f"❌ Baseline 이상 탐지 실패: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
+            
+            # 결과 파일 확인
+            baseline_scores_file = target_result['output_dir'] / "baseline_scores.parquet"
+            baseline_preview_file = target_result['output_dir'] / "baseline_preview.json"
+            
+            if not baseline_scores_file.exists():
+                return {'success': False, 'error': 'Baseline scores file not generated'}
+            
+            # 결과 요약
+            import pandas as pd
+            scores_df = pd.read_parquet(baseline_scores_file)
+            total_windows = len(scores_df)
+            anomaly_windows = len(scores_df[scores_df['is_anomaly'] == True])
+            anomaly_rate = anomaly_windows / total_windows if total_windows > 0 else 0
+            
+            print(f"  ✅ Baseline 이상 탐지 완료: {anomaly_windows}/{total_windows} 윈도우 이상 ({anomaly_rate:.1%})")
+            
+            return {
+                'success': True,
+                'scores_file': baseline_scores_file,
+                'preview_file': baseline_preview_file,
+                'total_windows': total_windows,
+                'anomaly_windows': anomaly_windows,
+                'anomaly_rate': anomaly_rate
+            }
+            
+        except Exception as e:
+            print(f"❌ Baseline 이상 탐지 예외: {e}")
+            return {'success': False, 'error': str(e)}
+
     def run_deeplog_analysis(self, target_result: Dict) -> Dict:
         """DeepLog 학습 및 추론 실행."""
         if not target_result['success']:
@@ -655,6 +823,68 @@ class EnhancedBatchAnalyzer:
         except Exception as e:
             print(f"❌ DeepLog 분석 예외: {e}")
             return {'success': False, 'error': str(e)}
+
+    def run_mscred_build(self, target_result: Dict) -> Dict:
+        """MS-CRED 입력 생성 실행."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"📊 MS-CRED 입력 생성: {target_result['file_path'].name}")
+        
+        try:
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            
+            # MS-CRED 입력 생성
+            print("  📊 윈도우 카운트 벡터 생성 중...")
+            
+            cmd = [
+                sys.executable, "-c", 
+                f"""
+import sys
+sys.path.append('.')
+from study_preprocessor.builders.mscred import build_mscred_window_counts
+
+# MS-CRED 입력 생성
+build_mscred_window_counts(
+    parsed_parquet='{parsed_file}',
+    out_dir='{target_result['output_dir']}',
+    window_size=50,
+    stride=25
+)
+print("MS-CRED input generation completed")
+"""
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode != 0:
+                print(f"❌ MS-CRED 입력 생성 실패: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
+            
+            # 결과 파일 확인
+            window_counts_file = target_result['output_dir'] / "window_counts.parquet"
+            
+            if not window_counts_file.exists():
+                return {'success': False, 'error': 'MS-CRED window counts file not generated'}
+            
+            # 결과 요약
+            import pandas as pd
+            counts_df = pd.read_parquet(window_counts_file)
+            num_windows = len(counts_df)
+            num_templates = len(counts_df.columns) - 1 if 'window_start' in counts_df.columns else len(counts_df.columns)
+            
+            print(f"  ✅ MS-CRED 입력 생성 완료: {num_windows}개 윈도우 × {num_templates}개 템플릿")
+            
+            return {
+                'success': True,
+                'window_counts_file': window_counts_file,
+                'num_windows': num_windows,
+                'num_templates': num_templates
+            }
+            
+        except Exception as e:
+            print(f"❌ MS-CRED 입력 생성 예외: {e}")
+            return {'success': False, 'error': str(e)}
     
     def run_temporal_analysis(self, target_result: Dict) -> Dict:
         """시간 기반 이상 탐지 실행 (기존과 동일)."""
@@ -746,10 +976,10 @@ class EnhancedBatchAnalyzer:
             print(f"❌ 비교 분석 예외: {e}")
             return {'success': False, 'error': str(e)}
     
-    def generate_enhanced_summary_report(self, target_result: Dict, baseline_results: List[Dict],
-                                       deeplog_result: Dict, temporal_result: Dict, comparative_result: Dict,
-                                       sample_analysis_result: Dict, input_dir: str, max_depth: int) -> str:
-        """향상된 요약 리포트 생성."""
+    def generate_comprehensive_report(self, target_result: Dict, baseline_results: List[Dict],
+                                     baseline_result: Dict, deeplog_result: Dict, temporal_result: Dict, comparative_result: Dict,
+                                     cli_report_result: Dict, input_dir: str, max_depth: int) -> str:
+        """종합 통합 리포트 생성 - 모든 분석 결과를 하나의 리포트로 통합."""
         
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         target_name = target_result['file_path'].name
@@ -823,6 +1053,26 @@ class EnhancedBatchAnalyzer:
                     validation = result.get('validation', {})
                     report += f"{i}. ❌ **{result['file_path'].name}**: {result['error']} ({validation.get('file_size_mb', 0):.1f}MB)\n"
         
+        # Baseline 결과 추가
+        report += "\n## 📈 Baseline 이상 탐지 결과\n\n"
+        if baseline_result['success']:
+            total_windows = baseline_result['total_windows']
+            anomaly_windows = baseline_result['anomaly_windows']
+            anomaly_rate = baseline_result['anomaly_rate']
+            
+            report += f"**분석 윈도우**: {total_windows:,}개\n"
+            report += f"**이상 윈도우**: {anomaly_windows:,}개\n"
+            report += f"**이상율**: {anomaly_rate:.1%}\n\n"
+            
+            if anomaly_rate > 0.1:  # 10% 이상
+                report += "🚨 **높은 이상율**: 다수의 윈도우에서 이상 패턴이 감지되었습니다.\n"
+            elif anomaly_rate > 0.05:  # 5% 이상
+                report += "⚠️ **중간 이상율**: 일부 윈도우에서 이상 패턴이 감지되었습니다.\n"
+            else:
+                report += "✅ **낮은 이상율**: 대부분 정상적인 로그 패턴입니다.\n"
+        else:
+            report += f"❌ **Baseline 분석 실패**: {baseline_result['error']}\n"
+        
         # DeepLog 결과 추가
         report += "\n## 🧠 DeepLog 딥러닝 분석 결과\n\n"
         if deeplog_result['success']:
@@ -883,30 +1133,35 @@ class EnhancedBatchAnalyzer:
         else:
             report += f"❌ 파일별 비교 분석 실패: {comparative_result.get('error', 'Unknown error')}\n"
         
-        # 로그 샘플 분석 결과 추가
-        report += "\n## 🔍 이상 로그 샘플 분석 결과\n\n"
-        if sample_analysis_result['success']:
-            total_sample_anomalies = sample_analysis_result.get('total_anomalies', 0)
-            analysis_summary = sample_analysis_result.get('analysis_summary', {})
+        # CLI 리포트 생성 결과 추가 (로그 샘플 분석 포함)
+        report += "\n## 📄 CLI 리포트 및 로그 샘플 분석 결과\n\n"
+        if cli_report_result['success']:
+            report_file = cli_report_result.get('report_file')
+            if report_file:
+                report += f"**CLI 리포트**: `{report_file}`\n"
+                report += "→ 기본 탐지 결과 및 통계 정보를 확인할 수 있습니다.\n\n"
             
-            report += f"**총 분석된 이상**: {total_sample_anomalies}개\n\n"
-            
-            if analysis_summary:
-                for method, summary in analysis_summary.items():
-                    method_name = {'baseline': '윈도우 기반', 'deeplog': 'DeepLog', 'comparative': '비교 분석'}.get(method, method)
-                    report += f"### {method_name} 분석\n"
-                    report += f"- **발견된 이상**: {summary['anomaly_count']}개\n"
-                    report += f"- **분석된 샘플**: {summary['analyzed_count']}개\n"
-                    report += f"- **방법론**: {summary['method_description']}\n\n"
+            # 로그 샘플 분석 파일 확인
+            target_dir = target_result['output_dir']
+            sample_analysis_dir = target_dir / "log_samples_analysis"
+            if sample_analysis_dir.exists():
+                sample_report = sample_analysis_dir / "anomaly_analysis_report.md"
+                sample_data = sample_analysis_dir / "anomaly_samples.json"
                 
-                # 샘플 리포트 링크
-                if 'report_file' in sample_analysis_result:
-                    report += f"📄 **상세 로그 샘플 분석**: `{sample_analysis_result['report_file']}`\n"
+                if sample_report.exists():
+                    report += f"**로그 샘플 분석 리포트**: `{sample_report}`\n"
                     report += "→ 실제 문제 로그들과 전후 맥락을 확인할 수 있습니다.\n\n"
-            else:
-                report += "✅ 이상 로그 샘플이 발견되지 않았습니다.\n"
+                
+                if sample_data.exists():
+                    report += f"**상세 샘플 데이터**: `{sample_data}`\n"
+                    report += "→ 구조화된 이상 로그 샘플 데이터입니다.\n\n"
+            
+            report += "✅ CLI 리포트 및 로그 샘플 분석이 정상적으로 생성되었습니다.\n"
         else:
-            report += f"❌ 로그 샘플 분석 실패: {sample_analysis_result.get('error', 'Unknown error')}\n"
+            report += f"❌ CLI 리포트 생성 실패: {cli_report_result.get('error', 'Unknown error')}\n"
+        
+        # 실제 로그 샘플 통합
+        report += self._add_log_samples_to_report(target_result, baseline_result, deeplog_result, temporal_result, comparative_result)
         
         # 권고사항 및 상세 결과
         total_anomalies = 0
@@ -914,8 +1169,8 @@ class EnhancedBatchAnalyzer:
             total_anomalies += len(temporal_result.get('anomalies', []))
         if comparative_result['success']:
             total_anomalies += len(comparative_result.get('anomalies', []))
-        if sample_analysis_result['success']:
-            total_anomalies += sample_analysis_result.get('total_anomalies', 0)
+        if baseline_result['success']:
+            total_anomalies += baseline_result.get('anomaly_windows', 0)
         
         report += "\n## 💡 권고사항\n\n"
         if total_anomalies == 0:
@@ -949,6 +1204,169 @@ python visualize_results.py --data-dir {target_result['output_dir']}
 """
         
         return report
+    
+    def _add_log_samples_to_report(self, target_result: Dict, baseline_result: Dict, deeplog_result: Dict, 
+                                   temporal_result: Dict, comparative_result: Dict) -> str:
+        """실제 로그 샘플들을 리포트에 직접 포함합니다."""
+        if not target_result['success']:
+            return "\n## 🔍 로그 샘플 분석\n\n❌ Target 전처리 실패로 로그 샘플을 분석할 수 없습니다.\n"
+        
+        report = "\n## 🔍 실제 로그 샘플 분석\n\n"
+        report += "다음은 각 분석 방법으로 발견된 실제 문제 로그들의 샘플입니다.\n\n"
+        
+        # Baseline 이상 로그 샘플
+        if baseline_result['success'] and baseline_result.get('anomaly_windows', 0) > 0:
+            report += self._extract_baseline_samples(target_result)
+        
+        # DeepLog 이상 로그 샘플  
+        if deeplog_result['success'] and deeplog_result.get('violations', 0) > 0:
+            report += self._extract_deeplog_samples(target_result)
+        
+        # 시간 기반 이상 로그 샘플
+        if temporal_result['success'] and len(temporal_result.get('anomalies', [])) > 0:
+            report += self._extract_temporal_samples(target_result, temporal_result)
+        
+        # 비교 분석 이상 로그 샘플
+        if comparative_result['success'] and len(comparative_result.get('anomalies', [])) > 0:
+            report += self._extract_comparative_samples(target_result, comparative_result)
+        
+        return report
+    
+    def _extract_baseline_samples(self, target_result: Dict) -> str:
+        """Baseline 이상 로그 샘플을 추출합니다."""
+        try:
+            import pandas as pd
+            
+            baseline_scores_file = target_result['output_dir'] / "baseline_scores.parquet"
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            
+            if not baseline_scores_file.exists() or not parsed_file.exists():
+                return ""
+            
+            scores_df = pd.read_parquet(baseline_scores_file)
+            parsed_df = pd.read_parquet(parsed_file)
+            
+            anomaly_windows = scores_df[scores_df['is_anomaly'] == True].head(3)
+            
+            if len(anomaly_windows) == 0:
+                return ""
+            
+            sample_text = "### 📈 Baseline 이상 탐지 샘플\n\n"
+            
+            for _, window in anomaly_windows.iterrows():
+                start_line = int(window['window_start_line'])
+                score = window['score']
+                
+                # 해당 윈도우의 로그들 추출
+                window_logs = parsed_df[
+                    (parsed_df['line_no'] >= start_line) & 
+                    (parsed_df['line_no'] < start_line + 50)
+                ].head(5)
+                
+                sample_text += f"**윈도우 시작라인 {start_line}** (점수: {score:.3f})\n"
+                sample_text += "```\n"
+                for _, log in window_logs.iterrows():
+                    log_text = str(log.get('raw', ''))[:100]
+                    sample_text += f"Line {log['line_no']}: {log_text}...\n"
+                sample_text += "```\n\n"
+            
+            return sample_text
+            
+        except Exception as e:
+            return f"⚠️ Baseline 샘플 추출 실패: {e}\n\n"
+    
+    def _extract_deeplog_samples(self, target_result: Dict) -> str:
+        """DeepLog 이상 로그 샘플을 추출합니다."""
+        try:
+            import pandas as pd
+            
+            deeplog_file = target_result['output_dir'] / "deeplog_infer.parquet"
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            
+            if not deeplog_file.exists() or not parsed_file.exists():
+                return ""
+            
+            deeplog_df = pd.read_parquet(deeplog_file)
+            parsed_df = pd.read_parquet(parsed_file)
+            
+            violations = deeplog_df[deeplog_df['in_topk'] == False].head(5)
+            
+            if len(violations) == 0:
+                return ""
+            
+            sample_text = "### 🧠 DeepLog 이상 탐지 샘플\n\n"
+            
+            for _, violation in violations.iterrows():
+                line_no = violation['line_no']
+                
+                # 해당 라인의 로그 추출
+                log_line = parsed_df[parsed_df['line_no'] == line_no]
+                
+                if len(log_line) > 0:
+                    log = log_line.iloc[0]
+                    log_text = str(log.get('raw', ''))
+                    template_id = log.get('template_id', 'Unknown')
+                    
+                    sample_text += f"**Line {line_no}** (Template ID: {template_id})\n"
+                    sample_text += f"```\n{log_text}\n```\n"
+                    sample_text += f"→ 예측 실패: 이 로그 패턴이 예상되지 않았습니다.\n\n"
+            
+            return sample_text
+            
+        except Exception as e:
+            return f"⚠️ DeepLog 샘플 추출 실패: {e}\n\n"
+    
+    def _extract_temporal_samples(self, target_result: Dict, temporal_result: Dict) -> str:
+        """시간 기반 이상 로그 샘플을 추출합니다."""
+        try:
+            anomalies = temporal_result.get('anomalies', [])[:3]
+            if not anomalies:
+                return ""
+            
+            sample_text = "### 🕐 시간 기반 이상 탐지 샘플\n\n"
+            
+            for anomaly in anomalies:
+                hour = anomaly.get('hour', 'Unknown')
+                anomaly_type = anomaly.get('type', 'Unknown')
+                description = anomaly.get('description', 'No description')
+                severity = anomaly.get('severity', 'medium')
+                
+                severity_icon = {'high': '🚨', 'medium': '⚠️', 'low': '🔍'}.get(severity, '⚠️')
+                
+                sample_text += f"**{severity_icon} {hour}시 이상 현상**\n"
+                sample_text += f"- **유형**: {anomaly_type}\n"
+                sample_text += f"- **설명**: {description}\n"
+                sample_text += f"- **심각도**: {severity}\n\n"
+            
+            return sample_text
+            
+        except Exception as e:
+            return f"⚠️ 시간 기반 샘플 추출 실패: {e}\n\n"
+    
+    def _extract_comparative_samples(self, target_result: Dict, comparative_result: Dict) -> str:
+        """비교 분석 이상 로그 샘플을 추출합니다."""
+        try:
+            anomalies = comparative_result.get('anomalies', [])[:3]
+            if not anomalies:
+                return ""
+            
+            sample_text = "### 📊 비교 분석 이상 탐지 샘플\n\n"
+            
+            for anomaly in anomalies:
+                anomaly_type = anomaly.get('type', 'Unknown')
+                description = anomaly.get('description', 'No description')
+                severity = anomaly.get('severity', 'medium')
+                
+                severity_icon = {'high': '🚨', 'medium': '⚠️', 'low': '🔍'}.get(severity, '⚠️')
+                
+                sample_text += f"**{severity_icon} {anomaly_type} 이상**\n"
+                sample_text += f"- **설명**: {description}\n"
+                sample_text += f"- **심각도**: {severity}\n\n"
+            
+            return sample_text
+            
+        except Exception as e:
+            return f"⚠️ 비교 분석 샘플 추출 실패: {e}\n\n"
 
 def main():
     parser = argparse.ArgumentParser(description="향상된 배치 로그 분석기")

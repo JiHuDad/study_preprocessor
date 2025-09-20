@@ -15,7 +15,7 @@ from datetime import datetime
 
 class LogSampleAnalyzer:
     def __init__(self):
-        self.max_samples_per_type = 5  # 타입별 최대 샘플 수
+        self.max_samples_per_type = 20  # 타입별 최대 샘플 수
         self.context_lines = 3  # 전후 맥락 라인 수
         
     def extract_baseline_anomaly_samples(self, parsed_file: str, baseline_scores_file: str) -> Dict:
@@ -281,6 +281,12 @@ class LogSampleAnalyzer:
         if not unique_templates:
             return None
         
+        # unique_templates가 정수인 경우 리스트로 변환
+        if isinstance(unique_templates, int):
+            unique_templates = [unique_templates]
+        elif not isinstance(unique_templates, list):
+            return None
+        
         # 고유 템플릿들의 로그 샘플 찾기
         sample_logs = []
         for template_id in unique_templates[:3]:  # 최대 3개
@@ -541,7 +547,15 @@ class LogSampleAnalyzer:
         """템플릿 이상에 대한 설명을 생성합니다."""
         
         kl_div = anomaly.get('kl_divergence', 0)
-        unique_count = anomaly.get('unique_templates', 0)
+        unique_templates = anomaly.get('unique_templates', 0)
+        
+        # unique_templates가 리스트인 경우 길이를 사용
+        if isinstance(unique_templates, list):
+            unique_count = len(unique_templates)
+        elif isinstance(unique_templates, int):
+            unique_count = unique_templates
+        else:
+            unique_count = 0
         
         explanation = f"이 파일은 다른 baseline 파일들과 비교했을 때 "
         
@@ -607,7 +621,7 @@ def analyze_all_anomalies(processed_dir: str, output_dir: str = None):
             str(parsed_file), str(baseline_scores_file)
         )
         all_results['baseline'] = baseline_results
-        print(f"   ✅ {baseline_results['anomaly_count']}개 이상 윈도우 중 {baseline_results['analyzed_count']}개 분석")
+        print(f"   ✅ {baseline_results.get('anomaly_count', 0)}개 이상 윈도우 중 {baseline_results.get('analyzed_count', 0)}개 분석")
     
     # 2. DeepLog 이상탐지 결과 분석
     deeplog_infer_file = processed_path / "deeplog_infer.parquet"
@@ -618,7 +632,7 @@ def analyze_all_anomalies(processed_dir: str, output_dir: str = None):
             str(parsed_file), str(deeplog_infer_file), str(vocab_file)
         )
         all_results['deeplog'] = deeplog_results
-        print(f"   ✅ {deeplog_results['anomaly_count']}개 예측 실패 중 {deeplog_results['analyzed_count']}개 분석")
+        print(f"   ✅ {deeplog_results.get('anomaly_count', 0)}개 예측 실패 중 {deeplog_results.get('analyzed_count', 0)}개 분석")
     
     # 3. 비교 분석 결과
     comparative_dir = processed_path / "comparative_analysis"
@@ -629,7 +643,7 @@ def analyze_all_anomalies(processed_dir: str, output_dir: str = None):
             str(comparative_anomalies_file), str(parsed_file)
         )
         all_results['comparative'] = comparative_results
-        print(f"   ✅ {comparative_results['anomaly_count']}개 비교 이상 중 {comparative_results['analyzed_count']}개 분석")
+        print(f"   ✅ {comparative_results.get('anomaly_count', 0)}개 비교 이상 중 {comparative_results.get('analyzed_count', 0)}개 분석")
     
     # 결과 저장
     with open(output_path / "anomaly_samples.json", 'w', encoding='utf-8') as f:
