@@ -119,22 +119,86 @@ clusters = DBSCAN(eps=0.3).fit(window_features)
 anomaly_windows = clusters.labels_ == -1
 ```
 
-## 🛠️ 구현 우선순위
+## ✅ 현재 구현 상태
 
-### Phase 1: 시간 기반 확장
-1. **시간대별 프로파일 탐지**
-2. **요일/월별 패턴 학습**
-3. **Rolling window vs Fixed window 비교**
+### Phase 1: 시간 기반 확장 (구현 완료 ✅)
+1. **✅ 시간대별 프로파일 탐지** - `temporal_anomaly_detector.py`
+2. **✅ 요일/월별 패턴 학습** - 시간 기반 분석 포함
+3. **✅ Rolling window vs Fixed window 비교** - 다양한 윈도우 크기 지원
 
-### Phase 2: 다중 파일 분석
-1. **파일 간 패턴 비교**
-2. **서버 그룹별 baseline 구축**
-3. **Cross-validation 방식 이상 탐지**
+### Phase 2: 다중 파일 분석 (구현 완료 ✅)
+1. **✅ 파일 간 패턴 비교** - `comparative_anomaly_detector.py`
+2. **✅ 서버 그룹별 baseline 구축** - `enhanced_batch_analyzer.py`
+3. **✅ Cross-validation 방식 이상 탐지** - 다중 baseline 비교
 
-### Phase 3: 고급 분석
-1. **시계열 분해 탐지**
-2. **딥러닝 기반 sequence anomaly**
-3. **Graph-based 패턴 분석**
+### Phase 3: 고급 분석 (부분 구현 🚧)
+1. **🚧 시계열 분해 탐지** - 기본 시간 분석 구현됨
+2. **✅ 딥러닝 기반 sequence anomaly** - DeepLog LSTM 모델
+3. **🚧 Graph-based 패턴 분석** - 향후 구현 예정
+
+## 🆕 최신 추가 기능 (2025-09-20)
+
+### 7. **베이스라인 품질 검증**
+**원리**: 베이스라인 로그 자체의 품질을 평가하여 문제 있는 파일 필터링
+
+**구현**: `baseline_validator.py`
+```python
+# 품질 평가 지표
+quality_metrics = {
+    'error_rate': error_logs / total_logs,
+    'warning_rate': warning_logs / total_logs,
+    'template_diversity': unique_templates,
+    'log_volume': total_logs,
+    'rare_template_ratio': rare_templates / unique_templates
+}
+
+# 품질 임계값
+QUALITY_THRESHOLDS = {
+    'max_error_rate': 0.02,      # 2% 이하
+    'max_warning_rate': 0.05,    # 5% 이하
+    'min_templates': 10,         # 최소 10개 템플릿
+    'min_logs': 100,            # 최소 100개 로그
+    'max_rare_ratio': 0.3       # 희귀 템플릿 30% 이하
+}
+```
+
+**장점**:
+- ✅ 이상탐지 정확도 향상
+- ✅ 자동 품질 필터링
+- ✅ 신뢰할 수 있는 baseline 보장
+
+### 8. **이상 로그 샘플 분석**
+**원리**: 이상탐지 결과에서 실제 문제 로그를 추출하여 사람이 이해하기 쉽게 제공
+
+**구현**: `log_sample_analyzer.py`
+```python
+# 샘플 추출 및 분석
+def extract_anomaly_samples(anomaly_results, parsed_logs):
+    samples = []
+    for anomaly in anomaly_results:
+        # 이상 구간의 실제 로그 추출
+        log_sample = get_log_context(parsed_logs, anomaly.line_range)
+        
+        # 전후 맥락 추가
+        context = get_surrounding_context(parsed_logs, anomaly.line_range, 3)
+        
+        # 이상 원인 분석
+        explanation = analyze_anomaly_pattern(log_sample, anomaly.type)
+        
+        samples.append({
+            'sample': log_sample,
+            'context': context,
+            'explanation': explanation,
+            'severity': classify_severity(anomaly)
+        })
+    
+    return samples
+```
+
+**장점**:
+- ✅ 실제 문제 로그 확인 가능
+- ✅ 전후 맥락으로 상황 파악
+- ✅ 사람 친화적인 설명 제공
 
 ## 📊 각 방법의 적용 시나리오
 
@@ -145,11 +209,26 @@ anomaly_windows = clusters.labels_ == -1
 | **파일별 비교** | 시스템 간 비교, 배치 분석 | 상대적 이상 탐지 | 시간 정보 손실 |
 | **시계열 분해** | 장기 트렌드 분석 | 계절성 고려 | 복잡성 증가 |
 | **클러스터링** | 패턴 발견, 그룹화 | 새로운 패턴 발견 | 해석 어려움 |
+| **베이스라인 품질검증** | 배치 분석, 품질 관리 | 정확도 향상 | 초기 설정 필요 |
+| **로그 샘플 분석** | 문제 진단, 사후 분석 | 직관적 이해 | 추가 처리 시간 |
 
-## 🚀 다음 단계
+## 🎯 통합 솔루션
 
-각 방법을 구현하여 현재 시스템에 추가할 수 있습니다. 어떤 방법을 우선적으로 구현해보고 싶으신가요?
+현재 시스템은 **모든 주요 방법들이 통합**되어 `run_enhanced_batch_analysis.sh` 하나로 실행 가능합니다:
 
-1. **시간대별 프로파일 탐지** - 가장 실용적
-2. **파일별 비교 탐지** - 현재 상황에 바로 적용 가능
-3. **시계열 분해 탐지** - 고급 분석 기능
+1. **✅ 자동 베이스라인 품질 검증**
+2. **✅ 시간 기반 이상탐지**  
+3. **✅ 파일별 비교 이상탐지**
+4. **✅ 딥러닝 기반 시퀀스 분석**
+5. **✅ 이상 로그 샘플 추출 및 분석**
+
+## 🚀 사용 방법
+
+```bash
+# 모든 기능을 한번에 실행
+./run_enhanced_batch_analysis.sh /path/to/logs/
+
+# 결과 확인 (중요도 순)
+cat enhanced_analysis_*/ENHANCED_ANALYSIS_SUMMARY.md
+cat enhanced_analysis_*/processed_*/log_samples_analysis/anomaly_analysis_report.md
+```

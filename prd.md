@@ -147,6 +147,39 @@ uv run python -c "from study_preprocessor.builders.mscred import build_mscred_wi
 - **자동화 스크립트**: 전체 파이프라인 원클릭 실행
 - **리포트 생성**: 마크다운 형식 분석 결과 요약
 
+#### 🆕 최신 추가 기능 (2025-09-20)
+
+##### 베이스라인 품질 검증 시스템
+- **문제 정의**: 베이스라인 로그 자체에 이상이 있으면 이상탐지 정확도 저하
+- **해결책**: 자동 베이스라인 품질 평가 및 필터링
+- **구현**:
+  - `baseline_validator.py`: 에러율, 템플릿 다양성, 로그 수량 등 품질 지표 평가
+  - `enhanced_batch_analyzer.py`에 자동 베이스라인 필터링 통합
+  - 품질 임계값: 에러율 2% 이하, 경고율 5% 이하, 최소 템플릿 10개, 최소 로그 100개
+  - 희귀 템플릿 비율 30% 이하로 제한
+
+##### 로그 샘플 분석 시스템
+- **문제 정의**: 이상탐지 결과가 너무 기술적이어서 실제 문제 로그를 파악하기 어려움
+- **해결책**: 실제 이상 로그 샘플을 사람이 읽기 쉬운 형태로 추출 및 분석
+- **구현**:
+  - `log_sample_analyzer.py`: 이상탐지 결과에서 실제 로그 샘플 추출
+  - 전후 맥락 3줄과 함께 로그 표시
+  - 이상 유형별 설명 및 패턴 분석 제공
+  - 마크다운 형식 종합 리포트 생성 (`anomaly_analysis_report.md`)
+  - CLI 명령어: `study-preprocess analyze-samples`
+  - `study-preprocess report --with-samples` 옵션으로 통합 분석
+
+##### CLI 확장
+- **Target vs Baseline 구분**: Target은 분석할 파일, Log Directory는 baseline 학습용 파일들
+- **새 명령어**:
+  - `study-preprocess analyze-samples`: 독립적인 로그 샘플 분석
+  - `study-preprocess report --with-samples`: 기존 리포트에 샘플 분석 포함
+
+##### 프로젝트 관리 개선
+- **`.gitignore` 강화**: 분석 결과 디렉토리, 모델 파일, Drain3 상태 파일 등 추가
+- **데모 스크립트**: `demo_log_samples.sh`로 전체 기능 시연
+- **문서 업데이트**: README에 새 기능 사용법 및 예시 추가
+
 #### 수용 기준(Acceptance)
 - [x] 샘플 로그로 `parse` 실행 시 Parquet 산출 및 3개+ 마스킹 타입 확인 가능
 - [x] DeepLog 빌더로 시퀀스/윈도우 산출 확인
@@ -155,3 +188,6 @@ uv run python -c "from study_preprocessor.builders.mscred import build_mscred_wi
 - [x] DeepLog 학습 및 추론 파이프라인 동작 확인
 - [x] 배치 분석으로 여러 파일 일괄 처리 확인
 - [x] 전체 파이프라인 자동화 스크립트 동작 확인
+- [x] 베이스라인 품질 검증으로 문제 있는 baseline 자동 필터링 확인
+- [x] 로그 샘플 분석으로 실제 이상 로그 내용 및 맥락 추출 확인
+- [x] 향상된 배치 분석에서 모든 새 기능들이 통합되어 동작 확인

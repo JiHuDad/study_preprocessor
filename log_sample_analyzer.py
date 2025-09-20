@@ -99,7 +99,7 @@ class LogSampleAnalyzer:
         df_parsed = pd.read_parquet(parsed_file)
         df_infer = pd.read_parquet(deeplog_infer_file)
         
-            with open(vocab_file, 'r', encoding='utf-8') as f:
+        with open(vocab_file, 'r', encoding='utf-8') as f:
             vocab = json.load(f)
         # 역방향 매핑 생성
         idx_to_template = {v: k for k, v in vocab.items()}

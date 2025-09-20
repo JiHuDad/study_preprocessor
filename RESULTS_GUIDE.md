@@ -174,8 +174,49 @@ cat data/server1/comparative_analysis/comparative_report.md
 - 고유/누락 템플릿 분석
 - Z-score 기반 이상치 탐지
 
+### 🆕 이상 로그 샘플 분석 (NEW!)
+실제 문제가 되는 로그들을 사람이 읽기 쉬운 형태로 추출하고 분석합니다.
+
+```bash
+# 로그 샘플 분석 (독립 실행)
+study-preprocess analyze-samples --processed-dir data/processed
+
+# 기존 리포트에 샘플 분석 포함
+study-preprocess report --processed-dir data/processed --with-samples
+
+# 결과 확인
+cat data/processed/log_samples_analysis/anomaly_analysis_report.md
+```
+
+**분석 내용**:
+- 실제 이상 로그들의 원문과 전후 맥락
+- 왜 이상으로 판단되었는지 구체적 설명
+- 이상 유형별 패턴 분석 및 권고사항
+
+### 🔍 베이스라인 품질 검증 (NEW!)
+베이스라인 로그의 품질을 평가하여 신뢰할 수 있는 분석을 보장합니다.
+
+```bash
+# 베이스라인 품질 검증
+python baseline_validator.py /path/to/baseline/logs/ --output-dir validation_result
+
+# 자동화 스크립트
+./run_baseline_validation.sh /path/to/baseline/logs/
+```
+
+**검증 지표**:
+- 에러율 (2% 이하 권장)
+- 경고율 (5% 이하 권장) 
+- 템플릿 다양성 (최소 10개)
+- 로그 볼륨 (최소 100개)
+- 희귀 템플릿 비율 (30% 이하)
+
 ### CLI 도구
 ```bash
+# 새로운 CLI 명령어들
+study-preprocess analyze-samples --help
+study-preprocess report --with-samples
+
 # 기본 CLI 도구
 .venv/bin/python -m study_preprocessor.cli detect --help
 .venv/bin/python -m study_preprocessor.cli eval --help

@@ -130,6 +130,16 @@ logs/
 - **파일별 비교 탐지**: 시스템 간 차이점 분석
 - **윈도우 기반 탐지**: 기존 패턴과의 차이점
 
+### 5. **베이스라인 품질 검증** 🆕
+- **자동 품질 평가**: 에러율, 템플릿 다양성, 로그 수량 검증
+- **품질 필터링**: 문제 있는 baseline 파일 자동 제외
+- **품질 기준**: 에러율 2% 이하, 경고율 5% 이하, 최소 템플릿 10개
+
+### 6. **이상 로그 샘플 분석** 🆕
+- **실제 로그 추출**: 이상탐지 결과에서 문제 로그 샘플 추출
+- **맥락 정보**: 전후 3줄 컨텍스트와 함께 표시
+- **사람 친화적**: 기술적 결과를 이해하기 쉬운 설명으로 번역
+
 ## 📊 결과 파일 구조
 
 ```
@@ -142,9 +152,12 @@ logs/
 │   ├── temporal_analysis/
 │   │   ├── temporal_report.md
 │   │   └── temporal_anomalies.json
-│   └── comparative_analysis/
-│       ├── comparative_report.md
-│       └── comparative_anomalies.json
+│   ├── comparative_analysis/
+│   │   ├── comparative_report.md
+│   │   └── comparative_anomalies.json
+│   └── log_samples_analysis/ 🆕          # 📁 이상 로그 샘플 분석
+│       ├── anomaly_analysis_report.md    # 사람이 읽기 쉬운 리포트
+│       └── anomaly_samples.json          # 상세 샘플 데이터
 └── processed_category2_file2/             # 📁 다른 파일 분석 결과
     └── ...
 ```
