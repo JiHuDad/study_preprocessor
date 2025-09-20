@@ -305,6 +305,121 @@ class EnhancedBatchAnalyzer:
         
         return target, baselines
     
+    def _validate_baseline_quality(self, baseline_results: List[Dict]) -> List[Dict]:
+        """Baseline 파일들의 품질을 검증하고 문제가 있는 것들을 필터링합니다."""
+        
+        quality_baselines = []
+        
+        for result in baseline_results:
+            try:
+                # 기본 통계 로드
+                df = pd.read_parquet(result['parsed_file'])
+                
+                # 품질 검증 기준들
+                total_logs = len(df)
+                unique_templates = len(df['template_id'].unique()) if 'template_id' in df.columns else 0
+                
+                # 에러/경고 로그 분석
+                error_keywords = ['error', 'ERROR', 'fail', 'FAIL', 'exception', 'Exception', 'panic', 'fatal']
+                warning_keywords = ['warn', 'WARN', 'warning', 'WARNING']
+                
+                error_logs = df[df['raw'].str.contains('|'.join(error_keywords), case=False, na=False)]
+                warning_logs = df[df['raw'].str.contains('|'.join(warning_keywords), case=False, na=False)]
+                
+                error_rate = len(error_logs) / max(total_logs, 1)
+                warning_rate = len(warning_logs) / max(total_logs, 1)
+                
+                # 템플릿 분포 분석
+                template_counts = df['template_id'].value_counts() if 'template_id' in df.columns else pd.Series()
+                rare_templates = len([t for t, count in template_counts.items() if count == 1])
+                rare_template_ratio = rare_templates / max(unique_templates, 1)
+                
+                # 품질 기준 체크
+                quality_issues = []
+                
+                if error_rate > 0.02:  # 2% 이상 에러율
+                    quality_issues.append(f"높은 에러율: {error_rate:.2%}")
+                
+                if warning_rate > 0.05:  # 5% 이상 경고율
+                    quality_issues.append(f"높은 경고율: {warning_rate:.2%}")
+                
+                if unique_templates < 10:  # 최소 10개 템플릿
+                    quality_issues.append(f"템플릿 부족: {unique_templates}개")
+                
+                if total_logs < 100:  # 최소 100개 로그
+                    quality_issues.append(f"로그 수 부족: {total_logs}개")
+                
+                if rare_template_ratio > 0.3:  # 희귀 템플릿 30% 이상
+                    quality_issues.append(f"희귀 템플릿 과다: {rare_template_ratio:.1%}")
+                
+                # 품질 기준 통과 여부
+                if len(quality_issues) <= 1:  # 최대 1개 문제까지 허용
+                    quality_baselines.append(result)
+                    if quality_issues:
+                        print(f"   ⚠️  {result['file_path'].name}: {quality_issues[0]} (경미함)")
+                    else:
+                        print(f"   ✅ {result['file_path'].name}: 품질 양호")
+                else:
+                    print(f"   ❌ {result['file_path'].name}: {', '.join(quality_issues)}")
+                
+            except Exception as e:
+                print(f"   ❌ {result['file_path'].name}: 검증 오류 ({e})")
+        
+        return quality_baselines
+    
+    def run_log_sample_analysis(self, target_result: Dict) -> Dict:
+        """Target 파일의 이상 로그 샘플을 분석합니다."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"🔍 이상 로그 샘플 분석: {target_result['file_path'].name}")
+        
+        try:
+            # 로그 샘플 분석 실행
+            cmd = [
+                sys.executable, "log_sample_analyzer.py",
+                str(target_result['output_dir']),
+                "--output-dir", str(target_result['output_dir'] / "log_samples_analysis"),
+                "--max-samples", "5",
+                "--context-lines", "3"
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode != 0:
+                print(f"❌ 로그 샘플 분석 실패: {result.stderr}")
+                return {'success': False, 'error': result.stderr}
+            
+            # 결과 로드
+            sample_data_file = target_result['output_dir'] / "log_samples_analysis" / "anomaly_samples.json"
+            sample_report_file = target_result['output_dir'] / "log_samples_analysis" / "anomaly_analysis_report.md"
+            
+            sample_result = {'success': True, 'total_anomalies': 0, 'analysis_summary': {}}
+            
+            if sample_data_file.exists():
+                with open(sample_data_file, 'r') as f:
+                    sample_data = json.load(f)
+                
+                # 요약 통계 계산
+                for method, results in sample_data.items():
+                    anomaly_count = results.get('anomaly_count', 0)
+                    sample_result['total_anomalies'] += anomaly_count
+                    sample_result['analysis_summary'][method] = {
+                        'anomaly_count': anomaly_count,
+                        'analyzed_count': results.get('analyzed_count', 0),
+                        'method_description': results.get('method', 'Unknown')
+                    }
+                
+                sample_result['data_file'] = sample_data_file
+                sample_result['report_file'] = sample_report_file
+            
+            print(f"✅ 로그 샘플 분석 완료: 총 {sample_result['total_anomalies']}개 이상 발견")
+            return sample_result
+            
+        except Exception as e:
+            print(f"❌ 로그 샘플 분석 예외: {e}")
+            return {'success': False, 'error': str(e)}
+    
     def run_enhanced_analysis(self, input_dir: str, target_file: str = None, 
                             max_depth: int = 3, max_files: int = 20) -> Dict:
         """향상된 배치 분석을 실행합니다."""
@@ -370,14 +485,22 @@ class EnhancedBatchAnalyzer:
                 print(f"{'='*60}")
                 comparative_result = self.run_comparative_analysis(target_result, successful_baselines)
         
-        # 6. 요약 리포트 생성
+        # 6. 로그 샘플 분석 (Target이 성공한 경우에만)
+        sample_analysis_result = {'success': False, 'error': 'Target preprocessing failed'}
+        if target_result['success']:
+            print(f"\n{'='*60}")
+            print("🔍 이상 로그 샘플 분석")
+            print(f"{'='*60}")
+            sample_analysis_result = self.run_log_sample_analysis(target_result)
+        
+        # 7. 요약 리포트 생성
         print(f"\n{'='*60}")
         print("📄 요약 리포트 생성")
         print(f"{'='*60}")
         
         summary_report = self.generate_enhanced_summary_report(
             target_result, baseline_results, temporal_result, comparative_result,
-            input_dir, max_depth
+            sample_analysis_result, input_dir, max_depth
         )
         
         summary_file = self.work_dir / "ENHANCED_ANALYSIS_SUMMARY.md"
@@ -411,6 +534,7 @@ class EnhancedBatchAnalyzer:
             'baseline_results': baseline_results,
             'temporal_result': temporal_result,
             'comparative_result': comparative_result,
+            'sample_analysis_result': sample_analysis_result,
             'summary_file': summary_file,
             'total_files_found': len(log_files),
             'files_processed': total_count
@@ -452,7 +576,7 @@ class EnhancedBatchAnalyzer:
             return {'success': False, 'error': str(e)}
     
     def run_comparative_analysis(self, target_result: Dict, baseline_results: List[Dict]) -> Dict:
-        """파일별 비교 분석 실행 (기존과 동일)."""
+        """파일별 비교 분석 실행 (baseline 품질 검증 추가)."""
         if not target_result['success']:
             return {'success': False, 'error': 'Target preprocessing failed'}
         
@@ -461,10 +585,22 @@ class EnhancedBatchAnalyzer:
             print("⚠️ 비교할 baseline 파일이 없습니다")
             return {'success': False, 'error': 'No valid baseline files'}
         
-        print(f"📊 파일별 비교 분석: {target_result['file_path'].name} vs {len(valid_baselines)}개 파일")
+        # Baseline 품질 검증 추가
+        print(f"🔍 {len(valid_baselines)}개 baseline 파일 품질 검증 중...")
+        validated_baselines = self._validate_baseline_quality(valid_baselines)
+        
+        if len(validated_baselines) < len(valid_baselines):
+            filtered_count = len(valid_baselines) - len(validated_baselines)
+            print(f"⚠️  품질 문제로 {filtered_count}개 baseline 파일 제외됨")
+        
+        if not validated_baselines:
+            print("❌ 품질 기준을 만족하는 baseline 파일이 없습니다")
+            return {'success': False, 'error': 'No quality baselines after validation'}
+        
+        print(f"📊 파일별 비교 분석: {target_result['file_path'].name} vs {len(validated_baselines)}개 검증된 파일")
         
         try:
-            baseline_paths = [str(r['parsed_file']) for r in valid_baselines]
+            baseline_paths = [str(r['parsed_file']) for r in validated_baselines]
             
             cmd = [
                 sys.executable, "comparative_anomaly_detector.py",
@@ -482,7 +618,7 @@ class EnhancedBatchAnalyzer:
             comp_dir = target_result['output_dir'] / "comparative_analysis"
             anomalies_file = comp_dir / "comparative_anomalies.json"
             
-            comp_result = {'success': True, 'anomalies': [], 'baseline_count': len(valid_baselines)}
+            comp_result = {'success': True, 'anomalies': [], 'baseline_count': len(validated_baselines)}
             if anomalies_file.exists():
                 with open(anomalies_file) as f:
                     comp_result['anomalies'] = json.load(f)
@@ -496,7 +632,7 @@ class EnhancedBatchAnalyzer:
     
     def generate_enhanced_summary_report(self, target_result: Dict, baseline_results: List[Dict],
                                        temporal_result: Dict, comparative_result: Dict,
-                                       input_dir: str, max_depth: int) -> str:
+                                       sample_analysis_result: Dict, input_dir: str, max_depth: int) -> str:
         """향상된 요약 리포트 생성."""
         
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -611,12 +747,39 @@ class EnhancedBatchAnalyzer:
         else:
             report += f"❌ 파일별 비교 분석 실패: {comparative_result.get('error', 'Unknown error')}\n"
         
+        # 로그 샘플 분석 결과 추가
+        report += "\n## 🔍 이상 로그 샘플 분석 결과\n\n"
+        if sample_analysis_result['success']:
+            total_sample_anomalies = sample_analysis_result.get('total_anomalies', 0)
+            analysis_summary = sample_analysis_result.get('analysis_summary', {})
+            
+            report += f"**총 분석된 이상**: {total_sample_anomalies}개\n\n"
+            
+            if analysis_summary:
+                for method, summary in analysis_summary.items():
+                    method_name = {'baseline': '윈도우 기반', 'deeplog': 'DeepLog', 'comparative': '비교 분석'}.get(method, method)
+                    report += f"### {method_name} 분석\n"
+                    report += f"- **발견된 이상**: {summary['anomaly_count']}개\n"
+                    report += f"- **분석된 샘플**: {summary['analyzed_count']}개\n"
+                    report += f"- **방법론**: {summary['method_description']}\n\n"
+                
+                # 샘플 리포트 링크
+                if 'report_file' in sample_analysis_result:
+                    report += f"📄 **상세 로그 샘플 분석**: `{sample_analysis_result['report_file']}`\n"
+                    report += "→ 실제 문제 로그들과 전후 맥락을 확인할 수 있습니다.\n\n"
+            else:
+                report += "✅ 이상 로그 샘플이 발견되지 않았습니다.\n"
+        else:
+            report += f"❌ 로그 샘플 분석 실패: {sample_analysis_result.get('error', 'Unknown error')}\n"
+        
         # 권고사항 및 상세 결과
         total_anomalies = 0
         if temporal_result['success']:
             total_anomalies += len(temporal_result.get('anomalies', []))
         if comparative_result['success']:
             total_anomalies += len(comparative_result.get('anomalies', []))
+        if sample_analysis_result['success']:
+            total_anomalies += sample_analysis_result.get('total_anomalies', 0)
         
         report += "\n## 💡 권고사항\n\n"
         if total_anomalies == 0:
@@ -635,6 +798,12 @@ class EnhancedBatchAnalyzer:
 
 ## 🔧 추가 분석 명령어
 ```bash
+# 상세 로그 샘플 분석 (단독 실행)
+study-preprocess analyze-samples --processed-dir {target_result['output_dir']}
+
+# 로그 샘플 포함 리포트 생성
+study-preprocess report --processed-dir {target_result['output_dir']} --with-samples
+
 # 상세 분석
 python analyze_results.py --data-dir {target_result['output_dir']}
 

@@ -116,7 +116,8 @@ def build_mscred_cmd(parsed_parquet: Path, out_dir: Path, window_size: int, stri
 
 @main.command("report")
 @click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)
-def report_cmd(processed_dir: Path) -> None:
+@click.option("--with-samples", is_flag=True, default=False, help="이상 로그 샘플 분석 포함")
+def report_cmd(processed_dir: Path, with_samples: bool) -> None:
     """산출물 요약 리포트 생성."""
     import pandas as pd
     processed_dir.mkdir(parents=True, exist_ok=True)
@@ -156,12 +157,41 @@ def report_cmd(processed_dir: Path) -> None:
                 )
                 lines.append(f"window@{start} top_templates={top}")
             report_lines.extend(lines)
+    
+    # 로그 샘플 분석 추가
+    if with_samples:
+        click.echo("🔍 이상 로그 샘플 분석 중...")
+        try:
+            import sys
+            import subprocess
+            result = subprocess.run([
+                sys.executable, "log_sample_analyzer.py",
+                str(processed_dir),
+                "--output-dir", str(processed_dir / "log_samples_analysis")
+            ], capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode == 0:
+                report_lines.append("Log sample analysis completed successfully")
+                report_lines.append(f"Detailed analysis: {processed_dir / 'log_samples_analysis' / 'anomaly_analysis_report.md'}")
+            else:
+                report_lines.append(f"Log sample analysis failed: {result.stderr}")
+        except Exception as e:
+            report_lines.append(f"Log sample analysis error: {e}")
+    
     # Save
     out_md = processed_dir / "report.md"
     if not report_lines:
         report_lines = ["No artifacts found to report."]
     out_md.write_text("\n".join(["### Detection Report"] + [f"- {line}" for line in report_lines]))
     click.echo(f"Saved report: {out_md}")
+    
+    if with_samples:
+        sample_report = processed_dir / "log_samples_analysis" / "anomaly_analysis_report.md"
+        if sample_report.exists():
+            click.echo(f"📄 Human-readable log analysis: {sample_report}")
+        sample_data = processed_dir / "log_samples_analysis" / "anomaly_samples.json"
+        if sample_data.exists():
+            click.echo(f"📊 Detailed sample data: {sample_data}")
 
 
 @main.command("gen-synth")
@@ -194,5 +224,57 @@ def eval_cmd(processed_dir: Path, labels_path: Path, window_size: int, seq_len: 
         out_lines = ["No artifacts to evaluate."]
     (processed_dir / "eval.txt").write_text("\n".join(out_lines))
     click.echo("\n".join(out_lines))
+
+
+@main.command("analyze-samples")
+@click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default=None)
+@click.option("--max-samples", type=int, default=5, help="타입별 최대 샘플 수")
+@click.option("--context-lines", type=int, default=3, help="전후 맥락 라인 수")
+def analyze_samples_cmd(processed_dir: Path, output_dir: Path, max_samples: int, context_lines: int) -> None:
+    """이상 로그 샘플 추출 및 분석."""
+    import sys
+    import subprocess
+    
+    if output_dir is None:
+        output_dir = processed_dir / "log_samples_analysis"
+    
+    click.echo("🔍 이상 로그 샘플 분석 시작...")
+    
+    cmd = [
+        sys.executable, "log_sample_analyzer.py",
+        str(processed_dir),
+        "--output-dir", str(output_dir),
+        "--max-samples", str(max_samples),
+        "--context-lines", str(context_lines)
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+    
+    if result.returncode == 0:
+        click.echo("✅ 로그 샘플 분석 완료!")
+        click.echo(f"📄 사람이 읽기 쉬운 리포트: {output_dir / 'anomaly_analysis_report.md'}")
+        click.echo(f"📊 상세 분석 데이터: {output_dir / 'anomaly_samples.json'}")
+    else:
+        click.echo(f"❌ 분석 실패: {result.stderr}")
+        return
+    
+    # 간단한 요약 출력
+    sample_data_file = output_dir / "anomaly_samples.json"
+    if sample_data_file.exists():
+        import json
+        try:
+            with open(sample_data_file, 'r') as f:
+                data = json.load(f)
+            
+            total_anomalies = 0
+            for method, results in data.items():
+                anomaly_count = results.get('anomaly_count', 0)
+                total_anomalies += anomaly_count
+                click.echo(f"  📊 {method}: {anomaly_count}개 이상 발견")
+            
+            click.echo(f"🚨 총 이상 개수: {total_anomalies}개")
+        except Exception as e:
+            click.echo(f"⚠️ 요약 생성 실패: {e}")
 
 

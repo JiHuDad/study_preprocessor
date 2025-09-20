@@ -113,9 +113,22 @@ study-preprocess deeplog-infer \
 ```
 - 리포트/요약 생성:
 ```
+# 기본 리포트
 study-preprocess report --processed-dir /path/to/outdir
+
+# 이상 로그 샘플 포함 리포트
+study-preprocess report --processed-dir /path/to/outdir --with-samples
 ```
   - 포함: 베이스라인 이상 윈도우 비율, 상위 윈도우/템플릿, DeepLog 위반율
+  - `--with-samples`: 실제 문제 로그 샘플과 분석 추가
+
+- 이상 로그 샘플 분석 (단독):
+```
+study-preprocess analyze-samples --processed-dir /path/to/outdir
+```
+  - 🔍 이상탐지 결과에서 실제 문제 로그들 추출
+  - 📄 사람이 읽기 쉬운 분석 리포트 생성
+  - 🎯 전후 맥락과 함께 이상 패턴 설명
 
 #### 6) 합성 데이터로 E2E 검증(옵션)
 ```
@@ -164,6 +177,40 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 
 ## 🆕 새로운 분석 기능
 
+### 🔍 이상 로그 샘플 분석 (NEW!)
+
+**문제**: 이상탐지 결과만으로는 실제로 어떤 로그가 문제인지 알기 어려움  
+**해결**: 실제 문제 로그들을 사람이 읽기 쉬운 형태로 추출하고 분석
+
+#### 🎬 빠른 데모
+```bash
+# 전체 기능을 한번에 체험
+./demo_log_samples.sh
+```
+
+#### 🔧 주요 기능
+- **실제 로그 샘플**: 이상탐지 결과에서 문제가 되는 실제 로그들 추출
+- **전후 맥락**: 이상 로그의 앞뒤 상황을 함께 표시
+- **패턴 분석**: 왜 이상으로 판단되었는지 설명
+- **사람 친화적**: 기술적 결과를 일반인도 이해할 수 있게 번역
+
+#### 📄 생성되는 리포트 예시
+```markdown
+# 이상 로그 샘플 분석 리포트
+
+## 🚨 이상 윈도우 #1 (라인 250~)
+**기본 정보**: 이상 점수 0.95, 새 템플릿 비율 40%
+
+**대표적인 문제 로그들**:
+ERROR (에러 메시지 포함):
+[2025-09-20 14:32:15] kernel: BUG: unable to handle page fault
+- 템플릿: kernel BUG at <PATH>:<NUM>
+
+**전후 맥락**:
+[이전] normal CPU activity...
+[이후] system attempting recovery...
+```
+
 ### 📊 배치 로그 분석
 
 #### 🔹 기본 배치 분석
@@ -190,6 +237,11 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 # 결과 확인
 cat analysis_result/ENHANCED_ANALYSIS_SUMMARY.md
 ```
+
+**💡 새로운 기능**: 이제 향상된 배치 분석에서 **이상 로그 샘플 추출**이 자동으로 포함됩니다!
+- 🔍 실제 문제가 되는 로그들을 사람이 읽기 쉬운 형태로 추출
+- 📄 전후 맥락과 함께 이상 패턴 설명 제공
+- 🎯 이상탐지 결과를 실제 로그와 연결하여 해석 용이
 
 **지원하는 디렉토리 구조**:
 ```

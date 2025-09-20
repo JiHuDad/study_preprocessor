@@ -1,5 +1,6 @@
 # Virtual envs & caches
 .venv*/
+venv*/
 .cache/
 __pycache__/
 *.pyc
@@ -20,8 +21,85 @@ data/**/*.json
 data/raw/synth_long.log
 data/raw/test_*.log*
 
-# Drain3 local config (optional)
+# Model files (large, regenerable)
+*.pth
+*.pt
+*.ckpt
+*.model
+
+# Drain3 state files
+*.drain3.json
 drain3.ini
+drain*.json
+
+# Temporary analysis results (regenerable)
+enhanced_analysis_*/
+baseline_validation_*/
+demo_log_samples/
+**/log_samples_analysis/
+**/temporal_analysis/
+**/comparative_analysis/
+
+# Log files (except examples)
+*.log
+!data/raw/dmesg.sample.log
+
+# Shell scripts are tracked (tools)
+!*.sh
+
+# Temporary files
+*.tmp
+*.temp
+*~
 
 # Editor settings
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# pytest cache
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# mypy
+.mypy_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Package manager files (optional - comment out if you want to track them)
+# uv.lock
+# poetry.lock
+# Pipfile.lock
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE specific files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/extensions.json
+
+# Backup files
+*.bak
+*.backup
+
+# Performance profiling
+*.prof
+*.pstats
+
+# macOS specific
+._*
