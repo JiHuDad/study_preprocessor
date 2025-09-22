@@ -634,6 +634,18 @@ print("CLI report generation completed")
         print("📄 종합 리포트 생성")
         print(f"{'='*60}")
         
+        # Target 정보 저장 (스크립트에서 사용)
+        target_info = {
+            'target_file': target_result['file_path'].name,
+            'target_processed_dir': target_result['output_dir'].name,
+            'target_category': target_result['category'],
+            'analysis_time': datetime.now().isoformat()
+        }
+        
+        target_info_file = self.work_dir / "target_info.json"
+        with open(target_info_file, 'w', encoding='utf-8') as f:
+            json.dump(target_info, f, ensure_ascii=False, indent=2)
+        
         summary_report = self.generate_comprehensive_report(
             target_result, baseline_results, target_baseline_result, target_deeplog_result, target_mscred_result, 
             target_temporal_result, comparative_result, target_cli_report_result, input_dir, max_depth,

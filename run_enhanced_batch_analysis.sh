@@ -191,8 +191,16 @@ for dir in "$WORK_DIR"/processed_*; do
         has_comparative=$([ -d "$dir/comparative_analysis" ] && echo "✅" || echo "❌")
         has_samples=$([ -d "$dir/log_samples_analysis" ] && echo "✅" || echo "❌")
         
-        # Target vs Baseline 구분
-        if echo "$dir_name" | grep -q "target\|main" || [ -f "$dir/deeplog_infer.parquet" ]; then
+        # Target vs Baseline 구분 (target_info.json 기반)
+        is_target=false
+        if [ -f "$WORK_DIR/target_info.json" ]; then
+            target_dir_name=$(python3 -c "import json; data=json.load(open('$WORK_DIR/target_info.json')); print(data['target_processed_dir'])" 2>/dev/null)
+            if [ "$dir_name" = "$target_dir_name" ]; then
+                is_target=true
+            fi
+        fi
+        
+        if [ "$is_target" = true ]; then
             echo "🎯 Target: $dir_name"
             target_processed_count=$((target_processed_count + 1))
         else
@@ -227,19 +235,20 @@ done
 echo ""
 echo "🔧 추가 분석 명령어:"
 if [ -d "$WORK_DIR" ]; then
-    # Target 디렉토리 찾기 (DeepLog/MS-CRED 결과가 있는 디렉토리)
+    # Target 디렉토리 찾기 (target_info.json 기반)
     target_processed_dir=""
     
-    # 1. DeepLog 또는 MS-CRED 결과가 있는 디렉토리 찾기
-    for dir in "$WORK_DIR"/processed_*; do
-        if [ -d "$dir" ] && ([ -f "$dir/deeplog_infer.parquet" ] || [ -f "$dir/mscred_infer.parquet" ]); then
-            target_processed_dir="$dir"
-            break
+    # 1. target_info.json에서 실제 Target 디렉토리 확인
+    if [ -f "$WORK_DIR/target_info.json" ]; then
+        target_dir_name=$(python3 -c "import json; data=json.load(open('$WORK_DIR/target_info.json')); print(data['target_processed_dir'])" 2>/dev/null)
+        if [ -n "$target_dir_name" ] && [ -d "$WORK_DIR/$target_dir_name" ]; then
+            target_processed_dir="$WORK_DIR/$target_dir_name"
         fi
-    done
+    fi
     
-    # 2. Target 디렉토리를 찾지 못했으면 가장 큰 processed 디렉토리 사용
+    # 2. target_info.json이 없으면 기존 방식으로 fallback
     if [ -z "$target_processed_dir" ]; then
+        # 가장 큰 processed 디렉토리 사용
         target_processed_dir=$(find "$WORK_DIR" -name "processed_*" -type d | while read dir; do
             size=$(du -s "$dir" 2>/dev/null | cut -f1)
             echo "$size $dir"
