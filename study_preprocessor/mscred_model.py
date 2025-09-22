@@ -25,12 +25,18 @@ class MultiScaleConvBlock(nn.Module):
         super().__init__()
         self.kernel_sizes = kernel_sizes
         
+        # 각 커널의 채널 수를 균등하게 분배하되 나머지는 첫 번째 커널에 할당
+        channels_per_kernel = out_channels // len(kernel_sizes)
+        remainder = out_channels % len(kernel_sizes)
+        
         # 각 커널 크기별 컨볼루션 레이어
-        self.convs = nn.ModuleList([
-            nn.Conv2d(in_channels, out_channels // len(kernel_sizes), 
-                     kernel_size=k, padding=k//2)
-            for k in kernel_sizes
-        ])
+        self.convs = nn.ModuleList()
+        for i, k in enumerate(kernel_sizes):
+            # 첫 번째 커널에 나머지 채널 추가
+            current_channels = channels_per_kernel + (remainder if i == 0 else 0)
+            self.convs.append(
+                nn.Conv2d(in_channels, current_channels, kernel_size=k, padding=k//2)
+            )
         
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
@@ -97,32 +103,27 @@ class MSCREDEncoder(nn.Module):
 
 
 class MSCREDDecoder(nn.Module):
-    """MS-CRED 디코더"""
+    """MS-CRED 디코더 (간소화 버전)"""
     
     def __init__(self, base_channels: int = 32, output_channels: int = 1):
         super().__init__()
         
-        # 업샘플링 및 컨볼루션 레이어들
+        # 간단한 업샘플링 디코더
         self.deconv3 = nn.ConvTranspose2d(base_channels * 4, base_channels * 2, 
                                          kernel_size=4, stride=2, padding=1)
-        self.deconv2 = nn.ConvTranspose2d(base_channels * 4, base_channels, 
+        self.deconv2 = nn.ConvTranspose2d(base_channels * 2, base_channels, 
                                          kernel_size=4, stride=2, padding=1)
-        self.deconv1 = nn.Conv2d(base_channels * 2, output_channels, kernel_size=3, padding=1)
+        self.deconv1 = nn.Conv2d(base_channels, output_channels, kernel_size=3, padding=1)
         
         self.relu = nn.ReLU(inplace=True)
         
     def forward(self, encoder_outputs: List[torch.Tensor]) -> torch.Tensor:
-        x1_att, x2_att, x3_att = encoder_outputs
+        # 가장 작은 피처맵(가장 깊은 인코딩)만 사용
+        _, _, x3_att = encoder_outputs
         
-        # 세 번째 스케일에서 업샘플링
+        # 업샘플링으로 원래 크기로 복원
         x = self.relu(self.deconv3(x3_att))
-        
-        # 두 번째 스케일과 결합
-        x = torch.cat([x, x2_att], dim=1)
         x = self.relu(self.deconv2(x))
-        
-        # 첫 번째 스케일과 결합
-        x = torch.cat([x, x1_att], dim=1)
         x = self.deconv1(x)
         
         return x
@@ -137,8 +138,21 @@ class MSCREDModel(nn.Module):
         self.decoder = MSCREDDecoder(base_channels, input_channels)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # 입력 크기 저장
+        input_shape = x.shape
+        
         encoded = self.encoder(x)
         reconstructed = self.decoder(encoded)
+        
+        # 출력 크기를 입력 크기와 정확히 맞춤
+        if reconstructed.shape != input_shape:
+            reconstructed = F.interpolate(
+                reconstructed, 
+                size=(input_shape[2], input_shape[3]), 
+                mode='bilinear', 
+                align_corners=False
+            )
+        
         return reconstructed
     
     def compute_reconstruction_error(self, x: torch.Tensor, reconstructed: torch.Tensor) -> torch.Tensor:

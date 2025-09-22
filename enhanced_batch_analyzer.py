@@ -910,32 +910,42 @@ print("Baseline detection completed")
         try:
             parsed_file = target_result['output_dir'] / "parsed.parquet"
             
-            # MS-CRED 입력 생성
-            print("  📊 윈도우 카운트 벡터 생성 중...")
+            # 사전 검증
+            if not parsed_file.exists():
+                return {'success': False, 'error': f'Parsed file not found: {parsed_file}'}
             
-            cmd = [
-                sys.executable, "-c", 
-                f"""
-import sys
-sys.path.append('.')
-from study_preprocessor.builders.mscred import build_mscred_window_counts
-
-# MS-CRED 입력 생성
-build_mscred_window_counts(
-    parsed_parquet='{parsed_file}',
-    out_dir='{target_result['output_dir']}',
-    window_size=50,
-    stride=25
-)
-print("MS-CRED input generation completed")
-"""
-            ]
+            print(f"  📊 윈도우 카운트 벡터 생성 중... (입력: {parsed_file})")
             
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
-            
-            if result.returncode != 0:
-                print(f"❌ MS-CRED 입력 생성 실패: {result.stderr}")
-                return {'success': False, 'error': result.stderr}
+            # 직접 함수 호출로 변경 (subprocess 대신)
+            try:
+                from study_preprocessor.builders.mscred import build_mscred_window_counts
+                
+                # 입력 데이터 확인
+                import pandas as pd
+                df = pd.read_parquet(parsed_file)
+                print(f"  📋 입력 데이터: {len(df)}개 로그, {len(df['template_id'].unique()) if 'template_id' in df.columns else 0}개 템플릿")
+                
+                if len(df) < 50:  # 최소 윈도우 크기보다 작은 경우
+                    print(f"⚠️  경고: 로그 수가 너무 적습니다 ({len(df)}개). 윈도우 크기를 조정합니다.")
+                    window_size = min(25, len(df))
+                    stride = min(10, len(df) // 2)
+                else:
+                    window_size = 50
+                    stride = 25
+                
+                build_mscred_window_counts(
+                    parsed_parquet=str(parsed_file),
+                    out_dir=str(target_result['output_dir']),
+                    window_size=window_size,
+                    stride=stride
+                )
+                print(f"  ✅ MS-CRED 입력 생성 완료 (윈도우: {window_size}, 스트라이드: {stride})")
+                
+            except Exception as e:
+                print(f"❌ MS-CRED 입력 생성 실패: {e}")
+                import traceback
+                print(f"상세 오류:\n{traceback.format_exc()}")
+                return {'success': False, 'error': str(e)}
             
             # 결과 파일 확인
             window_counts_file = target_result['output_dir'] / "window_counts.parquet"
@@ -983,34 +993,23 @@ print("MS-CRED input generation completed")
             # 1. MS-CRED 학습
             print("  🧠 MS-CRED 모델 학습 중...")
             
-            cmd = [
-                sys.executable, "-c", 
-                f"""
-import sys
-sys.path.append('.')
-from study_preprocessor.mscred_model import train_mscred
-
-# MS-CRED 학습
-try:
-    stats = train_mscred(
-        window_counts_path='{window_counts_file}',
-        model_output_path='{model_file}',
-        epochs=30  # 배치 분석용으로 적당한 에포크
-    )
-    print(f"학습 완료 - 최종 손실: {{stats['final_train_loss']:.4f}}")
-except Exception as e:
-    print(f"학습 실패: {{e}}")
-    raise
-"""
-            ]
-            
-            result = subprocess.run(cmd, cwd=self.work_dir, capture_output=True, text=True, timeout=600)
-            
-            if result.returncode != 0:
-                print(f"❌ MS-CRED 학습 실패:")
-                print(f"  stdout: {result.stdout}")
-                print(f"  stderr: {result.stderr}")
-                return {'success': False, 'error': 'MS-CRED training failed'}
+            try:
+                from study_preprocessor.mscred_model import train_mscred
+                
+                model_file.parent.mkdir(parents=True, exist_ok=True)
+                
+                stats = train_mscred(
+                    window_counts_path=str(window_counts_file),
+                    model_output_path=str(model_file),
+                    epochs=30  # 배치 분석용으로 적당한 에포크
+                )
+                print(f"  ✅ MS-CRED 학습 완료 - 최종 손실: {stats['final_train_loss']:.4f}")
+                
+            except Exception as e:
+                print(f"❌ MS-CRED 학습 실패: {e}")
+                import traceback
+                print(f"상세 오류:\n{traceback.format_exc()}")
+                return {'success': False, 'error': f'MS-CRED training failed: {e}'}
             
             if not model_file.exists():
                 return {'success': False, 'error': 'MS-CRED model not created'}
@@ -1020,35 +1019,22 @@ except Exception as e:
             # 2. MS-CRED 추론
             print("  🔍 MS-CRED 이상탐지 추론 중...")
             
-            cmd = [
-                sys.executable, "-c", 
-                f"""
-import sys
-sys.path.append('.')
-from study_preprocessor.mscred_model import infer_mscred
-
-# MS-CRED 추론
-try:
-    results_df = infer_mscred(
-        window_counts_path='{window_counts_file}',
-        model_path='{model_file}',
-        output_path='{infer_file}',
-        threshold_percentile=95.0
-    )
-    print(f"추론 완료 - 이상탐지율: {{results_df['is_anomaly'].mean():.1%}}")
-except Exception as e:
-    print(f"추론 실패: {{e}}")
-    raise
-"""
-            ]
-            
-            result = subprocess.run(cmd, cwd=self.work_dir, capture_output=True, text=True, timeout=300)
-            
-            if result.returncode != 0:
-                print(f"❌ MS-CRED 추론 실패:")
-                print(f"  stdout: {result.stdout}")
-                print(f"  stderr: {result.stderr}")
-                return {'success': False, 'error': 'MS-CRED inference failed'}
+            try:
+                from study_preprocessor.mscred_model import infer_mscred
+                
+                results_df = infer_mscred(
+                    window_counts_path=str(window_counts_file),
+                    model_path=str(model_file),
+                    output_path=str(infer_file),
+                    threshold_percentile=95.0
+                )
+                print(f"  ✅ MS-CRED 추론 완료 - 이상탐지율: {results_df['is_anomaly'].mean():.1%}")
+                
+            except Exception as e:
+                print(f"❌ MS-CRED 추론 실패: {e}")
+                import traceback
+                print(f"상세 오류:\n{traceback.format_exc()}")
+                return {'success': False, 'error': f'MS-CRED inference failed: {e}'}
             
             if not infer_file.exists():
                 return {'success': False, 'error': 'MS-CRED inference file not created'}
