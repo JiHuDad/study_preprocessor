@@ -530,69 +530,114 @@ print("CLI report generation completed")
         print(f"  - Target: {'✅' if target_result['success'] else '❌'} {target_info[0].name}")
         print(f"  - Baseline 성공: {len(successful_baselines)}/{len(baseline_results)}개")
         
-        # 6. Full Pipeline 분석 실행
-        baseline_result = {'success': False, 'error': 'Target preprocessing failed'}
-        deeplog_result = {'success': False, 'error': 'Target preprocessing failed'}
-        mscred_result = {'success': False, 'error': 'Target preprocessing failed'}
-        temporal_result = {'success': False, 'error': 'Target preprocessing failed'}
+        # 6. Target 파일 Full Pipeline 분석 실행
+        target_baseline_result = {'success': False, 'error': 'Target preprocessing failed'}
+        target_deeplog_result = {'success': False, 'error': 'Target preprocessing failed'}
+        target_mscred_result = {'success': False, 'error': 'Target preprocessing failed'}
+        target_temporal_result = {'success': False, 'error': 'Target preprocessing failed'}
         comparative_result = {'success': False, 'error': 'Target preprocessing failed'}
         
         if target_result['success']:
+            print(f"\n{'='*60}")
+            print(f"🎯 Target 파일 분석: {target_result['file_path'].name}")
+            print(f"{'='*60}")
+            
+            # Target Baseline 이상 탐지
+            print("📈 Baseline 이상 탐지 중...")
+            target_baseline_result = self.run_baseline_analysis(target_result)
+            
+            # Target DeepLog 분석 
+            print("🧠 DeepLog 딥러닝 분석 중...")
+            target_deeplog_result = self.run_deeplog_analysis(target_result)
+            
+            # Target MS-CRED 입력 생성
+            print("📊 MS-CRED 입력 생성 중...")
+            target_mscred_build_result = self.run_mscred_build(target_result)
+            
+            # Target MS-CRED 학습 및 추론
+            target_mscred_result = {'success': False, 'error': 'MS-CRED build failed'}
+            if target_mscred_build_result['success']:
+                print("🔬 MS-CRED 학습 및 이상탐지 중...")
+                target_mscred_result = self.run_mscred_analysis(target_result)
+            
+            # Target 시간 기반 분석
+            print("🕐 시간 기반 이상 탐지 중...")
+            target_temporal_result = self.run_temporal_analysis(target_result)
+        
+        # 7. Baseline 파일들 개별 분석 실행
+        baseline_analysis_results = []
+        for i, baseline_result in enumerate(successful_baselines):
+            print(f"\n{'='*60}")
+            print(f"📂 Baseline 파일 분석 {i+1}/{len(successful_baselines)}: {baseline_result['file_path'].name}")
+            print(f"{'='*60}")
+            
+            baseline_analysis = {
+                'file_info': baseline_result,
+                'baseline_result': {'success': False},
+                'deeplog_result': {'success': False},
+                'mscred_result': {'success': False},
+                'temporal_result': {'success': False}
+            }
+            
             # Baseline 이상 탐지
-            print(f"\n{'='*60}")
-            print("📈 Baseline 이상 탐지")
-            print(f"{'='*60}")
-            baseline_result = self.run_baseline_analysis(target_result)
+            print("📈 Baseline 이상 탐지 중...")
+            baseline_analysis['baseline_result'] = self.run_baseline_analysis(baseline_result)
             
-            # DeepLog 분석 
-            print(f"\n{'='*60}")
-            print("🧠 DeepLog 딥러닝 분석")
-            print(f"{'='*60}")
-            deeplog_result = self.run_deeplog_analysis(target_result)
+            # DeepLog 분석
+            print("🧠 DeepLog 딥러닝 분석 중...")
+            baseline_analysis['deeplog_result'] = self.run_deeplog_analysis(baseline_result)
             
-            # MS-CRED 입력 생성
-            print(f"\n{'='*60}")
-            print("📊 MS-CRED 입력 생성")
-            print(f"{'='*60}")
-            mscred_build_result = self.run_mscred_build(target_result)
+            # MS-CRED 입력 생성 및 분석
+            print("📊 MS-CRED 입력 생성 중...")
+            mscred_build_result = self.run_mscred_build(baseline_result)
             
-            # MS-CRED 학습 및 추론
-            mscred_result = {'success': False, 'error': 'MS-CRED build failed'}
             if mscred_build_result['success']:
-                print(f"\n{'='*60}")
-                print("🧠 MS-CRED 학습 및 이상탐지")
-                print(f"{'='*60}")
-                mscred_result = self.run_mscred_analysis(target_result)
+                print("🔬 MS-CRED 학습 및 이상탐지 중...")
+                baseline_analysis['mscred_result'] = self.run_mscred_analysis(baseline_result)
+            else:
+                baseline_analysis['mscred_result'] = {'success': False, 'error': 'MS-CRED build failed'}
             
             # 시간 기반 분석
-            print(f"\n{'='*60}")
-            print("🕐 시간 기반 이상 탐지")
-            print(f"{'='*60}")
-            temporal_result = self.run_temporal_analysis(target_result)
+            print("🕐 시간 기반 이상 탐지 중...")
+            baseline_analysis['temporal_result'] = self.run_temporal_analysis(baseline_result)
             
-            # 파일별 비교 분석
-            if successful_baselines:
-                print(f"\n{'='*60}")
-                print("📊 파일별 비교 이상 탐지")
-                print(f"{'='*60}")
-                comparative_result = self.run_comparative_analysis(target_result, successful_baselines)
+            baseline_analysis_results.append(baseline_analysis)
         
-        # 7. CLI 리포트 생성 (로그 샘플 분석 포함, Target이 성공한 경우에만)
-        cli_report_result = {'success': False, 'error': 'Target preprocessing failed'}
-        if target_result['success']:
+        # 8. 파일별 비교 분석 (모든 파일 대상)
+        if successful_baselines and target_result['success']:
             print(f"\n{'='*60}")
-            print("📄 CLI 리포트 생성 (로그 샘플 분석 포함)")
+            print("📊 파일별 비교 이상 탐지")
             print(f"{'='*60}")
-            cli_report_result = self.run_cli_report(target_result)
+            comparative_result = self.run_comparative_analysis(target_result, successful_baselines)
         
-        # 8. 요약 리포트 생성
+        # 9. CLI 리포트 생성 (로그 샘플 분석 포함)
         print(f"\n{'='*60}")
-        print("📄 요약 리포트 생성")
+        print("📄 CLI 리포트 및 로그 샘플 분석")
+        print(f"{'='*60}")
+        
+        # Target CLI 리포트
+        target_cli_report_result = {'success': False, 'error': 'Target preprocessing failed'}
+        if target_result['success']:
+            print(f"📄 Target CLI 리포트: {target_result['file_path'].name}")
+            target_cli_report_result = self.run_cli_report(target_result)
+        
+        # Baseline CLI 리포트들
+        baseline_cli_reports = []
+        for i, baseline_analysis in enumerate(baseline_analysis_results):
+            baseline_file_info = baseline_analysis['file_info']
+            print(f"📄 Baseline CLI 리포트 {i+1}/{len(baseline_analysis_results)}: {baseline_file_info['file_path'].name}")
+            cli_report = self.run_cli_report(baseline_file_info)
+            baseline_cli_reports.append(cli_report)
+        
+        # 10. 종합 리포트 생성
+        print(f"\n{'='*60}")
+        print("📄 종합 리포트 생성")
         print(f"{'='*60}")
         
         summary_report = self.generate_comprehensive_report(
-            target_result, baseline_results, baseline_result, deeplog_result, mscred_result, temporal_result, comparative_result,
-            cli_report_result, input_dir, max_depth
+            target_result, baseline_results, target_baseline_result, target_deeplog_result, target_mscred_result, 
+            target_temporal_result, comparative_result, target_cli_report_result, input_dir, max_depth,
+            baseline_analysis_results, baseline_cli_reports
         )
         
         comprehensive_report_file = self.work_dir / "COMPREHENSIVE_ANALYSIS_REPORT.md"
@@ -616,36 +661,59 @@ print("CLI report generation completed")
         total_count = len(baseline_results) + 1
         print(f"📊 전처리 성공: {success_count}/{total_count}개 파일")
         
-        if baseline_result['success']:
-            baseline_anomalies = baseline_result['anomaly_windows']
-            baseline_rate = baseline_result['anomaly_rate']
-            print(f"📈 Baseline 이상: {baseline_anomalies}개 윈도우 ({baseline_rate:.1%})")
+        # Target 분석 결과 요약
+        if target_baseline_result['success']:
+            baseline_anomalies = target_baseline_result['anomaly_windows']
+            baseline_rate = target_baseline_result['anomaly_rate']
+            print(f"🎯 Target Baseline 이상: {baseline_anomalies}개 윈도우 ({baseline_rate:.1%})")
         
-        if temporal_result['success']:
-            temporal_anomalies = len(temporal_result.get('anomalies', []))
-            print(f"🕐 시간 기반 이상: {temporal_anomalies}개")
+        if target_deeplog_result['success']:
+            deeplog_violations = target_deeplog_result.get('violations', 0)
+            deeplog_total = target_deeplog_result.get('total_sequences', 0)
+            print(f"🎯 Target DeepLog 위반: {deeplog_violations}/{deeplog_total}개 시퀀스")
+        
+        if target_mscred_result['success']:
+            mscred_anomalies = target_mscred_result.get('anomalies', 0)
+            mscred_total = target_mscred_result.get('total_windows', 0)
+            print(f"🎯 Target MS-CRED 이상: {mscred_anomalies}/{mscred_total}개 윈도우")
+        
+        if target_temporal_result['success']:
+            temporal_anomalies = len(target_temporal_result.get('anomalies', []))
+            print(f"🎯 Target 시간 기반 이상: {temporal_anomalies}개")
+        
+        # Baseline 분석 결과 요약
+        baseline_total_anomalies = 0
+        baseline_successful_analyses = 0
+        for baseline_analysis in baseline_analysis_results:
+            if baseline_analysis['baseline_result']['success']:
+                baseline_total_anomalies += baseline_analysis['baseline_result'].get('anomaly_windows', 0)
+                baseline_successful_analyses += 1
+        
+        if baseline_successful_analyses > 0:
+            print(f"📂 Baseline 파일들 이상: 총 {baseline_total_anomalies}개 윈도우 ({baseline_successful_analyses}개 파일)")
         
         if comparative_result['success']:
             comp_anomalies = len(comparative_result.get('anomalies', []))
             print(f"📊 비교 분석 이상: {comp_anomalies}개")
         
-        if mscred_result['success']:
-            mscred_windows = mscred_result['num_windows']
-            mscred_templates = mscred_result['num_templates']
-            print(f"📊 MS-CRED 입력: {mscred_windows}개 윈도우 × {mscred_templates}개 템플릿")
-        
-        if cli_report_result['success']:
-            print(f"📄 CLI 리포트: {cli_report_result['report_file']}")
+        if target_cli_report_result['success']:
+            print(f"📄 Target CLI 리포트: {target_cli_report_result['report_file']}")
         
         print(f"📄 종합 리포트: {comprehensive_report_file}")
+        print(f"📊 분석된 파일: Target 1개 + Baseline {len(baseline_analysis_results)}개 = 총 {1 + len(baseline_analysis_results)}개")
         
         return {
             'success': True,
             'target_result': target_result,
             'baseline_results': baseline_results,
-            'temporal_result': temporal_result,
+            'target_baseline_result': target_baseline_result,
+            'target_deeplog_result': target_deeplog_result,
+            'target_mscred_result': target_mscred_result,
+            'target_temporal_result': target_temporal_result,
+            'baseline_analysis_results': baseline_analysis_results,
             'comparative_result': comparative_result,
-            'cli_report_result': cli_report_result,
+            'target_cli_report_result': target_cli_report_result,
+            'baseline_cli_reports': baseline_cli_reports,
             'comprehensive_report_file': comprehensive_report_file,
             'summary_file': legacy_summary_file,  # 호환성
             'total_files_found': len(log_files),
@@ -1099,8 +1167,10 @@ except Exception as e:
             return {'success': False, 'error': str(e)}
     
     def generate_comprehensive_report(self, target_result: Dict, baseline_results: List[Dict],
-                                     baseline_result: Dict, deeplog_result: Dict, mscred_result: Dict, temporal_result: Dict, comparative_result: Dict,
-                                     cli_report_result: Dict, input_dir: str, max_depth: int) -> str:
+                                     target_baseline_result: Dict, target_deeplog_result: Dict, target_mscred_result: Dict, 
+                                     target_temporal_result: Dict, comparative_result: Dict, target_cli_report_result: Dict, 
+                                     input_dir: str, max_depth: int, baseline_analysis_results: List[Dict] = None, 
+                                     baseline_cli_reports: List[Dict] = None) -> str:
         """종합 통합 리포트 생성 - 모든 분석 결과를 하나의 리포트로 통합."""
         
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1175,12 +1245,12 @@ except Exception as e:
                     validation = result.get('validation', {})
                     report += f"{i}. ❌ **{result['file_path'].name}**: {result['error']} ({validation.get('file_size_mb', 0):.1f}MB)\n"
         
-        # Baseline 결과 추가
-        report += "\n## 📈 Baseline 이상 탐지 결과\n\n"
-        if baseline_result['success']:
-            total_windows = baseline_result['total_windows']
-            anomaly_windows = baseline_result['anomaly_windows']
-            anomaly_rate = baseline_result['anomaly_rate']
+        # Target Baseline 결과 추가
+        report += "\n## 📈 Target 파일 Baseline 이상 탐지 결과\n\n"
+        if target_baseline_result['success']:
+            total_windows = target_baseline_result['total_windows']
+            anomaly_windows = target_baseline_result['anomaly_windows']
+            anomaly_rate = target_baseline_result['anomaly_rate']
             
             report += f"**분석 윈도우**: {total_windows:,}개\n"
             report += f"**이상 윈도우**: {anomaly_windows:,}개\n"
@@ -1193,14 +1263,50 @@ except Exception as e:
             else:
                 report += "✅ **낮은 이상율**: 대부분 정상적인 로그 패턴입니다.\n"
         else:
-            report += f"❌ **Baseline 분석 실패**: {baseline_result['error']}\n"
+            report += f"❌ **Target Baseline 분석 실패**: {target_baseline_result['error']}\n"
         
-        # DeepLog 결과 추가
-        report += "\n## 🧠 DeepLog 딥러닝 분석 결과\n\n"
-        if deeplog_result['success']:
-            total_sequences = deeplog_result['total_sequences']
-            violations = deeplog_result['violations']
-            violation_rate = deeplog_result['violation_rate']
+        # Baseline 파일들 Baseline 결과 추가
+        if baseline_analysis_results:
+            report += "\n## 📂 Baseline 파일들 이상 탐지 결과\n\n"
+            baseline_total_anomalies = 0
+            baseline_total_windows = 0
+            baseline_successful = 0
+            
+            for i, baseline_analysis in enumerate(baseline_analysis_results, 1):
+                file_info = baseline_analysis['file_info']
+                baseline_result = baseline_analysis['baseline_result']
+                
+                report += f"### {i}. {file_info['file_path'].name}\n"
+                if baseline_result['success']:
+                    anomaly_windows = baseline_result['anomaly_windows']
+                    total_windows = baseline_result['total_windows']
+                    anomaly_rate = baseline_result['anomaly_rate']
+                    
+                    baseline_total_anomalies += anomaly_windows
+                    baseline_total_windows += total_windows
+                    baseline_successful += 1
+                    
+                    report += f"- 이상 윈도우: {anomaly_windows:,}/{total_windows:,}개 ({anomaly_rate:.1%})\n"
+                    if anomaly_rate > 0.1:
+                        report += "- 🚨 높은 이상율 감지\n"
+                    elif anomaly_rate > 0.05:
+                        report += "- ⚠️ 중간 이상율 감지\n"
+                    else:
+                        report += "- ✅ 정상 수준\n"
+                else:
+                    report += f"- ❌ 분석 실패: {baseline_result['error']}\n"
+                report += "\n"
+            
+            if baseline_successful > 0:
+                overall_rate = baseline_total_anomalies / max(baseline_total_windows, 1)
+                report += f"**전체 Baseline 파일 요약**: {baseline_total_anomalies:,}/{baseline_total_windows:,}개 이상 윈도우 ({overall_rate:.1%})\n\n"
+        
+        # Target DeepLog 결과 추가
+        report += "\n## 🧠 Target 파일 DeepLog 딥러닝 분석 결과\n\n"
+        if target_deeplog_result['success']:
+            total_sequences = target_deeplog_result['total_sequences']
+            violations = target_deeplog_result['violations']
+            violation_rate = target_deeplog_result['violation_rate']
             
             report += f"**전체 시퀀스**: {total_sequences:,}개\n"
             report += f"**예측 실패**: {violations:,}개\n"
@@ -1213,14 +1319,50 @@ except Exception as e:
             else:
                 report += "✅ **낮은 위반율**: 대부분 예측 가능한 로그 패턴입니다.\n"
         else:
-            report += f"❌ DeepLog 분석 실패: {deeplog_result.get('error', 'Unknown error')}\n"
+            report += f"❌ Target DeepLog 분석 실패: {target_deeplog_result.get('error', 'Unknown error')}\n"
         
-        # MS-CRED 결과
-        report += "\n## 🔬 MS-CRED 멀티스케일 분석 결과\n\n"
-        if mscred_result['success']:
-            total_windows = mscred_result['total_windows']
-            anomalies = mscred_result['anomalies']
-            anomaly_rate = mscred_result['anomaly_rate']
+        # Baseline 파일들 DeepLog 결과 추가
+        if baseline_analysis_results:
+            report += "\n## 📂 Baseline 파일들 DeepLog 분석 결과\n\n"
+            deeplog_total_violations = 0
+            deeplog_total_sequences = 0
+            deeplog_successful = 0
+            
+            for i, baseline_analysis in enumerate(baseline_analysis_results, 1):
+                file_info = baseline_analysis['file_info']
+                deeplog_result = baseline_analysis['deeplog_result']
+                
+                report += f"### {i}. {file_info['file_path'].name}\n"
+                if deeplog_result['success']:
+                    violations = deeplog_result['violations']
+                    total_sequences = deeplog_result['total_sequences']
+                    violation_rate = deeplog_result['violation_rate']
+                    
+                    deeplog_total_violations += violations
+                    deeplog_total_sequences += total_sequences
+                    deeplog_successful += 1
+                    
+                    report += f"- 예측 실패: {violations:,}/{total_sequences:,}개 시퀀스 ({violation_rate:.1%})\n"
+                    if violation_rate > 0.1:
+                        report += "- 🚨 높은 위반율 감지\n"
+                    elif violation_rate > 0.05:
+                        report += "- ⚠️ 중간 위반율 감지\n"
+                    else:
+                        report += "- ✅ 정상 수준\n"
+                else:
+                    report += f"- ❌ 분석 실패: {deeplog_result['error']}\n"
+                report += "\n"
+            
+            if deeplog_successful > 0:
+                overall_violation_rate = deeplog_total_violations / max(deeplog_total_sequences, 1)
+                report += f"**전체 Baseline 파일 요약**: {deeplog_total_violations:,}/{deeplog_total_sequences:,}개 위반 시퀀스 ({overall_violation_rate:.1%})\n\n"
+        
+        # Target MS-CRED 결과
+        report += "\n## 🔬 Target 파일 MS-CRED 멀티스케일 분석 결과\n\n"
+        if target_mscred_result['success']:
+            total_windows = target_mscred_result['total_windows']
+            anomalies = target_mscred_result['anomalies']
+            anomaly_rate = target_mscred_result['anomaly_rate']
             
             report += f"**전체 윈도우**: {total_windows:,}개\n"
             report += f"**이상 윈도우**: {anomalies:,}개\n"
@@ -1233,12 +1375,48 @@ except Exception as e:
             else:
                 report += "✅ **낮은 이상률**: 대부분 정상적인 로그 패턴을 보입니다.\n"
         else:
-            report += f"❌ MS-CRED 분석 실패: {mscred_result.get('error', 'Unknown error')}\n"
+            report += f"❌ Target MS-CRED 분석 실패: {target_mscred_result.get('error', 'Unknown error')}\n"
         
-        # 나머지는 기존과 동일...
-        report += "\n## 🕐 시간 기반 이상 탐지 결과\n\n"
-        if temporal_result['success']:
-            anomalies = temporal_result['anomalies']
+        # Baseline 파일들 MS-CRED 결과 추가
+        if baseline_analysis_results:
+            report += "\n## 📂 Baseline 파일들 MS-CRED 분석 결과\n\n"
+            mscred_total_anomalies = 0
+            mscred_total_windows = 0
+            mscred_successful = 0
+            
+            for i, baseline_analysis in enumerate(baseline_analysis_results, 1):
+                file_info = baseline_analysis['file_info']
+                mscred_result = baseline_analysis['mscred_result']
+                
+                report += f"### {i}. {file_info['file_path'].name}\n"
+                if mscred_result['success']:
+                    anomalies = mscred_result['anomalies']
+                    total_windows = mscred_result['total_windows']
+                    anomaly_rate = mscred_result['anomaly_rate']
+                    
+                    mscred_total_anomalies += anomalies
+                    mscred_total_windows += total_windows
+                    mscred_successful += 1
+                    
+                    report += f"- 이상 윈도우: {anomalies:,}/{total_windows:,}개 ({anomaly_rate:.1%})\n"
+                    if anomaly_rate > 0.2:
+                        report += "- 🚨 높은 이상률 감지\n"
+                    elif anomaly_rate > 0.05:
+                        report += "- ⚠️ 중간 이상률 감지\n"
+                    else:
+                        report += "- ✅ 정상 수준\n"
+                else:
+                    report += f"- ❌ 분석 실패: {mscred_result['error']}\n"
+                report += "\n"
+            
+            if mscred_successful > 0:
+                overall_mscred_rate = mscred_total_anomalies / max(mscred_total_windows, 1)
+                report += f"**전체 Baseline 파일 요약**: {mscred_total_anomalies:,}/{mscred_total_windows:,}개 이상 윈도우 ({overall_mscred_rate:.1%})\n\n"
+        
+        # Target 시간 기반 분석
+        report += "\n## 🕐 Target 파일 시간 기반 이상 탐지 결과\n\n"
+        if target_temporal_result['success']:
+            anomalies = target_temporal_result['anomalies']
             if anomalies:
                 high_count = len([a for a in anomalies if a.get('severity') == 'high'])
                 medium_count = len([a for a in anomalies if a.get('severity') == 'medium'])
@@ -1252,7 +1430,42 @@ except Exception as e:
             else:
                 report += "✅ 시간 기반 이상 현상이 발견되지 않았습니다.\n"
         else:
-            report += f"❌ 시간 기반 분석 실패: {temporal_result.get('error', 'Unknown error')}\n"
+            report += f"❌ Target 시간 기반 분석 실패: {target_temporal_result.get('error', 'Unknown error')}\n"
+        
+        # Baseline 파일들 시간 기반 분석 결과 추가
+        if baseline_analysis_results:
+            report += "\n## 📂 Baseline 파일들 시간 기반 분석 결과\n\n"
+            temporal_total_anomalies = 0
+            temporal_successful = 0
+            
+            for i, baseline_analysis in enumerate(baseline_analysis_results, 1):
+                file_info = baseline_analysis['file_info']
+                temporal_result = baseline_analysis['temporal_result']
+                
+                report += f"### {i}. {file_info['file_path'].name}\n"
+                if temporal_result['success']:
+                    anomalies = temporal_result['anomalies']
+                    temporal_total_anomalies += len(anomalies)
+                    temporal_successful += 1
+                    
+                    if anomalies:
+                        high_count = len([a for a in anomalies if a.get('severity') == 'high'])
+                        medium_count = len([a for a in anomalies if a.get('severity') == 'medium'])
+                        report += f"- 발견된 이상: {len(anomalies)}개 (심각: {high_count}개, 주의: {medium_count}개)\n"
+                        if high_count > 0:
+                            report += "- 🚨 심각한 시간 패턴 이상 감지\n"
+                        elif medium_count > 0:
+                            report += "- ⚠️ 중간 수준 시간 패턴 이상 감지\n"
+                        else:
+                            report += "- ✅ 경미한 시간 패턴 변화\n"
+                    else:
+                        report += "- ✅ 시간 패턴 정상\n"
+                else:
+                    report += f"- ❌ 분석 실패: {temporal_result['error']}\n"
+                report += "\n"
+            
+            if temporal_successful > 0:
+                report += f"**전체 Baseline 파일 요약**: 총 {temporal_total_anomalies}개 시간 기반 이상 감지 ({temporal_successful}개 파일)\n\n"
         
         report += "\n## 📊 파일별 비교 이상 탐지 결과\n\n"
         if comparative_result['success']:
@@ -1277,8 +1490,8 @@ except Exception as e:
         
         # CLI 리포트 생성 결과 추가 (로그 샘플 분석 포함)
         report += "\n## 📄 CLI 리포트 및 로그 샘플 분석 결과\n\n"
-        if cli_report_result['success']:
-            report_file = cli_report_result.get('report_file')
+        if target_cli_report_result['success']:
+            report_file = target_cli_report_result.get('report_file')
             if report_file:
                 report += f"**CLI 리포트**: `{report_file}`\n"
                 report += "→ 기본 탐지 결과 및 통계 정보를 확인할 수 있습니다.\n\n"
@@ -1300,19 +1513,24 @@ except Exception as e:
             
             report += "✅ CLI 리포트 및 로그 샘플 분석이 정상적으로 생성되었습니다.\n"
         else:
-            report += f"❌ CLI 리포트 생성 실패: {cli_report_result.get('error', 'Unknown error')}\n"
+            report += f"❌ Target CLI 리포트 생성 실패: {target_cli_report_result.get('error', 'Unknown error')}\n"
+        
+        # Baseline CLI 리포트들 요약
+        if baseline_cli_reports:
+            successful_baseline_reports = [r for r in baseline_cli_reports if r['success']]
+            report += f"\n📂 **Baseline CLI 리포트**: {len(successful_baseline_reports)}/{len(baseline_cli_reports)}개 성공\n"
         
         # 실제 로그 샘플 통합
-        report += self._add_log_samples_to_report(target_result, baseline_result, deeplog_result, mscred_result, temporal_result, comparative_result)
+        report += self._add_log_samples_to_report(target_result, target_baseline_result, target_deeplog_result, target_mscred_result, target_temporal_result, comparative_result)
         
         # 권고사항 및 상세 결과
         total_anomalies = 0
-        if temporal_result['success']:
-            total_anomalies += len(temporal_result.get('anomalies', []))
+        if target_temporal_result['success']:
+            total_anomalies += len(target_temporal_result.get('anomalies', []))
         if comparative_result['success']:
             total_anomalies += len(comparative_result.get('anomalies', []))
-        if baseline_result['success']:
-            total_anomalies += baseline_result.get('anomaly_windows', 0)
+        if target_baseline_result['success']:
+            total_anomalies += target_baseline_result.get('anomaly_windows', 0)
         
         report += "\n## 💡 권고사항\n\n"
         if total_anomalies == 0:
