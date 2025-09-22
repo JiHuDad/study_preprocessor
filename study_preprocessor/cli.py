@@ -114,6 +114,38 @@ def build_mscred_cmd(parsed_parquet: Path, out_dir: Path, window_size: int, stri
     click.echo(f"Built MS-CRED window counts under: {out_dir}")
 
 
+@main.command("mscred-train")
+@click.option("--window-counts", "window_counts_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
+@click.option("--out", "model_output", type=click.Path(dir_okay=False, path_type=Path), required=True)
+@click.option("--epochs", type=int, default=50)
+def mscred_train_cmd(window_counts_parquet: Path, model_output: Path, epochs: int) -> None:
+    """MS-CRED 모델 학습."""
+    from .mscred_model import train_mscred
+    
+    model_output.parent.mkdir(parents=True, exist_ok=True)
+    stats = train_mscred(str(window_counts_parquet), str(model_output), epochs)
+    
+    click.echo(f"MS-CRED 학습 완료: {model_output}")
+    click.echo(f"최종 학습 손실: {stats['final_train_loss']:.4f}")
+    click.echo(f"최종 검증 손실: {stats['final_val_loss']:.4f}")
+
+
+@main.command("mscred-infer")
+@click.option("--window-counts", "window_counts_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
+@click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
+@click.option("--threshold", type=float, default=95.0, help="이상 탐지 임계값 (백분위수)")
+def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: float) -> None:
+    """MS-CRED 이상 탐지 추론."""
+    from .mscred_model import infer_mscred
+    
+    out = Path(window_counts_parquet).with_name("mscred_infer.parquet")
+    results_df = infer_mscred(str(window_counts_parquet), str(model_path), str(out), threshold)
+    
+    anomaly_rate = results_df['is_anomaly'].mean()
+    click.echo(f"Saved MS-CRED inference: {out}")
+    click.echo(f"Anomaly rate: {anomaly_rate:.3f} ({results_df['is_anomaly'].sum()}/{len(results_df)})")
+
+
 @main.command("report")
 @click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)
 @click.option("--with-samples", is_flag=True, default=False, help="이상 로그 샘플 분석 포함")
@@ -138,6 +170,17 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:
         if len(d) > 0:
             viol = 1.0 - float(d["in_topk"].mean())
             report_lines.append(f"DeepLog violation rate: {viol:.3f}")
+    
+    # MS-CRED
+    mscred_path = processed_dir / "mscred_infer.parquet"
+    if mscred_path.exists():
+        m = pd.read_parquet(mscred_path)
+        if len(m) > 0:
+            anomaly_rate = float(m["is_anomaly"].mean())
+            top_errors = m.nlargest(5, 'reconstruction_error')
+            report_lines.append(f"MS-CRED anomaly rate: {anomaly_rate:.3f}")
+            report_lines.append("Top reconstruction errors (window_idx, error): " + 
+                              ", ".join([f"{int(r.window_idx)}:{float(r.reconstruction_error):.4f}" for _, r in top_errors.iterrows()]))
     # Top templates/messages if parsed exists and baseline flagged windows exist
     parsed = processed_dir / "parsed.parquet"
     base = processed_dir / "baseline_scores.parquet"

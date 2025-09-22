@@ -554,7 +554,15 @@ print("CLI report generation completed")
             print(f"\n{'='*60}")
             print("📊 MS-CRED 입력 생성")
             print(f"{'='*60}")
-            mscred_result = self.run_mscred_build(target_result)
+            mscred_build_result = self.run_mscred_build(target_result)
+            
+            # MS-CRED 학습 및 추론
+            mscred_result = {'success': False, 'error': 'MS-CRED build failed'}
+            if mscred_build_result['success']:
+                print(f"\n{'='*60}")
+                print("🧠 MS-CRED 학습 및 이상탐지")
+                print(f"{'='*60}")
+                mscred_result = self.run_mscred_analysis(target_result)
             
             # 시간 기반 분석
             print(f"\n{'='*60}")
@@ -583,7 +591,7 @@ print("CLI report generation completed")
         print(f"{'='*60}")
         
         summary_report = self.generate_comprehensive_report(
-            target_result, baseline_results, baseline_result, deeplog_result, temporal_result, comparative_result,
+            target_result, baseline_results, baseline_result, deeplog_result, mscred_result, temporal_result, comparative_result,
             cli_report_result, input_dir, max_depth
         )
         
@@ -885,6 +893,120 @@ print("MS-CRED input generation completed")
         except Exception as e:
             print(f"❌ MS-CRED 입력 생성 예외: {e}")
             return {'success': False, 'error': str(e)}
+
+    def run_mscred_analysis(self, target_result: Dict) -> Dict:
+        """MS-CRED 학습 및 추론 실행."""
+        if not target_result['success']:
+            return {'success': False, 'error': 'Target preprocessing failed'}
+        
+        print(f"🧠 MS-CRED 학습/추론: {target_result['file_path'].name}")
+        
+        try:
+            output_dir = target_result['output_dir']
+            window_counts_file = output_dir / "window_counts.parquet"
+            
+            if not window_counts_file.exists():
+                return {'success': False, 'error': 'Window counts file not found'}
+            
+            # MS-CRED 모델 경로
+            model_file = self.work_dir / f"mscred_{target_result['file_path'].stem}.pth"
+            infer_file = output_dir / "mscred_infer.parquet"
+            
+            # 1. MS-CRED 학습
+            print("  🧠 MS-CRED 모델 학습 중...")
+            
+            cmd = [
+                sys.executable, "-c", 
+                f"""
+import sys
+sys.path.append('.')
+from study_preprocessor.mscred_model import train_mscred
+
+# MS-CRED 학습
+try:
+    stats = train_mscred(
+        window_counts_path='{window_counts_file}',
+        model_output_path='{model_file}',
+        epochs=30  # 배치 분석용으로 적당한 에포크
+    )
+    print(f"학습 완료 - 최종 손실: {{stats['final_train_loss']:.4f}}")
+except Exception as e:
+    print(f"학습 실패: {{e}}")
+    raise
+"""
+            ]
+            
+            result = subprocess.run(cmd, cwd=self.work_dir, capture_output=True, text=True, timeout=600)
+            
+            if result.returncode != 0:
+                print(f"❌ MS-CRED 학습 실패:")
+                print(f"  stdout: {result.stdout}")
+                print(f"  stderr: {result.stderr}")
+                return {'success': False, 'error': 'MS-CRED training failed'}
+            
+            if not model_file.exists():
+                return {'success': False, 'error': 'MS-CRED model not created'}
+            
+            print(f"  ✅ 모델 학습 완료: {model_file}")
+            
+            # 2. MS-CRED 추론
+            print("  🔍 MS-CRED 이상탐지 추론 중...")
+            
+            cmd = [
+                sys.executable, "-c", 
+                f"""
+import sys
+sys.path.append('.')
+from study_preprocessor.mscred_model import infer_mscred
+
+# MS-CRED 추론
+try:
+    results_df = infer_mscred(
+        window_counts_path='{window_counts_file}',
+        model_path='{model_file}',
+        output_path='{infer_file}',
+        threshold_percentile=95.0
+    )
+    print(f"추론 완료 - 이상탐지율: {{results_df['is_anomaly'].mean():.1%}}")
+except Exception as e:
+    print(f"추론 실패: {{e}}")
+    raise
+"""
+            ]
+            
+            result = subprocess.run(cmd, cwd=self.work_dir, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode != 0:
+                print(f"❌ MS-CRED 추론 실패:")
+                print(f"  stdout: {result.stdout}")
+                print(f"  stderr: {result.stderr}")
+                return {'success': False, 'error': 'MS-CRED inference failed'}
+            
+            if not infer_file.exists():
+                return {'success': False, 'error': 'MS-CRED inference file not created'}
+            
+            print(f"  ✅ 추론 완료: {infer_file}")
+            
+            # 결과 요약
+            import pandas as pd
+            mscred_df = pd.read_parquet(infer_file)
+            anomalies = mscred_df[mscred_df['is_anomaly'] == True]
+            anomaly_rate = len(anomalies) / len(mscred_df) if len(mscred_df) > 0 else 0
+            
+            print(f"✅ MS-CRED 분석 완료: 이상탐지율 {anomaly_rate:.1%} ({len(anomalies)}/{len(mscred_df)})")
+            
+            return {
+                'success': True,
+                'model_path': model_file,
+                'inference_file': infer_file,
+                'total_windows': len(mscred_df),
+                'anomalies': len(anomalies),
+                'anomaly_rate': anomaly_rate
+            }
+            
+        except Exception as e:
+            print(f"❌ MS-CRED 분석 예외: {e}")
+            return {'success': False, 'error': str(e)}
     
     def run_temporal_analysis(self, target_result: Dict) -> Dict:
         """시간 기반 이상 탐지 실행 (기존과 동일)."""
@@ -977,7 +1099,7 @@ print("MS-CRED input generation completed")
             return {'success': False, 'error': str(e)}
     
     def generate_comprehensive_report(self, target_result: Dict, baseline_results: List[Dict],
-                                     baseline_result: Dict, deeplog_result: Dict, temporal_result: Dict, comparative_result: Dict,
+                                     baseline_result: Dict, deeplog_result: Dict, mscred_result: Dict, temporal_result: Dict, comparative_result: Dict,
                                      cli_report_result: Dict, input_dir: str, max_depth: int) -> str:
         """종합 통합 리포트 생성 - 모든 분석 결과를 하나의 리포트로 통합."""
         
@@ -1093,6 +1215,26 @@ print("MS-CRED input generation completed")
         else:
             report += f"❌ DeepLog 분석 실패: {deeplog_result.get('error', 'Unknown error')}\n"
         
+        # MS-CRED 결과
+        report += "\n## 🔬 MS-CRED 멀티스케일 분석 결과\n\n"
+        if mscred_result['success']:
+            total_windows = mscred_result['total_windows']
+            anomalies = mscred_result['anomalies']
+            anomaly_rate = mscred_result['anomaly_rate']
+            
+            report += f"**전체 윈도우**: {total_windows:,}개\n"
+            report += f"**이상 윈도우**: {anomalies:,}개\n"
+            report += f"**이상탐지율**: {anomaly_rate:.1%}\n\n"
+            
+            if anomaly_rate > 0.2:  # 20% 이상
+                report += "🚨 **높은 이상률**: 많은 윈도우에서 비정상적인 패턴이 감지되었습니다.\n"
+            elif anomaly_rate > 0.05:  # 5% 이상
+                report += "🔍 **중간 이상률**: 일부 윈도우에서 주목할 만한 패턴 변화가 있습니다.\n"
+            else:
+                report += "✅ **낮은 이상률**: 대부분 정상적인 로그 패턴을 보입니다.\n"
+        else:
+            report += f"❌ MS-CRED 분석 실패: {mscred_result.get('error', 'Unknown error')}\n"
+        
         # 나머지는 기존과 동일...
         report += "\n## 🕐 시간 기반 이상 탐지 결과\n\n"
         if temporal_result['success']:
@@ -1161,7 +1303,7 @@ print("MS-CRED input generation completed")
             report += f"❌ CLI 리포트 생성 실패: {cli_report_result.get('error', 'Unknown error')}\n"
         
         # 실제 로그 샘플 통합
-        report += self._add_log_samples_to_report(target_result, baseline_result, deeplog_result, temporal_result, comparative_result)
+        report += self._add_log_samples_to_report(target_result, baseline_result, deeplog_result, mscred_result, temporal_result, comparative_result)
         
         # 권고사항 및 상세 결과
         total_anomalies = 0
@@ -1206,7 +1348,7 @@ python visualize_results.py --data-dir {target_result['output_dir']}
         return report
     
     def _add_log_samples_to_report(self, target_result: Dict, baseline_result: Dict, deeplog_result: Dict, 
-                                   temporal_result: Dict, comparative_result: Dict) -> str:
+                                   mscred_result: Dict, temporal_result: Dict, comparative_result: Dict) -> str:
         """실제 로그 샘플들을 리포트에 직접 포함합니다."""
         if not target_result['success']:
             return "\n## 🔍 로그 샘플 분석\n\n❌ Target 전처리 실패로 로그 샘플을 분석할 수 없습니다.\n"
@@ -1221,6 +1363,10 @@ python visualize_results.py --data-dir {target_result['output_dir']}
         # DeepLog 이상 로그 샘플  
         if deeplog_result['success'] and deeplog_result.get('violations', 0) > 0:
             report += self._extract_deeplog_samples(target_result)
+        
+        # MS-CRED 이상 로그 샘플
+        if mscred_result['success'] and mscred_result.get('anomalies', 0) > 0:
+            report += self._extract_mscred_samples(target_result)
         
         # 시간 기반 이상 로그 샘플
         if temporal_result['success'] and len(temporal_result.get('anomalies', [])) > 0:
@@ -1315,6 +1461,97 @@ python visualize_results.py --data-dir {target_result['output_dir']}
             
         except Exception as e:
             return f"⚠️ DeepLog 샘플 추출 실패: {e}\n\n"
+    
+    def _extract_mscred_samples(self, target_result: Dict) -> str:
+        """MS-CRED 이상 로그 샘플을 추출합니다."""
+        try:
+            import pandas as pd
+            
+            mscred_file = target_result['output_dir'] / "mscred_infer.parquet"
+            parsed_file = target_result['output_dir'] / "parsed.parquet"
+            window_counts_file = target_result['output_dir'] / "window_counts.parquet"
+            
+            if not mscred_file.exists() or not parsed_file.exists():
+                return ""
+            
+            mscred_df = pd.read_parquet(mscred_file)
+            parsed_df = pd.read_parquet(parsed_file)
+            
+            # 상위 5개 이상 윈도우 추출 (재구성 오차가 높은 순)
+            anomaly_windows = mscred_df[mscred_df['is_anomaly'] == True].nlargest(5, 'reconstruction_error')
+            
+            if len(anomaly_windows) == 0:
+                return ""
+            
+            sample_text = "### 🔬 MS-CRED 이상 탐지 샘플\n\n"
+            
+            for i, (_, anomaly) in enumerate(anomaly_windows.iterrows(), 1):
+                window_idx = int(anomaly['window_idx'])
+                start_index = int(anomaly.get('start_index', window_idx * 25))  # 기본 stride=25
+                reconstruction_error = float(anomaly['reconstruction_error'])
+                
+                # 윈도우 범위의 로그들 추출 (50개 라인 기본)
+                window_logs = parsed_df[
+                    (parsed_df['line_no'] >= start_index) & 
+                    (parsed_df['line_no'] < start_index + 50)
+                ].copy()
+                
+                if len(window_logs) == 0:
+                    continue
+                
+                # 에러 로그와 일반 로그 분리
+                error_logs = window_logs[
+                    window_logs['raw'].str.contains(
+                        r'error|Error|ERROR|fail|Fail|FAIL|exception|Exception|EXCEPTION|warning|Warning|WARNING|critical|Critical|CRITICAL',
+                        case=False, na=False, regex=True
+                    )
+                ]
+                
+                # 윈도우 정보
+                sample_text += f"**이상 윈도우 #{i}** (윈도우 ID: {window_idx}, 시작 라인: {start_index})\n"
+                sample_text += f"- 재구성 오차: {reconstruction_error:.4f}\n"
+                sample_text += f"- 총 로그 수: {len(window_logs)}\n"
+                sample_text += f"- 에러 로그 수: {len(error_logs)}\n\n"
+                
+                # 에러 로그 샘플 (최대 3개)
+                if len(error_logs) > 0:
+                    sample_text += "**🚨 에러 로그 샘플:**\n"
+                    for _, error_log in error_logs.head(3).iterrows():
+                        line_no = error_log['line_no']
+                        log_text = str(error_log.get('raw', ''))
+                        template_id = error_log.get('template_id', 'Unknown')
+                        
+                        sample_text += f"- Line {line_no} (Template: {template_id})\n"
+                        sample_text += f"```\n{log_text[:200]}{'...' if len(log_text) > 200 else ''}\n```\n"
+                    sample_text += "\n"
+                
+                # 일반 로그 샘플 (최대 2개)
+                normal_logs = window_logs[~window_logs.index.isin(error_logs.index)]
+                if len(normal_logs) > 0:
+                    sample_text += "**📄 윈도우 내 다른 로그들:**\n"
+                    for _, normal_log in normal_logs.head(2).iterrows():
+                        line_no = normal_log['line_no']
+                        log_text = str(normal_log.get('raw', ''))
+                        
+                        sample_text += f"- Line {line_no}\n"
+                        sample_text += f"```\n{log_text[:150]}{'...' if len(log_text) > 150 else ''}\n```\n"
+                    sample_text += "\n"
+                
+                # 템플릿 분포 정보
+                template_counts = window_logs['template_id'].value_counts().head(3)
+                if len(template_counts) > 0:
+                    sample_text += "**📊 주요 템플릿:**\n"
+                    for template_id, count in template_counts.items():
+                        sample_text += f"- Template {template_id}: {count}회\n"
+                    sample_text += "\n"
+                
+                sample_text += f"→ **분석**: 이 윈도우는 정상 패턴과 달리 재구성 오차가 {reconstruction_error:.4f}로 높게 나타났습니다.\n\n"
+                sample_text += "---\n\n"
+            
+            return sample_text
+            
+        except Exception as e:
+            return f"⚠️ MS-CRED 샘플 추출 실패: {e}\n\n"
     
     def _extract_temporal_samples(self, target_result: Dict, temporal_result: Dict) -> str:
         """시간 기반 이상 로그 샘플을 추출합니다."""

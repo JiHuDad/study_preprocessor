@@ -120,6 +120,16 @@ study-preprocess deeplog-infer \
   --seq /path/to/outdir/sequences.parquet \
   --model .cache/deeplog.pth --k 3
 ```
+- MS-CRED 학습/추론:
+```
+study-preprocess mscred-train \
+  --window-counts /path/to/outdir/window_counts.parquet \
+  --out .cache/mscred.pth --epochs 50
+
+study-preprocess mscred-infer \
+  --window-counts /path/to/outdir/window_counts.parquet \
+  --model .cache/mscred.pth --threshold 95.0
+```
 - 리포트/요약 생성:
 ```
 # 기본 리포트
@@ -182,7 +192,30 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 - `parsed.parquet`: `raw`, `masked`, `template_id`, `template`, `timestamp`, `host` 등
 - `baseline_scores.parquet`: `score`, `is_anomaly`, `window_start_line`
 - `deeplog_infer.parquet`: `idx`, `target`, `in_topk` (top-k 위반 여부)
+- `mscred_infer.parquet`: `window_idx`, `reconstruction_error`, `is_anomaly`, `threshold`
 - `report.md`: 상위 이상 윈도우와 기여 템플릿/요약 지표
+
+## 🆕 새로운 이상탐지 방법
+
+### 🔬 MS-CRED 멀티스케일 분석 (NEW!)
+
+**특징**: 멀티스케일 컨볼루션 오토인코더로 윈도우 단위 패턴 분석  
+**장점**: 다양한 스케일의 패턴을 동시에 고려하여 미세한 이상도 탐지 가능
+
+#### 🚀 MS-CRED 사용법
+```bash
+# 1. MS-CRED 입력 생성
+study-preprocess build-mscred --parsed data/processed/parsed.parquet --out-dir data/processed
+
+# 2. 모델 학습
+study-preprocess mscred-train --window-counts data/processed/window_counts.parquet --out models/mscred.pth --epochs 50
+
+# 3. 이상탐지 추론
+study-preprocess mscred-infer --window-counts data/processed/window_counts.parquet --model models/mscred.pth --threshold 95.0
+
+# 4. 결과 분석
+python mscred_analyzer.py --data-dir data/processed
+```
 
 ## 🆕 새로운 분석 기능
 
@@ -195,6 +228,9 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 ```bash
 # 전체 기능을 한번에 체험
 ./demo_log_samples.sh
+
+# MS-CRED 기능 데모
+./demo_mscred.sh
 ```
 
 #### 🔧 주요 기능
@@ -251,6 +287,9 @@ ERROR (에러 메시지 포함):
 
 # 결과 확인 - 🆕 통합 종합 리포트
 cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
+
+# 🆕 향상된 배치 분석 데모
+./demo_enhanced_batch.sh
 ```
 
 **🆕 최신 향상 사항**:

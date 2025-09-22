@@ -156,8 +156,34 @@ study-preprocess deeplog-infer \
 echo "✅ DeepLog 추론 완료: deeplog_infer.parquet"
 echo ""
 
-# 7단계: 리포트 생성
-echo "7️⃣  최종 리포트 생성 중..."
+# 7단계: MS-CRED 학습 및 추론
+echo "7️⃣  MS-CRED 학습/추론 중..."
+MS_MODEL_PATH="$CACHE_DIR/mscred.pth"
+
+# MS-CRED 학습
+study-preprocess mscred-train \
+  --window-counts "$OUTPUT_DIR/window_counts.parquet" \
+  --out "$MS_MODEL_PATH" \
+  --epochs 30
+
+if [ ! -f "$MS_MODEL_PATH" ]; then
+    echo "❌ MS-CRED 학습 실패: 모델 파일이 생성되지 않았습니다."
+    echo "⚠️  MS-CRED 분석을 건너뛰고 계속 진행합니다."
+else
+    echo "✅ MS-CRED 학습 완료: $MS_MODEL_PATH"
+    
+    # MS-CRED 추론
+    study-preprocess mscred-infer \
+      --window-counts "$OUTPUT_DIR/window_counts.parquet" \
+      --model "$MS_MODEL_PATH" \
+      --threshold 95.0
+    
+    echo "✅ MS-CRED 추론 완료: mscred_infer.parquet"
+fi
+echo ""
+
+# 8단계: 리포트 생성
+echo "8️⃣  최종 리포트 생성 중..."
 study-preprocess report --processed-dir "$OUTPUT_DIR"
 
 echo "✅ 리포트 완료: $OUTPUT_DIR/report.md"
@@ -172,6 +198,9 @@ echo "  📝 미리보기: $OUTPUT_DIR/preview.json"
 echo "  📝 베이스라인 점수: $OUTPUT_DIR/baseline_scores.parquet"
 echo "  📝 DeepLog 추론: $OUTPUT_DIR/deeplog_infer.parquet"
 echo "  📝 최종 리포트: $OUTPUT_DIR/report.md"
+if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ]; then
+    echo "  📝 MS-CRED 추론: $OUTPUT_DIR/mscred_infer.parquet"
+fi
 echo ""
 
 # 리포트 내용 미리보기
@@ -181,8 +210,8 @@ if [ -f "$OUTPUT_DIR/report.md" ]; then
     echo ""
 fi
 
-# 8단계: 자동 결과 분석
-echo "8️⃣  결과 분석 및 시각화 중..."
+# 9단계: 자동 결과 분석
+echo "9️⃣  결과 분석 및 시각화 중..."
 echo ""
 
 # 상세 분석 실행
@@ -210,6 +239,20 @@ else
     echo "⚠️  visualize_results.py 파일을 찾을 수 없어 시각화를 건너뜁니다."
 fi
 
+# MS-CRED 전용 분석 실행
+if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ] && [ -f "mscred_analyzer.py" ]; then
+    echo "🔬 MS-CRED 전용 분석:"
+    echo "============================================================"
+    $PYTHON_CMD mscred_analyzer.py --data-dir "$OUTPUT_DIR" --output-dir "$OUTPUT_DIR"
+    echo ""
+    
+    if [ -f "$OUTPUT_DIR/mscred_analysis_report.md" ]; then
+        echo "📊 MS-CRED 분석 리포트가 생성되었습니다: $OUTPUT_DIR/mscred_analysis_report.md"
+    fi
+else
+    echo "⚠️  MS-CRED 결과가 없거나 mscred_analyzer.py 파일을 찾을 수 없어 MS-CRED 전용 분석을 건너뜁니다."
+fi
+
 echo "🔍 자세한 분석을 위해 다음 파일들을 확인하세요:"
 echo "  - 베이스라인 이상 윈도우: $OUTPUT_DIR/baseline_preview.json"
 echo "  - 로그 템플릿별 분석은 $OUTPUT_DIR/parsed.parquet 파일에서 확인 가능"
@@ -218,6 +261,9 @@ echo "💡 추가 분석 도구 사용법:"
 echo "  - 상세 분석: $PYTHON_CMD analyze_results.py --data-dir $OUTPUT_DIR"
 echo "  - 시각화: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR"
 echo "  - 간단 요약: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR --summary"
+if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ]; then
+    echo "  - MS-CRED 분석: $PYTHON_CMD mscred_analyzer.py --data-dir $OUTPUT_DIR"
+fi
 echo ""
 echo "💡 설치 및 사용 팁:"
 echo "  - 가상환경 활성화: source .venv/bin/activate"

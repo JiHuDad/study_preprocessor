@@ -169,6 +169,167 @@ class LogSampleAnalyzer:
             'samples': samples
         }
     
+    def extract_mscred_anomaly_samples(self, parsed_file: str, mscred_infer_file: str) -> Dict:
+        """MS-CRED 이상탐지에서 문제가 되는 로그 샘플들을 추출합니다."""
+        
+        # 데이터 로드
+        df_parsed = pd.read_parquet(parsed_file)
+        df_mscred = pd.read_parquet(mscred_infer_file)
+        
+        # 이상 윈도우만 필터링하여 재구성 오차가 높은 순으로 정렬
+        anomaly_windows = df_mscred[df_mscred['is_anomaly'] == True].copy()
+        if len(anomaly_windows) == 0:
+            return {'type': 'mscred', 'anomaly_count': 0, 'samples': []}
+        
+        anomaly_windows = anomaly_windows.nlargest(self.max_samples_per_type, 'reconstruction_error')
+        
+        samples = []
+        for _, anomaly in anomaly_windows.iterrows():
+            window_idx = int(anomaly['window_idx'])
+            start_index = int(anomaly.get('start_index', window_idx * 25))  # 기본 stride=25
+            reconstruction_error = float(anomaly['reconstruction_error'])
+            threshold = float(anomaly['threshold'])
+            
+            # 윈도우 내의 로그들 추출 (50개 라인 기본)
+            window_logs = df_parsed[
+                (df_parsed['line_no'] >= start_index) & 
+                (df_parsed['line_no'] < start_index + 50)
+            ].copy()
+            
+            if len(window_logs) == 0:
+                continue
+            
+            # 전후 맥락 로그 추출
+            context_before = df_parsed[
+                (df_parsed['line_no'] < start_index) & 
+                (df_parsed['line_no'] >= start_index - self.context_lines)
+            ].copy()
+            
+            context_after = df_parsed[
+                (df_parsed['line_no'] >= start_index + 50) & 
+                (df_parsed['line_no'] < start_index + 50 + self.context_lines)
+            ].copy()
+            
+            # 에러 로그 탐지
+            error_logs = window_logs[
+                window_logs['raw'].str.contains(
+                    r'error|Error|ERROR|fail|Fail|FAIL|exception|Exception|EXCEPTION|warning|Warning|WARNING|critical|Critical|CRITICAL',
+                    case=False, na=False, regex=True
+                )
+            ]
+            
+            # 템플릿 분포 분석
+            template_counts = window_logs['template_id'].value_counts()
+            dominant_templates = template_counts.head(3).to_dict()
+            
+            # 대표적인 로그 선택 (에러 로그 우선, 없으면 일반 로그)
+            if len(error_logs) > 0:
+                representative_logs = error_logs.head(3)
+                log_category = "error"
+            else:
+                representative_logs = window_logs.head(3)
+                log_category = "normal"
+            
+            sample = {
+                'window_id': window_idx,
+                'start_line': start_index,
+                'end_line': start_index + 49,
+                'reconstruction_error': reconstruction_error,
+                'threshold': threshold,
+                'error_ratio': reconstruction_error / threshold if threshold > 0 else 0,
+                'window_size': len(window_logs),
+                'error_count': len(error_logs),
+                'error_rate': len(error_logs) / len(window_logs) if len(window_logs) > 0 else 0,
+                'log_category': log_category,
+                'dominant_templates': dominant_templates,
+                'severity': self._classify_mscred_severity(reconstruction_error, threshold),
+                'context_before': [
+                    {'line_no': int(row['line_no']), 'raw': str(row['raw'])}
+                    for _, row in context_before.iterrows()
+                ],
+                'representative_logs': [
+                    {
+                        'line_no': int(row['line_no']),
+                        'raw': str(row['raw']),
+                        'template_id': str(row.get('template_id', 'Unknown')),
+                        'template': str(row.get('template', 'Unknown'))
+                    }
+                    for _, row in representative_logs.iterrows()
+                ],
+                'context_after': [
+                    {'line_no': int(row['line_no']), 'raw': str(row['raw'])}
+                    for _, row in context_after.iterrows()
+                ],
+                'explanation': self._explain_mscred_anomaly(
+                    reconstruction_error, threshold, len(error_logs), len(window_logs), 
+                    template_counts
+                )
+            }
+            
+            samples.append(sample)
+        
+        return {
+            'type': 'mscred',
+            'method': 'Multi-Scale Convolutional Reconstruction (reconstruction error)',
+            'anomaly_count': len(anomaly_windows),
+            'analyzed_count': len(samples),
+            'samples': samples
+        }
+    
+    def _classify_mscred_severity(self, reconstruction_error: float, threshold: float) -> str:
+        """MS-CRED 재구성 오차를 기반으로 심각도를 분류합니다."""
+        if threshold <= 0:
+            return 'medium'
+        
+        ratio = reconstruction_error / threshold
+        if ratio >= 3.0:
+            return 'high'
+        elif ratio >= 1.5:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _explain_mscred_anomaly(self, reconstruction_error: float, threshold: float, 
+                               error_count: int, total_logs: int, template_counts: pd.Series) -> str:
+        """MS-CRED 이상의 원인을 설명합니다."""
+        explanations = []
+        
+        # 재구성 오차 설명
+        if threshold > 0:
+            ratio = reconstruction_error / threshold
+            if ratio >= 3.0:
+                explanations.append(f"재구성 오차가 임계값의 {ratio:.1f}배로 매우 높음")
+            elif ratio >= 1.5:
+                explanations.append(f"재구성 오차가 임계값의 {ratio:.1f}배로 높음")
+            else:
+                explanations.append(f"재구성 오차가 임계값을 초과함 ({ratio:.1f}배)")
+        
+        # 에러 로그 비율 설명
+        if error_count > 0:
+            error_rate = error_count / total_logs
+            if error_rate >= 0.5:
+                explanations.append(f"윈도우 내 에러 로그 비율이 {error_rate:.0%}로 매우 높음")
+            elif error_rate >= 0.2:
+                explanations.append(f"윈도우 내 에러 로그 비율이 {error_rate:.0%}로 높음")
+            else:
+                explanations.append(f"에러 로그 {error_count}개 포함")
+        
+        # 템플릿 다양성 설명
+        unique_templates = len(template_counts)
+        if unique_templates >= 20:
+            explanations.append(f"템플릿 종류가 {unique_templates}개로 매우 다양함")
+        elif unique_templates >= 10:
+            explanations.append(f"템플릿 종류가 {unique_templates}개로 다양함")
+        
+        # 지배적 템플릿 설명
+        if len(template_counts) > 0:
+            max_count = template_counts.iloc[0]
+            max_ratio = max_count / total_logs
+            if max_ratio >= 0.8:
+                explanations.append(f"단일 템플릿이 {max_ratio:.0%} 차지하여 패턴이 집중됨")
+        
+        return "; ".join(explanations) if explanations else "정상 패턴과 다른 로그 패턴 구조"
+    
     def extract_comparative_anomaly_samples(self, comparative_anomalies_file: str, 
                                           parsed_file: str) -> Dict:
         """비교 분석에서 발견된 이상 로그 샘플들을 추출합니다."""
@@ -634,7 +795,17 @@ def analyze_all_anomalies(processed_dir: str, output_dir: str = None):
         all_results['deeplog'] = deeplog_results
         print(f"   ✅ {deeplog_results.get('anomaly_count', 0)}개 예측 실패 중 {deeplog_results.get('analyzed_count', 0)}개 분석")
     
-    # 3. 비교 분석 결과
+    # 3. MS-CRED 이상탐지 결과 분석
+    mscred_infer_file = processed_path / "mscred_infer.parquet"
+    if mscred_infer_file.exists():
+        print("🔬 MS-CRED 이상탐지 결과 분석 중...")
+        mscred_results = analyzer.extract_mscred_anomaly_samples(
+            str(parsed_file), str(mscred_infer_file)
+        )
+        all_results['mscred'] = mscred_results
+        print(f"   ✅ {mscred_results.get('anomaly_count', 0)}개 이상 윈도우 중 {mscred_results.get('analyzed_count', 0)}개 분석")
+    
+    # 4. 비교 분석 결과
     comparative_dir = processed_path / "comparative_analysis"
     comparative_anomalies_file = comparative_dir / "comparative_anomalies.json"
     if comparative_anomalies_file.exists():
@@ -740,6 +911,8 @@ def generate_sample_analysis(method: str, sample: Dict, sample_num: int) -> str:
         return generate_baseline_sample_analysis(sample, sample_num)
     elif method == 'deeplog':
         return generate_deeplog_sample_analysis(sample, sample_num)
+    elif method == 'mscred':
+        return generate_mscred_sample_analysis(sample, sample_num)
     elif method == 'comparative':
         return generate_comparative_sample_analysis(sample, sample_num)
     else:
@@ -921,6 +1094,80 @@ def generate_comparative_sample_analysis(sample: Dict, sample_num: int) -> str:
     
     report += "\n---\n\n"
     return report
+
+def generate_mscred_sample_analysis(sample: Dict, sample_num: int) -> str:
+    """MS-CRED 샘플 분석을 생성합니다."""
+    
+    window_id = sample['window_id']
+    start_line = sample['start_line']
+    end_line = sample['end_line']
+    reconstruction_error = sample['reconstruction_error']
+    threshold = sample['threshold']
+    error_ratio = sample['error_ratio']
+    window_size = sample['window_size']
+    error_count = sample['error_count']
+    error_rate = sample['error_rate']
+    severity = sample['severity']
+    explanation = sample['explanation']
+    log_category = sample['log_category']
+    dominant_templates = sample.get('dominant_templates', {})
+    
+    # 심각도 이모지
+    severity_emoji = "🚨" if severity == "high" else "🟡" if severity == "medium" else "🟢"
+    
+    analysis = f"""### {severity_emoji} MS-CRED 이상 윈도우 {sample_num}
+
+**윈도우 정보**:
+- 윈도우 ID: {window_id}
+- 라인 범위: {start_line} ~ {end_line} ({window_size}개 로그)
+- 재구성 오차: {reconstruction_error:.4f} (임계값: {threshold:.4f})
+- 오차 비율: {error_ratio:.1f}배
+- 심각도: {severity.upper()}
+
+**윈도우 내 로그 특성**:
+- 에러 로그: {error_count}개 ({error_rate:.1%})
+- 로그 카테고리: {log_category}
+"""
+    
+    # 지배적 템플릿 정보
+    if dominant_templates:
+        analysis += "\n**주요 템플릿 분포**:\n"
+        for template_id, count in list(dominant_templates.items())[:3]:
+            analysis += f"- Template {template_id}: {count}회\n"
+    
+    # 분석 설명
+    analysis += f"\n**분석**: {explanation}\n"
+    
+    # 전후 맥락
+    context_before = sample.get('context_before', [])
+    if context_before:
+        analysis += "\n**이전 맥락**:\n"
+        for ctx in context_before:
+            analysis += f"- Line {ctx['line_no']}: {ctx['raw'][:100]}{'...' if len(ctx['raw']) > 100 else ''}\n"
+    
+    # 대표 로그들
+    representative_logs = sample.get('representative_logs', [])
+    if representative_logs:
+        log_type = "🚨 에러 로그" if log_category == "error" else "📄 대표 로그"
+        analysis += f"\n**{log_type} 샘플**:\n"
+        for log in representative_logs:
+            line_no = log['line_no']
+            raw = log['raw']
+            template_id = log['template_id']
+            
+            analysis += f"- **Line {line_no}** (Template: {template_id})\n"
+            analysis += f"  ```\n  {raw[:200]}{'...' if len(raw) > 200 else ''}\n  ```\n"
+    
+    # 이후 맥락
+    context_after = sample.get('context_after', [])
+    if context_after:
+        analysis += "\n**이후 맥락**:\n"
+        for ctx in context_after:
+            analysis += f"- Line {ctx['line_no']}: {ctx['raw'][:100]}{'...' if len(ctx['raw']) > 100 else ''}\n"
+    
+    analysis += "\n---\n\n"
+    
+    return analysis
 
 def main():
     parser = argparse.ArgumentParser(description="이상 로그 샘플 추출 및 분석")

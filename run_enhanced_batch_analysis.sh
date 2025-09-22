@@ -30,11 +30,14 @@ if [ -z "$LOG_DIR" ]; then
     echo "  - 최대파일수: 처리할 최대 파일 수 (기본: 20)"
     echo "  - 작업디렉토리: 결과를 저장할 폴더 (생략시 자동 생성)"
     echo ""
-    echo "💡 특징:"
-    echo "  - 📁 하위 디렉토리 자동 재귀 스캔"
-    echo "  - 📅 날짜별/카테고리별 폴더 구조 지원"
-    echo "  - 🔍 로그 형식 자동 감지 및 검증"
-    echo "  - 🛠️ 전처리 오류 상세 디버깅"
+echo "💡 특징:"
+echo "  - 📁 하위 디렉토리 자동 재귀 스캔"
+echo "  - 📅 날짜별/카테고리별 폴더 구조 지원"
+echo "  - 🔍 로그 형식 자동 감지 및 검증"
+echo "  - 🧠 DeepLog LSTM 이상탐지 자동 수행"
+echo "  - 🔬 MS-CRED 멀티스케일 이상탐지 자동 수행"
+echo "  - 📊 실제 로그 샘플 자동 추출 및 분석"
+echo "  - 🛠️ 전처리 오류 상세 디버깅"
     exit 1
 fi
 
@@ -94,6 +97,7 @@ if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
 fi
 
 echo "🚀 향상된 배치 로그 분석 시작"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📂 로그 디렉토리: $LOG_DIR"
 if [ -n "$TARGET_FILE" ]; then
     echo "🎯 Target 파일: $TARGET_FILE"
@@ -103,6 +107,20 @@ fi
 echo "📊 스캔 깊이: $MAX_DEPTH, 최대 파일: $MAX_FILES개"
 echo "📁 작업 디렉토리: $WORK_DIR"
 echo "🐍 Python 실행: $PYTHON_CMD"
+echo ""
+echo "🔄 수행할 분석 단계:"
+echo "  1️⃣  로그 파일 스캔 및 Target/Baseline 선택"
+echo "  2️⃣  로그 전처리 및 템플릿 추출 (Drain3)"
+echo "  3️⃣  베이스라인 이상탐지 (윈도우 기반)"
+echo "  4️⃣  DeepLog 학습 및 추론 (LSTM 시퀀스 예측)"
+echo "  5️⃣  MS-CRED 학습 및 추론 (멀티스케일 컨볼루션)"
+echo "  6️⃣  시간 기반 이상탐지 (시간대별 패턴 비교)"
+echo "  7️⃣  비교 분석 (파일 간 패턴 차이)"
+echo "  8️⃣  로그 샘플 추출 및 분석 (실제 이상 로그)"
+echo "  9️⃣  종합 리포트 생성"
+echo ""
+echo "⏱️  예상 소요 시간: 5-15분 (파일 크기에 따라)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
 # 시작 시간 기록
@@ -130,7 +148,8 @@ SECONDS=$((DURATION % 60))
 
 echo ""
 echo "🎉 향상된 배치 분석 완료!"
-echo "⏱️  소요 시간: ${MINUTES}분 ${SECONDS}초"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⏱️  총 소요 시간: ${MINUTES}분 ${SECONDS}초"
 echo ""
 
 # 결과 요약 출력
@@ -147,32 +166,77 @@ fi
 
 echo "📂 상세 결과 확인:"
 echo "  📄 종합 리포트: $WORK_DIR/COMPREHENSIVE_ANALYSIS_REPORT.md"
+echo "  📄 요약 리포트: $WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md"
 echo "  📁 작업 폴더: $WORK_DIR/"
 echo ""
 
+# 주요 결과 파일들 확인 및 요약
+echo "📊 분석 결과 요약:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Target 처리 결과 확인
+target_processed_count=0
+baseline_processed_count=0
+
+for dir in "$WORK_DIR"/processed_*; do
+    if [ -d "$dir" ]; then
+        dir_name=$(basename "$dir")
+        
+        # 분석 결과 파일들 확인
+        has_parsed=$([ -f "$dir/parsed.parquet" ] && echo "✅" || echo "❌")
+        has_baseline=$([ -f "$dir/baseline_scores.parquet" ] && echo "✅" || echo "❌") 
+        has_deeplog=$([ -f "$dir/deeplog_infer.parquet" ] && echo "✅" || echo "❌")
+        has_mscred=$([ -f "$dir/mscred_infer.parquet" ] && echo "✅" || echo "❌")
+        has_temporal=$([ -d "$dir/temporal_analysis" ] && echo "✅" || echo "❌")
+        has_comparative=$([ -d "$dir/comparative_analysis" ] && echo "✅" || echo "❌")
+        has_samples=$([ -d "$dir/log_samples_analysis" ] && echo "✅" || echo "❌")
+        
+        # Target vs Baseline 구분
+        if echo "$dir_name" | grep -q "target\|main" || [ -f "$dir/deeplog_infer.parquet" ]; then
+            echo "🎯 Target: $dir_name"
+            target_processed_count=$((target_processed_count + 1))
+        else
+            echo "📂 Baseline: $dir_name"
+            baseline_processed_count=$((baseline_processed_count + 1))
+        fi
+        
+        echo "    전처리: $has_parsed | Baseline탐지: $has_baseline | DeepLog: $has_deeplog | MS-CRED: $has_mscred"
+        echo "    시간분석: $has_temporal | 비교분석: $has_comparative | 로그샘플: $has_samples"
+        echo ""
+    fi
+done
+
+echo "📈 처리 결과 통계:"
+echo "  🎯 Target 파일: ${target_processed_count}개"
+echo "  📂 Baseline 파일: ${baseline_processed_count}개"
+echo "  📁 총 처리 디렉토리: $((target_processed_count + baseline_processed_count))개"
+echo ""
+
 # 결과 파일들 나열
-echo "📊 생성된 결과 파일들:"
-find "$WORK_DIR" -name "*.md" -o -name "*.json" | sort | while read file; do
-    # macOS 호환: 현재 디렉토리 기준 상대 경로 계산
+echo "📊 생성된 주요 파일들:"
+find "$WORK_DIR" -name "*.md" | sort | while read file; do
     rel_path=$(echo "$file" | sed "s|^$(pwd)/||")
     echo "  📝 $rel_path"
+done
+echo ""
+
+find "$WORK_DIR" -name "*.parquet" -o -name "*.pth" -o -name "*.json" | wc -l | while read count; do
+    echo "  📊 데이터 파일: ${count}개 (parquet, pth, json)"
 done
 
 echo ""
 echo "🔧 추가 분석 명령어:"
 if [ -d "$WORK_DIR" ]; then
-    # Target 디렉토리 찾기 (가장 큰 디렉토리 또는 target 키워드 포함)
+    # Target 디렉토리 찾기 (DeepLog/MS-CRED 결과가 있는 디렉토리)
     target_processed_dir=""
     
-    # 1. 요약 리포트에서 Target 파일명 추출 시도
-    if [ -f "$WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md" ]; then
-        target_name=$(grep "^### Target 파일:" "$WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md" | sed 's/### Target 파일: //' | tr -d ' ')
-        if [ -n "$target_name" ]; then
-            # Target 파일명에서 확장자 제거하고 processed_ 디렉토리 찾기
-            target_base=$(echo "$target_name" | sed 's/\.[^.]*$//')
-            target_processed_dir=$(find "$WORK_DIR" -name "processed_${target_base}" -type d | head -1)
+    # 1. DeepLog 또는 MS-CRED 결과가 있는 디렉토리 찾기
+    for dir in "$WORK_DIR"/processed_*; do
+        if [ -d "$dir" ] && ([ -f "$dir/deeplog_infer.parquet" ] || [ -f "$dir/mscred_infer.parquet" ]); then
+            target_processed_dir="$dir"
+            break
         fi
-    fi
+    done
     
     # 2. Target 디렉토리를 찾지 못했으면 가장 큰 processed 디렉토리 사용
     if [ -z "$target_processed_dir" ]; then
@@ -183,8 +247,52 @@ if [ -d "$WORK_DIR" ]; then
     fi
     
     if [ -n "$target_processed_dir" ] && [ -d "$target_processed_dir" ]; then
-        echo "  $PYTHON_CMD analyze_results.py --data-dir $target_processed_dir"
-        echo "  $PYTHON_CMD visualize_results.py --data-dir $target_processed_dir"
+        echo "🎯 Target 분석 디렉토리: $(basename "$target_processed_dir")"
+        echo ""
+        
+        # 사용 가능한 분석 도구들 확인 및 제안
+        echo "📊 상세 분석 도구:"
+        if [ -f "analyze_results.py" ]; then
+            echo "  $PYTHON_CMD analyze_results.py --data-dir $target_processed_dir"
+        fi
+        if [ -f "visualize_results.py" ]; then
+            echo "  $PYTHON_CMD visualize_results.py --data-dir $target_processed_dir"
+        fi
+        if [ -f "mscred_analyzer.py" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
+            echo "  $PYTHON_CMD mscred_analyzer.py --data-dir $target_processed_dir"
+        fi
+        if [ -f "log_sample_analyzer.py" ]; then
+            echo "  $PYTHON_CMD log_sample_analyzer.py $target_processed_dir"
+        fi
+        echo ""
+        
+        # 각 분석 방법별 결과 확인
+        echo "🔍 분석 결과 확인:"
+        if [ -f "$target_processed_dir/baseline_scores.parquet" ]; then
+            baseline_count=$(python3 -c "import pandas as pd; df=pd.read_parquet('$target_processed_dir/baseline_scores.parquet'); print(f'{(df[\"is_anomaly\"]==True).sum()}/{len(df)}')" 2>/dev/null || echo "N/A")
+            echo "  📊 Baseline 이상: $baseline_count 윈도우"
+        fi
+        
+        if [ -f "$target_processed_dir/deeplog_infer.parquet" ]; then
+            deeplog_count=$(python3 -c "import pandas as pd; df=pd.read_parquet('$target_processed_dir/deeplog_infer.parquet'); print(f'{(df[\"in_topk\"]==False).sum()}/{len(df)}')" 2>/dev/null || echo "N/A")
+            echo "  🧠 DeepLog 위반: $deeplog_count 시퀀스"
+        fi
+        
+        if [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
+            mscred_count=$(python3 -c "import pandas as pd; df=pd.read_parquet('$target_processed_dir/mscred_infer.parquet'); print(f'{(df[\"is_anomaly\"]==True).sum()}/{len(df)}')" 2>/dev/null || echo "N/A")
+            echo "  🔬 MS-CRED 이상: $mscred_count 윈도우"
+        fi
+        
+        if [ -d "$target_processed_dir/temporal_analysis" ] && [ -f "$target_processed_dir/temporal_analysis/temporal_anomalies.json" ]; then
+            temporal_count=$(python3 -c "import json; data=json.load(open('$target_processed_dir/temporal_analysis/temporal_anomalies.json')); print(len(data))" 2>/dev/null || echo "N/A")
+            echo "  🕐 시간 기반 이상: $temporal_count 건"
+        fi
+        
+        if [ -d "$target_processed_dir/comparative_analysis" ] && [ -f "$target_processed_dir/comparative_analysis/comparative_anomalies.json" ]; then
+            comparative_count=$(python3 -c "import json; data=json.load(open('$target_processed_dir/comparative_analysis/comparative_anomalies.json')); print(len(data))" 2>/dev/null || echo "N/A")
+            echo "  📊 비교 분석 이상: $comparative_count 건"
+        fi
+        
     else
         echo "  ⚠️  Target 처리 디렉토리를 찾을 수 없습니다"
         echo "  📁 사용 가능한 디렉토리들:"
@@ -193,8 +301,70 @@ if [ -d "$WORK_DIR" ]; then
 fi
 
 echo ""
-echo "💡 Tip: 종합 리포트를 보려면 다음 명령어를 사용하세요:"
-echo "  cat $WORK_DIR/COMPREHENSIVE_ANALYSIS_REPORT.md"
+echo "💡 주요 리포트 확인 명령어:"
+echo "  📄 종합 리포트: cat $WORK_DIR/COMPREHENSIVE_ANALYSIS_REPORT.md"
+echo "  📄 요약 리포트: cat $WORK_DIR/ENHANCED_ANALYSIS_SUMMARY.md"
+
+# Target 디렉토리가 있다면 로그 샘플 리포트도 추천
+if [ -n "$target_processed_dir" ] && [ -d "$target_processed_dir/log_samples_analysis" ]; then
+    echo "  📋 로그 샘플 분석: cat $target_processed_dir/log_samples_analysis/anomaly_analysis_report.md"
+fi
+
 echo ""
-echo "📁 스캔된 디렉토리 구조:"
+echo "🚀 빠른 실행 스크립트:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 실행 가능한 스크립트 생성
+if [ -n "$target_processed_dir" ] && [ -d "$target_processed_dir" ]; then
+    quick_script="$WORK_DIR/quick_analysis.sh"
+    cat > "$quick_script" << EOF
+#!/bin/bash
+# 빠른 분석 실행 스크립트 (자동 생성됨)
+
+echo "🔍 추가 분석 실행 중..."
+cd "$(pwd)"
+
+EOF
+
+    if [ -f "analyze_results.py" ]; then
+        echo "python analyze_results.py --data-dir $target_processed_dir" >> "$quick_script"
+    fi
+    
+    if [ -f "visualize_results.py" ]; then
+        echo "python visualize_results.py --data-dir $target_processed_dir" >> "$quick_script"
+    fi
+    
+    if [ -f "mscred_analyzer.py" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
+        echo "python mscred_analyzer.py --data-dir $target_processed_dir --output-dir $target_processed_dir/mscred_analysis" >> "$quick_script"
+    fi
+    
+    echo "echo '✅ 추가 분석 완료!'" >> "$quick_script"
+    
+    chmod +x "$quick_script"
+    echo "  🎯 전체 추가 분석: ./$quick_script"
+fi
+
+echo "  📊 개별 분석:"
+if [ -n "$target_processed_dir" ] && [ -f "analyze_results.py" ]; then
+    echo "    $PYTHON_CMD analyze_results.py --data-dir $target_processed_dir"
+fi
+if [ -n "$target_processed_dir" ] && [ -f "mscred_analyzer.py" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
+    echo "    $PYTHON_CMD mscred_analyzer.py --data-dir $target_processed_dir"
+fi
+if [ -n "$target_processed_dir" ] && [ -f "log_sample_analyzer.py" ]; then
+    echo "    $PYTHON_CMD log_sample_analyzer.py $target_processed_dir"
+fi
+
+echo ""
+echo "📁 스캔된 디렉토리 구조 확인:"
 echo "  find $LOG_DIR -name '*.log' -o -name '*.txt' | head -10"
+
+echo ""
+echo "🎉 배치 분석이 완료되었습니다!"
+echo "   - ✅ 전처리: 로그 파싱 및 템플릿 추출"
+echo "   - ✅ Baseline: 윈도우 기반 이상탐지" 
+echo "   - ✅ DeepLog: LSTM 시퀀스 예측 이상탐지"
+echo "   - ✅ MS-CRED: 멀티스케일 컨볼루션 이상탐지"
+echo "   - ✅ 시간 분석: 시간대별 패턴 비교"
+echo "   - ✅ 비교 분석: 파일 간 패턴 차이"
+echo "   - ✅ 로그 샘플: 실제 이상 로그 추출"
