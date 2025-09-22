@@ -30,7 +30,7 @@ class EnhancedBatchAnalyzer:
         self.log_patterns = [
             "*.log", "*.txt", "*.out", 
             "*.log.*", "*.syslog", "*.messages",
-            "*.access", "*.error", "*.debug"
+            "*.access", "*.error", "*.debug", "*.log*"
         ]
         
     def find_log_files_recursive(self, input_dir: str, max_depth: int = 3) -> List[Tuple[Path, str]]:
