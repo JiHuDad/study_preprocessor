@@ -294,10 +294,30 @@ echo ""
 echo "4️⃣  베이스라인 통계 점진적 업데이트 중..."
 
 # 통합된 데이터로 베이스라인 재계산
-$PYTHON_CMD -m study_preprocessor.cli detect \
-    --parsed "$WORK_DIR/combined_parsed.parquet" \
-    --out-dir "$WORK_DIR" \
-    --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
+$PYTHON_CMD -c "
+from study_preprocessor.detect import baseline_detect, BaselineParams
+
+try:
+    # 베이스라인 탐지 설정
+    params = BaselineParams(window_size=50, stride=25, ewm_alpha=0.3, anomaly_quantile=0.95)
+    
+    print('베이스라인 통계 업데이트 시작...')
+    
+    # 베이스라인 탐지 실행
+    result_path = baseline_detect(
+        parsed_parquet='$WORK_DIR/combined_parsed.parquet',
+        out_dir='$WORK_DIR',
+        params=params
+    )
+    
+    print(f'베이스라인 통계 업데이트 완료: {result_path}')
+    
+except Exception as e:
+    print(f'베이스라인 통계 업데이트 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ -f "$WORK_DIR/baseline_scores.parquet" ]; then
     # 업데이트된 베이스라인 통계를 모델 디렉토리로 복사
@@ -308,6 +328,7 @@ if [ -f "$WORK_DIR/baseline_scores.parquet" ]; then
 import pandas as pd
 import json
 import numpy as np
+import os
 
 # 새로운 베이스라인 결과 로드
 new_df = pd.read_parquet('$WORK_DIR/baseline_scores.parquet')
@@ -320,24 +341,42 @@ if os.path.exists('$BACKUP_DIR/baseline_stats.json'):
 
 # 새로운 정상 패턴 통계 계산
 normal_windows = new_df[new_df['is_anomaly'] == False]
+
+# 정상 윈도우가 있는지 확인
+if len(normal_windows) > 0:
+    unseen_stats = {
+        'mean_unseen_rate': float(normal_windows['unseen_rate'].mean()),
+        'std_unseen_rate': float(normal_windows['unseen_rate'].std()),
+    }
+    frequency_stats = {
+        'mean_freq_z': float(normal_windows['freq_z'].mean()),
+        'std_freq_z': float(normal_windows['freq_z'].std()),
+        'mean_score': float(normal_windows['score'].mean()),
+        'std_score': float(normal_windows['score'].std()),
+    }
+else:
+    # 정상 윈도우가 없는 경우 기본값 사용
+    unseen_stats = {
+        'mean_unseen_rate': 0.0,
+        'std_unseen_rate': 0.0,
+    }
+    frequency_stats = {
+        'mean_freq_z': 0.0,
+        'std_freq_z': 0.0,
+        'mean_score': 0.0,
+        'std_score': 0.0,
+    }
+
 new_stats = {
     'total_windows': len(new_df),
     'normal_windows': len(normal_windows),
     'anomaly_rate': float((new_df['is_anomaly'] == True).mean()),
-    'template_stats': {
-        'mean_new_template_rate': float(normal_windows['new_template_rate'].mean()),
-        'std_new_template_rate': float(normal_windows['new_template_rate'].std()),
-        'mean_total_templates': float(normal_windows['total_templates'].mean()),
-        'std_total_templates': float(normal_windows['total_templates'].std()),
-    },
-    'frequency_stats': {
-        'mean_freq_score': float(normal_windows['freq_score'].mean()),
-        'std_freq_score': float(normal_windows['freq_score'].std()),
-    },
+    'unseen_stats': unseen_stats,
+    'frequency_stats': frequency_stats,
     'incremental_info': {
         'previous_normal_windows': old_stats.get('normal_windows', 0),
         'added_normal_windows': len(normal_windows) - old_stats.get('normal_windows', 0),
-        'improvement_ratio': len(normal_windows) / old_stats.get('normal_windows', 1)
+        'improvement_ratio': len(normal_windows) / max(old_stats.get('normal_windows', 0), 1)
     }
 }
 
@@ -358,9 +397,26 @@ echo ""
 echo "5️⃣  DeepLog 점진적 학습 중..."
 
 # DeepLog 입력 생성 (통합된 데이터로)
-$PYTHON_CMD -m study_preprocessor.cli build-deeplog \
-    --parsed "$WORK_DIR/combined_parsed.parquet" \
-    --out-dir "$WORK_DIR"
+$PYTHON_CMD -c "
+from study_preprocessor.builders.deeplog import build_deeplog_inputs
+
+try:
+    print('DeepLog 입력 생성 시작...')
+    
+    # DeepLog 입력 생성
+    build_deeplog_inputs(
+        parsed_parquet='$WORK_DIR/combined_parsed.parquet',
+        out_dir='$WORK_DIR'
+    )
+    
+    print('DeepLog 입력 생성 완료')
+    
+except Exception as e:
+    print(f'DeepLog 입력 생성 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ -f "$WORK_DIR/sequences.parquet" ] && [ -f "$WORK_DIR/vocab.json" ]; then
     # 기존 DeepLog 모델이 있는지 확인
@@ -395,11 +451,29 @@ print(f'✅ DeepLog 점진적 학습 완료: {updated_model}')
         echo "   기존 DeepLog 모델이 없음, 새로 학습..."
         # 새로 학습
         UPDATED_DEEPLOG_MODEL="$OUTPUT_MODEL_DIR/deeplog.pth"
-        $PYTHON_CMD -m study_preprocessor.cli deeplog-train \
-            --seq "$WORK_DIR/sequences.parquet" \
-            --vocab "$WORK_DIR/vocab.json" \
-            --out "$UPDATED_DEEPLOG_MODEL" \
-            --seq-len 50 --epochs 10 --batch-size 64
+        $PYTHON_CMD -c "
+from study_preprocessor.builders.deeplog import train_deeplog
+
+try:
+    print('새로운 DeepLog 모델 학습 시작...')
+    
+    updated_model = train_deeplog(
+        sequences_parquet='$WORK_DIR/sequences.parquet',
+        vocab_json='$WORK_DIR/vocab.json',
+        out_path='$UPDATED_DEEPLOG_MODEL',
+        seq_len=50,
+        epochs=10,
+        batch_size=64
+    )
+    
+    print(f'DeepLog 모델 학습 완료: {updated_model}')
+    
+except Exception as e:
+    print(f'DeepLog 모델 학습 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     fi
     
     # 어휘 사전 업데이트
@@ -419,10 +493,28 @@ echo ""
 echo "6️⃣  MS-CRED 점진적 학습 중..."
 
 # MS-CRED 입력 생성 (통합된 데이터로)
-$PYTHON_CMD -m study_preprocessor.cli build-mscred \
-    --parsed "$WORK_DIR/combined_parsed.parquet" \
-    --out-dir "$WORK_DIR" \
-    --window-size 50 --stride 25
+$PYTHON_CMD -c "
+from study_preprocessor.builders.mscred import build_mscred_window_counts
+
+try:
+    print('MS-CRED 입력 생성 시작...')
+    
+    # MS-CRED 입력 생성
+    build_mscred_window_counts(
+        parsed_parquet='$WORK_DIR/combined_parsed.parquet',
+        out_dir='$WORK_DIR',
+        window_size=50,
+        stride=25
+    )
+    
+    print('MS-CRED 입력 생성 완료')
+    
+except Exception as e:
+    print(f'MS-CRED 입력 생성 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ -f "$WORK_DIR/window_counts.parquet" ]; then
     # 기존 MS-CRED 모델이 있는지 확인
@@ -433,18 +525,50 @@ if [ -f "$WORK_DIR/window_counts.parquet" ]; then
         
         # 점진적 학습 (에포크 수를 줄여서)
         UPDATED_MSCRED_MODEL="$OUTPUT_MODEL_DIR/mscred.pth"
-        $PYTHON_CMD -m study_preprocessor.cli mscred-train \
-            --window-counts "$WORK_DIR/window_counts.parquet" \
-            --out "$UPDATED_MSCRED_MODEL" \
-            --epochs 25  # 기존보다 적은 에포크
+        $PYTHON_CMD -c "
+from study_preprocessor.mscred_model import train_mscred
+
+try:
+    print('기존 MS-CRED 모델 점진적 학습 시작...')
+    
+    train_mscred(
+        window_counts_path='$WORK_DIR/window_counts.parquet',
+        model_output_path='$UPDATED_MSCRED_MODEL',
+        epochs=25  # 기존보다 적은 에포크
+    )
+    
+    print('MS-CRED 점진적 학습 완료')
+    
+except Exception as e:
+    print(f'MS-CRED 점진적 학습 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     else
         echo "   기존 MS-CRED 모델이 없음, 새로 학습..."
         # 새로 학습
         UPDATED_MSCRED_MODEL="$OUTPUT_MODEL_DIR/mscred.pth"
-        $PYTHON_CMD -m study_preprocessor.cli mscred-train \
-            --window-counts "$WORK_DIR/window_counts.parquet" \
-            --out "$UPDATED_MSCRED_MODEL" \
-            --epochs 50
+        $PYTHON_CMD -c "
+from study_preprocessor.mscred_model import train_mscred
+
+try:
+    print('새로운 MS-CRED 모델 학습 시작...')
+    
+    train_mscred(
+        window_counts_path='$WORK_DIR/window_counts.parquet',
+        model_output_path='$UPDATED_MSCRED_MODEL',
+        epochs=50
+    )
+    
+    print('MS-CRED 모델 학습 완료')
+    
+except Exception as e:
+    print(f'MS-CRED 모델 학습 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     fi
     
     if [ -f "$UPDATED_MSCRED_MODEL" ]; then
@@ -547,12 +671,24 @@ new_metadata = {
         'drain3_state': os.path.exists('$OUTPUT_MODEL_DIR/drain3_state.json'),
         'vocab': os.path.exists('$OUTPUT_MODEL_DIR/vocab.json')
     },
-    'incremental_files': [
-        '$(printf "%s\n" "${selected_new_files[@]}" | sed "s|$NEW_LOG_DIR/||g" | head -20)'
-    ],
+    'incremental_files': [],  # 파일 목록은 별도로 처리
     'backup_location': '$BACKUP_DIR',
     'performance_comparison': '$COMPARISON_DIR'
 }
+
+# 파일 목록 추가 (안전하게 처리)
+try:
+    import subprocess
+    result = subprocess.run(['bash', '-c', 'printf \"%s\\n\" \"${selected_new_files[@]}\" | head -20'], 
+                          capture_output=True, text=True, cwd='.')
+    if result.returncode == 0:
+        file_list = [f.strip() for f in result.stdout.split('\\n') if f.strip()]
+        # 경로에서 기본 디렉토리 제거
+        new_log_dir = '$NEW_LOG_DIR'
+        relative_files = [f.replace(new_log_dir + '/', '') if f.startswith(new_log_dir) else f for f in file_list]
+        new_metadata['incremental_files'] = relative_files[:20]
+except:
+    new_metadata['incremental_files'] = ['파일 목록 생성 실패']
 
 # 기존 메타데이터와 병합
 if old_metadata:
