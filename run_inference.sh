@@ -430,7 +430,7 @@ anomalies = (df['is_anomaly'] == True).sum()
 print(f'✅ MS-CRED 분석 완료:')
 print(f'   📊 총 윈도우: {total_windows}개')
 print(f'   🚨 이상 윈도우: {anomalies}개 ({100*anomalies/total_windows:.1f}%)')
-print(f'   📈 평균 재구성 오차: {df[\"recon_error\"].mean():.4f}')
+print(f'   📈 평균 재구성 오차: {df[\"reconstruction_error\"].mean():.4f}')
 "
         else
             echo "⚠️  MS-CRED 추론 실행 실패"
@@ -578,7 +578,7 @@ if 'mscred' in available_results:
     report_lines.append('')
     report_lines.append(f'- **총 윈도우**: {total_windows:,}개')
     report_lines.append(f'- **이상 윈도우**: {anomalies}개 ({100*anomalies/total_windows:.1f}%)')
-    report_lines.append(f'- **평균 재구성 오차**: {df[\"recon_error\"].mean():.4f}')
+    report_lines.append(f'- **평균 재구성 오차**: {df[\"reconstruction_error\"].mean():.4f}')
     report_lines.append('')
 
 # 시간 기반 결과
