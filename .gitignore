@@ -39,6 +39,8 @@ demo_log_samples/
 **/log_samples_analysis/
 **/temporal_analysis/
 **/comparative_analysis/
+demo_batch_*/
+test_*/
 
 # Log files (except examples)
 *.log
