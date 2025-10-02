@@ -507,7 +507,7 @@ import json
 
 # 메모리 로그 분석
 try:
-    df = pd.read_csv('$MEMORY_LOG', sep='\s+', skiprows=1, names=['PID', 'VSZ', 'RSS', 'CPU'])
+    df = pd.read_csv('$MEMORY_LOG', sep='\\s+', skiprows=1, names=['PID', 'VSZ', 'RSS', 'CPU'])
     if len(df) > 0:
         memory_stats = {
             'max_memory_mb': float(df['RSS'].max() / 1024),
