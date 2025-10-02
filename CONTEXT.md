@@ -14,10 +14,18 @@
 ### 2. 이상탐지 방법
 - **베이스라인 탐지**: 윈도우 기반 템플릿 빈도 변화 감지
 - **DeepLog**: LSTM 기반 시퀀스 예측 모델
+- **MS-CRED**: 멀티스케일 컨볼루션 재구성 오차 기반 탐지
 - **시간 기반 탐지**: 과거 동일 시간대 패턴과 비교
 - **비교 탐지**: 여러 파일 간 패턴 차이 분석
 
-### 3. 배치 분석
+### 3. 🆕 학습/추론 분리 워크플로우
+- **모델 학습**: 정상 로그로 DeepLog, MS-CRED, 베이스라인 통계 학습
+- **이상탐지 추론**: 학습된 모델로 Target 로그 분석
+- **모델 비교**: 서로 다른 시점 모델들의 성능 비교
+- **점진적 학습**: 기존 모델에 새로운 데이터 추가 학습
+- **모델 검증**: 자동화된 품질 평가 (0-100점)
+
+### 4. 배치 분석
 - **단일 파일**: 개별 로그 파일 전처리
 - **디렉토리 배치**: 폴더 내 모든 로그 파일 일괄 처리
 - **재귀 스캔**: 하위 디렉토리 포함 전체 스캔
@@ -42,8 +50,14 @@ study_preprocessor/
 ├── enhanced_batch_analyzer.py   # 향상된 배치 분석기
 ├── temporal_anomaly_detector.py # 시간 기반 이상탐지
 ├── comparative_anomaly_detector.py # 비교 기반 이상탐지
+├── log_sample_analyzer.py      # 이상 로그 샘플 추출 및 분석
 ├── rules.json                  # 마스킹 규칙 설정
-└── run_*.sh                    # 실행 스크립트들
+├── train_models.sh             # 🆕 모델 학습 스크립트
+├── run_inference.sh            # 🆕 이상탐지 추론 스크립트
+├── compare_models.sh           # 🆕 모델 비교 도구
+├── train_models_incremental.sh # 🆕 점진적 학습 도구
+├── validate_models.sh          # 🆕 모델 검증 도구
+└── run_*.sh                    # 기타 실행 스크립트들
 ```
 
 ## 🔧 주요 구성 요소
@@ -113,16 +127,31 @@ study-preprocess detect --parsed data/processed/parsed.parquet --out-dir data/pr
 study-preprocess report --processed-dir data/processed
 ```
 
-### 2. 배치 분석
+### 2. 🆕 학습/추론 분리 워크플로우 (추천)
 ```bash
-# 향상된 배치 분석 (추천)
+# 1단계: 정상 로그로 모델 학습
+./train_models.sh /var/log/normal/ my_models
+
+# 2단계: 모델 품질 검증
+./validate_models.sh my_models
+
+# 3단계: Target 로그 이상탐지 (실제 로그 샘플 포함)
+./run_inference.sh my_models /var/log/suspicious.log
+
+# 결과 확인
+cat inference_*/log_samples_analysis/anomaly_analysis_report.md
+```
+
+### 3. 배치 분석
+```bash
+# 향상된 배치 분석
 ./run_enhanced_batch_analysis.sh /var/log/ app.log 3 20 batch_result
 
 # 결과 확인
 cat batch_result/ENHANCED_ANALYSIS_SUMMARY.md
 ```
 
-### 3. 시간 기반 분석
+### 4. 시간 기반 분석
 ```bash
 # 시간대별 패턴 학습 및 이상탐지
 python temporal_anomaly_detector.py --data-dir data/processed
@@ -171,6 +200,32 @@ cat data/processed/temporal_analysis/temporal_report.md
 - **log_patterns**: *.log, *.txt, *.syslog 등
 
 ## 🔬 고급 기능
+
+### 🆕 모델 관리 도구
+
+#### 모델 비교
+```bash
+# 두 모델의 성능 비교
+./compare_models.sh old_models new_models /var/log/test.log
+```
+
+#### 점진적 학습
+```bash
+# 기존 모델에 새로운 데이터 추가 학습
+./train_models_incremental.sh base_models /var/log/new_normal/ updated_models
+```
+
+#### 모델 검증
+```bash
+# 모델 품질 자동 평가 (0-100점)
+./validate_models.sh my_models
+```
+
+### 이상 로그 샘플 분석
+```bash
+# 이상탐지 결과에서 실제 문제 로그들 추출
+python log_sample_analyzer.py data/processed --output-dir log_samples
+```
 
 ### 합성 데이터 생성
 ```bash

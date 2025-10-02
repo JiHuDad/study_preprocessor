@@ -2,14 +2,16 @@
 
 이 문서는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 방법을 단계별로 안내합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
 
-## 🆕 **최신 업데이트 (2025-09-20)**
+## 🆕 **최신 업데이트 (2025-10-02)**
 
 ### ✨ **새로운 주요 기능들:**
+- **🔄 학습/추론 분리 워크플로우**: 모델 학습과 추론을 분리하여 효율성 극대화
+- **📊 모델 비교 도구**: 서로 다른 시점 모델들의 성능 객관적 비교
+- **🔄 점진적 학습**: 기존 모델에 새로운 데이터를 추가하여 지속적 개선
+- **🔍 자동화된 모델 검증**: 0-100점 품질 점수로 모델 상태 자동 평가
+- **📋 실제 이상 로그 샘플 추출**: 이상탐지 결과에서 문제 로그들을 자동 추출 및 분석
 - **🎯 외부 Target 파일 지원**: 다른 디렉토리의 파일을 Target으로 지정 가능
-- **📊 로그 샘플 개수 증가**: 타입별 최대 20개 샘플 표시 (기존 10개 → 20개)
-- **🔍 Target 파일 검증 강화**: 잘못된 Target 지정 시 안전한 에러 처리
-- **📄 종합 리포트 통합**: 모든 분석 결과를 하나의 `COMPREHENSIVE_ANALYSIS_REPORT.md`로 통합
-- **🛡️ Baseline 품질 검증**: 자동으로 문제있는 Baseline 파일 필터링
+- **📄 종합 리포트 통합**: 모든 분석 결과를 하나의 리포트로 통합
 
 #### 1) 설치/환경
 - 사전 요구: macOS/Linux, Python 3.11+
@@ -188,12 +190,50 @@ study-preprocess eval --processed-dir data/processed/synth --labels data/raw/syn
 - 에러 처리 및 진행 상황 표시
 - 결과 파일 자동 정리 및 요약
 
-#### 9) 산출물 해석 요약
+#### 9) 🆕 **학습/추론 분리 워크플로우** ⭐ **추천**
+
+효율적인 모델 재사용을 위한 새로운 워크플로우:
+
+**1단계: 모델 학습**
+```bash
+# 정상 로그로 모델 학습
+./train_models.sh /var/log/normal/ my_models
+
+# 모델 품질 검증
+./validate_models.sh my_models
+```
+
+**2단계: 이상탐지 추론**
+```bash
+# Target 로그 이상탐지 (실제 로그 샘플 포함)
+./run_inference.sh my_models /var/log/suspicious.log
+
+# 이상 로그 샘플 확인
+cat inference_*/log_samples_analysis/anomaly_analysis_report.md
+```
+
+**고급 기능들:**
+```bash
+# 모델 성능 비교
+./compare_models.sh old_models new_models
+
+# 점진적 학습 (기존 모델 개선)
+./train_models_incremental.sh old_models /var/log/new_normal/ updated_models
+```
+
+**장점:**
+- 🔄 **효율성**: 한 번 학습하면 여러 Target에 재사용
+- 📊 **일관성**: 동일한 기준으로 일관된 이상탐지
+- 🔍 **검증**: 자동화된 모델 품질 평가 (0-100점)
+- 📋 **샘플**: 실제 문제 로그들을 자동 추출 및 분석
+
+#### 10) 산출물 해석 요약
 - `parsed.parquet`: `raw`, `masked`, `template_id`, `template`, `timestamp`, `host` 등
 - `baseline_scores.parquet`: `score`, `is_anomaly`, `window_start_line`
 - `deeplog_infer.parquet`: `idx`, `target`, `in_topk` (top-k 위반 여부)
 - `mscred_infer.parquet`: `window_idx`, `reconstruction_error`, `is_anomaly`, `threshold`
 - `report.md`: 상위 이상 윈도우와 기여 템플릿/요약 지표
+- 🆕 `anomaly_analysis_report.md`: 실제 이상 로그 샘플들과 상세 분석
 
 ## 🆕 새로운 이상탐지 방법
 
@@ -297,6 +337,39 @@ cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
 - 📊 **20개 로그 샘플**: 타입별 최대 20개 이상 로그 샘플 자동 추출 (기존 10개 → 20개)
 - 📄 **종합 리포트**: 모든 분석 결과를 `COMPREHENSIVE_ANALYSIS_REPORT.md` 하나로 통합
 - 🛡️ **Baseline 품질 검증**: 문제있는 Baseline 파일 자동 필터링
+
+## 🆕 **새로운 고급 도구들**
+
+### 🔧 **모델 학습 도구**
+```bash
+# 정상 로그로 모델 학습
+./train_models.sh /var/log/normal/ my_models
+
+# 점진적 학습 (기존 모델 개선)
+./train_models_incremental.sh old_models /var/log/new_normal/ updated_models
+```
+
+### 🔍 **모델 검증 및 비교**
+```bash
+# 모델 품질 검증 (0-100점 품질 점수)
+./validate_models.sh my_models
+
+# 두 모델 성능 비교
+./compare_models.sh old_models new_models
+```
+
+### 🎯 **이상탐지 추론**
+```bash
+# Target 로그 이상탐지 (실제 로그 샘플 포함)
+./run_inference.sh my_models /var/log/suspicious.log
+
+# 결과 확인
+cat inference_*/log_samples_analysis/anomaly_analysis_report.md
+```
+
+### 📋 **상세 가이드**
+- **전체 워크플로우**: `TRAIN_INFERENCE_GUIDE.md` 참조
+- **배치 분석**: `BATCH_ANALYSIS_GUIDE.md` 참조
 - 🔍 **Target 검증 강화**: 잘못된 Target 지정 시 안전한 에러 처리
 
 **지원하는 디렉토리 구조**:

@@ -129,7 +129,8 @@ if [ ${#log_files[@]} -gt 0 ]; then
     
     # 선택된 파일들 출력
     echo "📋 학습에 사용할 파일들:"
-    for i, file in "${!selected_files[@]}"; do
+    for i in "${!selected_files[@]}"; do
+        file="${selected_files[$i]}"
         size=$(stat -c%s "$file" 2>/dev/null | numfmt --to=iec)
         echo "  $((i+1)). $(basename "$file") ($size)"
         if [ $i -ge 9 ]; then
