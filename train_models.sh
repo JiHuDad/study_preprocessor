@@ -67,13 +67,60 @@ if [ "$VENV_ACTIVATED" = false ]; then
 fi
 
 # 프로젝트 설치 확인
+echo "🔍 패키지 상태 확인 중..."
 if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
     echo "🔧 study_preprocessor 패키지 설치 중..."
-    .venv/bin/pip install -e . || {
-        echo "❌ 패키지 설치 실패"
+    
+    # 가상환경에서 pip 사용
+    if [ "$VENV_ACTIVATED" = true ] && [ -n "$VIRTUAL_ENV" ]; then
+        pip install -e . || {
+            echo "❌ 패키지 설치 실패 (pip)"
+            exit 1
+        }
+    elif [ -f ".venv/bin/pip" ]; then
+        .venv/bin/pip install -e . || {
+            echo "❌ 패키지 설치 실패 (.venv/bin/pip)"
+            exit 1
+        }
+    else
+        echo "❌ 적절한 pip을 찾을 수 없습니다."
+        echo "🔍 디버깅 정보:"
+        echo "   - VENV_ACTIVATED: $VENV_ACTIVATED"
+        echo "   - VIRTUAL_ENV: $VIRTUAL_ENV"
+        echo "   - .venv/bin/pip 존재: $([ -f ".venv/bin/pip" ] && echo "예" || echo "아니오")"
         exit 1
-    }
+    fi
     echo "✅ 패키지 설치 완료"
+else
+    echo "✅ study_preprocessor 패키지 이미 설치됨"
+fi
+
+# 필수 의존성 확인
+echo "🔍 필수 의존성 확인 중..."
+missing_deps=()
+for dep in "pandas" "torch" "drain3"; do
+    if ! $PYTHON_CMD -c "import $dep" 2>/dev/null; then
+        missing_deps+=("$dep")
+    fi
+done
+
+if [ ${#missing_deps[@]} -gt 0 ]; then
+    echo "❌ 누락된 의존성: ${missing_deps[*]}"
+    echo "🔧 의존성 설치 중..."
+    if [ "$VENV_ACTIVATED" = true ]; then
+        pip install -r requirements.txt || {
+            echo "❌ 의존성 설치 실패"
+            exit 1
+        }
+    else
+        .venv/bin/pip install -r requirements.txt || {
+            echo "❌ 의존성 설치 실패"
+            exit 1
+        }
+    fi
+    echo "✅ 의존성 설치 완료"
+else
+    echo "✅ 모든 필수 의존성 확인됨"
 fi
 
 # 모델 저장 디렉토리 생성
@@ -160,13 +207,60 @@ echo "✅ 병합된 로그 크기: $(stat -c%s "$MERGED_LOG" | numfmt --to=iec)"
 
 # Drain3로 전처리
 echo "   Drain3 템플릿 추출 중..."
-$PYTHON_CMD -m study_preprocessor.cli parse \
-    --input "$MERGED_LOG" \
-    --out-dir "$WORK_DIR" \
-    --drain-state "$DRAIN_STATE"
+echo "   📝 명령어: $PYTHON_CMD -m study_preprocessor.cli parse --input \"$MERGED_LOG\" --out-dir \"$WORK_DIR\" --drain-state \"$DRAIN_STATE\""
 
+# 전처리 실행 (Python 코드 직접 호출)
+if ! $PYTHON_CMD -c "
+from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from pathlib import Path
+import json
+
+try:
+    # 전처리 설정
+    cfg = PreprocessConfig(drain_state_path='$DRAIN_STATE')
+    pre = LogPreprocessor(cfg)
+    
+    # 전처리 실행
+    df = pre.process_file('$MERGED_LOG')
+    print(f'전처리 완료: {len(df)} 레코드 생성')
+    
+    # 결과 저장
+    output_dir = Path('$WORK_DIR')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    parquet_path = output_dir / 'parsed.parquet'
+    df.to_parquet(parquet_path, index=False)
+    
+    # 미리보기 저장
+    preview = df.head(10).to_dict(orient='records')
+    (output_dir / 'preview.json').write_text(json.dumps(preview, ensure_ascii=False, default=str, indent=2))
+    
+    print(f'저장 완료: {parquet_path}')
+    
+except Exception as e:
+    print(f'전처리 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+" 2>&1; then
+    echo "❌ 전처리 실행 실패"
+    echo "🔍 디버깅 정보:"
+    echo "   - 병합된 로그 파일: $MERGED_LOG ($([ -f "$MERGED_LOG" ] && echo "존재" || echo "없음"))"
+    echo "   - 작업 디렉토리: $WORK_DIR ($([ -d "$WORK_DIR" ] && echo "존재" || echo "없음"))"
+    echo "   - Python 명령어: $PYTHON_CMD"
+    exit 1
+fi
+
+# 결과 파일 확인
 if [ ! -f "$WORK_DIR/parsed.parquet" ]; then
     echo "❌ 전처리 실패: parsed.parquet 파일이 생성되지 않았습니다."
+    echo "🔍 생성된 파일들:"
+    ls -la "$WORK_DIR/" 2>/dev/null || echo "   작업 디렉토리가 비어있습니다."
+    echo "🔍 로그 파일 상태:"
+    echo "   - 크기: $(stat -c%s "$MERGED_LOG" 2>/dev/null || echo "확인 불가") bytes"
+    echo "   - 라인 수: $(wc -l < "$MERGED_LOG" 2>/dev/null || echo "확인 불가")"
+    echo "   - 첫 5줄:"
+    head -5 "$MERGED_LOG" 2>/dev/null || echo "   로그 파일을 읽을 수 없습니다."
     exit 1
 fi
 
@@ -175,10 +269,31 @@ echo ""
 
 # 3단계: 베이스라인 통계 학습
 echo "3️⃣  베이스라인 통계 학습 중..."
-$PYTHON_CMD -m study_preprocessor.cli detect \
-    --parsed "$WORK_DIR/parsed.parquet" \
-    --out-dir "$WORK_DIR" \
-    --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
+$PYTHON_CMD -c "
+from study_preprocessor.detect import baseline_detect, BaselineParams
+from pathlib import Path
+
+try:
+    # 베이스라인 탐지 설정
+    params = BaselineParams(window_size=50, stride=25, ewm_alpha=0.3, anomaly_quantile=0.95)
+    
+    print('베이스라인 탐지 시작...')
+    
+    # 베이스라인 탐지 실행 (파일 경로 직접 전달)
+    result_path = baseline_detect(
+        parsed_parquet='$WORK_DIR/parsed.parquet',
+        out_dir='$WORK_DIR',
+        params=params
+    )
+    
+    print(f'베이스라인 탐지 완료: {result_path}')
+    
+except Exception as e:
+    print(f'베이스라인 탐지 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ -f "$WORK_DIR/baseline_scores.parquet" ]; then
     # 베이스라인 통계를 모델 디렉토리로 복사
@@ -192,6 +307,7 @@ import numpy as np
 
 # 베이스라인 결과 로드
 df = pd.read_parquet('$WORK_DIR/baseline_scores.parquet')
+print(f'베이스라인 결과 컬럼: {list(df.columns)}')
 
 # 정상 패턴 통계 계산
 normal_windows = df[df['is_anomaly'] == False]
@@ -199,15 +315,15 @@ stats = {
     'total_windows': len(df),
     'normal_windows': len(normal_windows),
     'anomaly_rate': float((df['is_anomaly'] == True).mean()),
-    'template_stats': {
-        'mean_new_template_rate': float(normal_windows['new_template_rate'].mean()),
-        'std_new_template_rate': float(normal_windows['new_template_rate'].std()),
-        'mean_total_templates': float(normal_windows['total_templates'].mean()),
-        'std_total_templates': float(normal_windows['total_templates'].std()),
+    'unseen_stats': {
+        'mean_unseen_rate': float(normal_windows['unseen_rate'].mean()) if len(normal_windows) > 0 else 0.0,
+        'std_unseen_rate': float(normal_windows['unseen_rate'].std()) if len(normal_windows) > 0 else 0.0,
     },
     'frequency_stats': {
-        'mean_freq_score': float(normal_windows['freq_score'].mean()),
-        'std_freq_score': float(normal_windows['freq_score'].std()),
+        'mean_freq_z': float(normal_windows['freq_z'].mean()) if len(normal_windows) > 0 else 0.0,
+        'std_freq_z': float(normal_windows['freq_z'].std()) if len(normal_windows) > 0 else 0.0,
+        'mean_score': float(normal_windows['score'].mean()) if len(normal_windows) > 0 else 0.0,
+        'std_score': float(normal_windows['score'].std()) if len(normal_windows) > 0 else 0.0,
     }
 }
 
@@ -224,19 +340,56 @@ echo ""
 # 4단계: DeepLog 학습
 echo "4️⃣  DeepLog 모델 학습 중..."
 
-# DeepLog 입력 생성
-$PYTHON_CMD -m study_preprocessor.cli build-deeplog \
-    --parsed "$WORK_DIR/parsed.parquet" \
-    --out-dir "$WORK_DIR"
+# DeepLog 입력 생성 및 모델 학습
+$PYTHON_CMD -c "
+from study_preprocessor.builders.deeplog import build_deeplog_inputs, train_deeplog
+import pandas as pd
+from pathlib import Path
+import json
+
+try:
+    # 전처리된 데이터 로드
+    df = pd.read_parquet('$WORK_DIR/parsed.parquet')
+    print(f'DeepLog 입력 생성 시작: {len(df)} 레코드')
+    
+    # DeepLog 입력 생성
+    sequences_df, vocab = build_deeplog_inputs(df)
+    
+    # 결과 저장
+    work_dir = Path('$WORK_DIR')
+    sequences_path = work_dir / 'sequences.parquet'
+    vocab_path = work_dir / 'vocab.json'
+    
+    sequences_df.to_parquet(sequences_path, index=False)
+    with open(vocab_path, 'w') as f:
+        json.dump(vocab, f, indent=2, ensure_ascii=False)
+    
+    print(f'DeepLog 입력 생성 완료: {len(sequences_df)} 시퀀스, 어휘 크기: {len(vocab)}')
+    
+    # DeepLog 모델 학습
+    model_path = '$MODEL_DIR/deeplog.pth'
+    print('DeepLog 모델 학습 시작...')
+    
+    train_deeplog(
+        sequences_path=str(sequences_path),
+        vocab_path=str(vocab_path),
+        output_path=model_path,
+        seq_len=50,
+        epochs=10,
+        batch_size=64
+    )
+    
+    print(f'DeepLog 모델 학습 완료: {model_path}')
+    
+except Exception as e:
+    print(f'DeepLog 처리 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    # DeepLog 실패해도 계속 진행
+"
 
 if [ -f "$WORK_DIR/sequences.parquet" ] && [ -f "$WORK_DIR/vocab.json" ]; then
-    # DeepLog 모델 학습
     DEEPLOG_MODEL="$MODEL_DIR/deeplog.pth"
-    $PYTHON_CMD -m study_preprocessor.cli deeplog-train \
-        --seq "$WORK_DIR/sequences.parquet" \
-        --vocab "$WORK_DIR/vocab.json" \
-        --out "$DEEPLOG_MODEL" \
-        --seq-len 50 --epochs 10 --batch-size 64
     
     if [ -f "$DEEPLOG_MODEL" ]; then
         # vocab.json을 모델 디렉토리로 복사
@@ -253,19 +406,51 @@ echo ""
 # 5단계: MS-CRED 학습
 echo "5️⃣  MS-CRED 모델 학습 중..."
 
-# MS-CRED 입력 생성
-$PYTHON_CMD -m study_preprocessor.cli build-mscred \
-    --parsed "$WORK_DIR/parsed.parquet" \
-    --out-dir "$WORK_DIR" \
-    --window-size 50 --stride 25
+# MS-CRED 입력 생성 및 모델 학습
+$PYTHON_CMD -c "
+from study_preprocessor.builders.mscred import build_mscred_window_counts
+from study_preprocessor.mscred_model import train_mscred
+from pathlib import Path
+
+try:
+    # MS-CRED 입력 생성
+    print('MS-CRED 입력 생성 시작...')
+    build_mscred_window_counts(
+        parsed_parquet='$WORK_DIR/parsed.parquet',
+        out_dir='$WORK_DIR',
+        window_size=50,
+        stride=25
+    )
+    
+    window_counts_path = Path('$WORK_DIR') / 'window_counts.parquet'
+    if window_counts_path.exists():
+        print(f'MS-CRED 입력 생성 완료: {window_counts_path}')
+        
+        # MS-CRED 모델 학습
+        model_path = '$MODEL_DIR/mscred.pth'
+        print('MS-CRED 모델 학습 시작...')
+        
+        stats = train_mscred(
+            window_counts_path=str(window_counts_path),
+            model_output_path=model_path,
+            epochs=50
+        )
+        
+        print(f'MS-CRED 모델 학습 완료: {model_path}')
+        print(f'최종 학습 손실: {stats[\"final_train_loss\"]:.4f}')
+        print(f'최종 검증 손실: {stats[\"final_val_loss\"]:.4f}')
+    else:
+        print('MS-CRED 입력 생성 실패')
+    
+except Exception as e:
+    print(f'MS-CRED 처리 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    # MS-CRED 실패해도 계속 진행
+"
 
 if [ -f "$WORK_DIR/window_counts.parquet" ]; then
-    # MS-CRED 모델 학습
     MSCRED_MODEL="$MODEL_DIR/mscred.pth"
-    $PYTHON_CMD -m study_preprocessor.cli mscred-train \
-        --window-counts "$WORK_DIR/window_counts.parquet" \
-        --out "$MSCRED_MODEL" \
-        --epochs 50
     
     if [ -f "$MSCRED_MODEL" ]; then
         echo "✅ MS-CRED 학습 완료: $(stat -c%s "$MSCRED_MODEL" | numfmt --to=iec)"
