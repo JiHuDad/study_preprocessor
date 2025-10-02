@@ -403,15 +403,13 @@ try:
     print('MS-CRED 추론 시작...')
     
     # MS-CRED 추론 실행
+    output_path = Path('$RESULT_DIR') / 'mscred_infer.parquet'
     df = infer_mscred(
         window_counts_path='$RESULT_DIR/window_counts.parquet',
         model_path='$MODEL_DIR/mscred.pth',
+        output_path=str(output_path),
         threshold_percentile=95.0
     )
-    
-    # 결과 저장
-    output_path = Path('$RESULT_DIR') / 'mscred_infer.parquet'
-    df.to_parquet(output_path, index=False)
     
     print(f'MS-CRED 추론 완료: {len(df)} 윈도우 처리, 저장됨: {output_path}')
     
@@ -564,8 +562,10 @@ if 'deeplog' in available_results:
     report_lines.append('### 🧠 DeepLog 이상탐지')
     report_lines.append('')
     report_lines.append(f'- **총 시퀀스**: {total_sequences:,}개')
-    report_lines.append(f'- **Top-K 위반**: {violations}개 ({100*violations/total_sequences:.1f}%)')
-    report_lines.append(f'- **평균 확률**: {df[\"prob\"].mean():.4f}')
+    if total_sequences > 0:
+        report_lines.append(f'- **Top-K 위반**: {violations}개 ({100*violations/total_sequences:.1f}%)')
+    else:
+        report_lines.append(f'- **Top-K 위반**: 0개 (시퀀스 없음)')
     report_lines.append('')
 
 # MS-CRED 결과

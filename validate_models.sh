@@ -215,8 +215,12 @@ with open('$RESULT_DIR/integrity_report.json', 'w') as f:
 print('✅ 모델 파일 무결성 검사 완료')
 print(f'   📊 총 파일: {report[\"summary\"][\"total_files\"]}개')
 print(f'   ✅ 존재하는 파일: {report[\"summary\"][\"existing_files\"]}개')
-print(f'   ❌ 필수 파일 누락: {report[\"summary\"][\"required_missing\"]}개')
-print(f'   🚨 손상된 파일: {report[\"summary\"][\"corrupted_files\"]}개')
+# 필수 파일 누락 상태에 따른 아이콘 선택
+missing_icon = '✅' if report[\"summary\"][\"required_missing\"] == 0 else '❌'
+corrupted_icon = '✅' if report[\"summary\"][\"corrupted_files\"] == 0 else '🚨'
+
+print(f'   {missing_icon} 필수 파일 누락: {report[\"summary\"][\"required_missing\"]}개')
+print(f'   {corrupted_icon} 손상된 파일: {report[\"summary\"][\"corrupted_files\"]}개')
 print(f'   💾 총 크기: {report[\"summary\"][\"total_size\"]:,} bytes')
 
 # 개별 파일 상태
