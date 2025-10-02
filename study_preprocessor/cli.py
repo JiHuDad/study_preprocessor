@@ -321,3 +321,103 @@ def analyze_samples_cmd(processed_dir: Path, output_dir: Path, max_samples: int,
             click.echo(f"⚠️ 요약 생성 실패: {e}")
 
 
+@main.command("convert-onnx")
+@click.option("--deeplog-model", type=click.Path(exists=True, dir_okay=False, path_type=Path), help="DeepLog 모델 경로")
+@click.option("--mscred-model", type=click.Path(exists=True, dir_okay=False, path_type=Path), help="MS-CRED 모델 경로")
+@click.option("--vocab", type=click.Path(exists=True, dir_okay=False, path_type=Path), help="어휘 사전 경로")
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default="models/onnx", help="ONNX 출력 디렉토리")
+@click.option("--validate", is_flag=True, default=False, help="변환 후 검증 실행")
+def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, output_dir: Path, validate: bool) -> None:
+    """PyTorch 모델을 ONNX 포맷으로 변환."""
+    try:
+        # 하이브리드 시스템 모듈 동적 임포트
+        import sys
+        sys.path.append(str(Path(__file__).parent.parent))
+        from hybrid_system.training.model_converter import convert_all_models
+        
+        if not deeplog_model and not mscred_model:
+            click.echo("❌ 최소 하나의 모델 경로를 지정해야 합니다.")
+            return
+        
+        click.echo("🔄 ONNX 변환 시작...")
+        
+        results = convert_all_models(
+            str(deeplog_model) if deeplog_model else "",
+            str(mscred_model) if mscred_model else "",
+            str(vocab) if vocab else "",
+            str(output_dir)
+        )
+        
+        click.echo("\n🎉 ONNX 변환 완료!")
+        for model_name, result in results.items():
+            if 'error' in result:
+                click.echo(f"❌ {model_name}: {result['error']}")
+            else:
+                click.echo(f"✅ {model_name}: {result['onnx_path']}")
+                if 'optimized_path' in result:
+                    click.echo(f"⚡ 최적화됨: {result['optimized_path']}")
+        
+        click.echo(f"📁 변환 결과: {output_dir}")
+        
+    except ImportError as e:
+        click.echo(f"❌ 하이브리드 시스템 모듈을 찾을 수 없습니다: {e}")
+        click.echo("💡 다음 명령으로 의존성을 설치하세요:")
+        click.echo("   pip install -r requirements_hybrid.txt")
+    except Exception as e:
+        click.echo(f"❌ ONNX 변환 실패: {e}")
+
+
+@main.command("hybrid-pipeline")
+@click.option("--log-file", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True, help="입력 로그 파일")
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), help="출력 디렉토리")
+@click.option("--auto-deploy", is_flag=True, default=True, help="자동 배포 준비")
+@click.option("--models-dir", type=click.Path(file_okay=False, path_type=Path), default="models", help="모델 저장 디렉토리")
+def hybrid_pipeline_cmd(log_file: Path, output_dir: Path, auto_deploy: bool, models_dir: Path) -> None:
+    """하이브리드 시스템 전체 파이프라인 실행 (학습 → ONNX 변환 → 배포 준비)."""
+    try:
+        # 하이브리드 시스템 모듈 동적 임포트
+        import sys
+        sys.path.append(str(Path(__file__).parent.parent))
+        from hybrid_system.training.auto_converter import AutoConverter
+        
+        click.echo("🚀 하이브리드 파이프라인 시작...")
+        
+        converter = AutoConverter(
+            models_dir=str(models_dir),
+            onnx_dir=str(models_dir / "onnx"),
+            deployment_dir=str(models_dir / "deployment")
+        )
+        
+        results = converter.run_full_pipeline(str(log_file), auto_deploy)
+        
+        click.echo(f"\n🎉 하이브리드 파이프라인 완료: {results['status']}")
+        
+        if 'training' in results['stages']:
+            training = results['stages']['training']
+            click.echo(f"📊 학습된 모델:")
+            for model_name, model_info in training.get('models', {}).items():
+                click.echo(f"  - {model_name}: {model_info['path']}")
+        
+        if 'conversion' in results['stages']:
+            conversion = results['stages']['conversion']
+            click.echo(f"🔄 변환된 모델:")
+            for model_name, result in conversion.items():
+                if 'error' not in result:
+                    click.echo(f"  - {model_name}: {result['onnx_path']}")
+        
+        if 'deployment' in results['stages']:
+            deployment = results['stages']['deployment']
+            click.echo(f"📦 배포 준비 완료:")
+            click.echo(f"  - 모델 개수: {len(deployment['models'])}개")
+            click.echo(f"  - 파일 개수: {len(deployment['files'])}개")
+        
+        click.echo(f"📁 결과 위치: {models_dir / 'deployment'}")
+        
+    except ImportError as e:
+        click.echo(f"❌ 하이브리드 시스템 모듈을 찾을 수 없습니다: {e}")
+        click.echo("💡 다음 명령으로 의존성을 설치하세요:")
+        click.echo("   pip install -r requirements_hybrid.txt")
+    except Exception as e:
+        click.echo(f"❌ 하이브리드 파이프라인 실패: {e}")
+
+
