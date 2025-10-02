@@ -676,19 +676,26 @@ new_metadata = {
     'performance_comparison': '$COMPARISON_DIR'
 }
 
-# 파일 목록 추가 (안전하게 처리)
+# 파일 목록 추가 (파일에서 읽기)
 try:
-    import subprocess
-    result = subprocess.run(['bash', '-c', 'printf \"%s\\n\" \"${selected_new_files[@]}\" | head -20'], 
-                          capture_output=True, text=True, cwd='.')
-    if result.returncode == 0:
-        file_list = [f.strip() for f in result.stdout.split('\\n') if f.strip()]
+    if os.path.exists('$WORK_DIR/new_selected_files.txt'):
+        with open('$WORK_DIR/new_selected_files.txt', 'r') as f:
+            file_list = [line.strip() for line in f.readlines() if line.strip()]
+        
         # 경로에서 기본 디렉토리 제거
         new_log_dir = '$NEW_LOG_DIR'
-        relative_files = [f.replace(new_log_dir + '/', '') if f.startswith(new_log_dir) else f for f in file_list]
-        new_metadata['incremental_files'] = relative_files[:20]
-except:
-    new_metadata['incremental_files'] = ['파일 목록 생성 실패']
+        relative_files = []
+        for f in file_list[:20]:  # 최대 20개만
+            if f.startswith(new_log_dir):
+                relative_files.append(f.replace(new_log_dir + '/', '').replace(new_log_dir, ''))
+            else:
+                relative_files.append(os.path.basename(f))
+        
+        new_metadata['incremental_files'] = relative_files
+    else:
+        new_metadata['incremental_files'] = ['파일 목록 파일 없음']
+except Exception as e:
+    new_metadata['incremental_files'] = [f'파일 목록 생성 실패: {str(e)}']
 
 # 기존 메타데이터와 병합
 if old_metadata:
