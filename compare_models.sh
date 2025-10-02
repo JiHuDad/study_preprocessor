@@ -347,8 +347,7 @@ def load_inference_results(result_dir):
         results['deeplog'] = {
             'total_sequences': len(df),
             'violation_count': int((df['in_topk'] == False).sum()),
-            'violation_rate': float((df['in_topk'] == False).mean()),
-            'avg_probability': float(df['prob'].mean())
+            'violation_rate': float((df['in_topk'] == False).mean()) if len(df) > 0 else 0.0
         }
     
     # MS-CRED 결과
@@ -359,7 +358,7 @@ def load_inference_results(result_dir):
             'total_windows': len(df),
             'anomaly_count': int((df['is_anomaly'] == True).sum()),
             'anomaly_rate': float((df['is_anomaly'] == True).mean()),
-            'avg_recon_error': float(df['recon_error'].mean())
+            'avg_recon_error': float(df['reconstruction_error'].mean())
         }
     
     return results
@@ -390,7 +389,6 @@ for method in ['baseline', 'deeplog', 'mscred']:
             diff['strong_anomaly_diff'] = m2['strong_anomaly_count'] - m1['strong_anomaly_count']
         elif method == 'deeplog':
             diff['violation_rate_diff'] = m2['violation_rate'] - m1['violation_rate']
-            diff['probability_diff'] = m2['avg_probability'] - m1['avg_probability']
         elif method == 'mscred':
             diff['anomaly_rate_diff'] = m2['anomaly_rate'] - m1['anomaly_rate']
             diff['recon_error_diff'] = m2['avg_recon_error'] - m1['avg_recon_error']
@@ -522,7 +520,6 @@ for method in ['baseline', 'deeplog', 'mscred']:
                 report_lines.append(f'- **강한 이상**: 모델1 {m1[\"strong_anomaly_count\"]}개 vs 모델2 {m2[\"strong_anomaly_count\"]}개')
         elif method == 'deeplog':
             report_lines.append(f'- **위반 시퀀스**: 모델1 {m1[\"violation_count\"]}개 ({m1[\"violation_rate\"]:.1%}) vs 모델2 {m2[\"violation_count\"]}개 ({m2[\"violation_rate\"]:.1%})')
-            report_lines.append(f'- **평균 확률**: 모델1 {m1[\"avg_probability\"]:.4f} vs 모델2 {m2[\"avg_probability\"]:.4f}')
         elif method == 'mscred':
             report_lines.append(f'- **이상 윈도우**: 모델1 {m1[\"anomaly_count\"]}개 ({m1[\"anomaly_rate\"]:.1%}) vs 모델2 {m2[\"anomaly_count\"]}개 ({m2[\"anomaly_rate\"]:.1%})')
             report_lines.append(f'- **평균 재구성 오차**: 모델1 {m1[\"avg_recon_error\"]:.4f} vs 모델2 {m2[\"avg_recon_error\"]:.4f}')
