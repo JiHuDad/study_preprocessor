@@ -348,38 +348,43 @@ from pathlib import Path
 import json
 
 try:
-    # 전처리된 데이터 로드
-    df = pd.read_parquet('$WORK_DIR/parsed.parquet')
-    print(f'DeepLog 입력 생성 시작: {len(df)} 레코드')
+    print('DeepLog 입력 생성 시작...')
     
-    # DeepLog 입력 생성
-    sequences_df, vocab = build_deeplog_inputs(df)
+    # DeepLog 입력 생성 (파일 경로로 직접 호출)
+    build_deeplog_inputs(
+        parsed_parquet='$WORK_DIR/parsed.parquet',
+        out_dir='$WORK_DIR'
+    )
     
-    # 결과 저장
+    # 생성된 파일들 확인
     work_dir = Path('$WORK_DIR')
     sequences_path = work_dir / 'sequences.parquet'
     vocab_path = work_dir / 'vocab.json'
     
-    sequences_df.to_parquet(sequences_path, index=False)
-    with open(vocab_path, 'w') as f:
-        json.dump(vocab, f, indent=2, ensure_ascii=False)
-    
-    print(f'DeepLog 입력 생성 완료: {len(sequences_df)} 시퀀스, 어휘 크기: {len(vocab)}')
-    
-    # DeepLog 모델 학습
-    model_path = '$MODEL_DIR/deeplog.pth'
-    print('DeepLog 모델 학습 시작...')
-    
-    train_deeplog(
-        sequences_path=str(sequences_path),
-        vocab_path=str(vocab_path),
-        output_path=model_path,
-        seq_len=50,
-        epochs=10,
-        batch_size=64
-    )
-    
-    print(f'DeepLog 모델 학습 완료: {model_path}')
+    if sequences_path.exists() and vocab_path.exists():
+        # 생성된 데이터 정보 출력
+        sequences_df = pd.read_parquet(sequences_path)
+        with open(vocab_path, 'r') as f:
+            vocab = json.load(f)
+        
+        print(f'DeepLog 입력 생성 완료: {len(sequences_df)} 시퀀스, 어휘 크기: {len(vocab)}')
+        
+        # DeepLog 모델 학습
+        model_path = '$MODEL_DIR/deeplog.pth'
+        print('DeepLog 모델 학습 시작...')
+        
+        train_deeplog(
+            sequences_parquet=str(sequences_path),
+            vocab_json=str(vocab_path),
+            out_path=model_path,
+            seq_len=50,
+            epochs=10,
+            batch_size=64
+        )
+        
+        print(f'DeepLog 모델 학습 완료: {model_path}')
+    else:
+        print('DeepLog 입력 파일 생성 실패')
     
 except Exception as e:
     print(f'DeepLog 처리 오류: {e}')
@@ -389,14 +394,15 @@ except Exception as e:
 "
 
 if [ -f "$WORK_DIR/sequences.parquet" ] && [ -f "$WORK_DIR/vocab.json" ]; then
-    DEEPLOG_MODEL="$MODEL_DIR/deeplog.pth"
+    # vocab.json을 모델 디렉토리로 복사 (입력 생성 성공시 항상)
+    cp "$WORK_DIR/vocab.json" "$MODEL_DIR/"
+    echo "✅ DeepLog 어휘 사전 저장 완료"
     
+    DEEPLOG_MODEL="$MODEL_DIR/deeplog.pth"
     if [ -f "$DEEPLOG_MODEL" ]; then
-        # vocab.json을 모델 디렉토리로 복사
-        cp "$WORK_DIR/vocab.json" "$MODEL_DIR/"
         echo "✅ DeepLog 학습 완료: $(stat -c%s "$DEEPLOG_MODEL" | numfmt --to=iec)"
     else
-        echo "❌ DeepLog 학습 실패"
+        echo "❌ DeepLog 학습 실패 (어휘 사전은 저장됨)"
     fi
 else
     echo "❌ DeepLog 입력 생성 실패"

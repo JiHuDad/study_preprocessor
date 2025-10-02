@@ -162,10 +162,39 @@ echo "1️⃣  Target 로그 전처리 중..."
 TARGET_NAME=$(basename "$TARGET_LOG" .log)
 
 # 기존 Drain3 상태를 사용하여 전처리
-$PYTHON_CMD -m study_preprocessor.cli parse \
-    --input "$TARGET_LOG" \
-    --out-dir "$RESULT_DIR" \
-    --drain-state "$MODEL_DIR/drain3_state.json"
+$PYTHON_CMD -c "
+from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from pathlib import Path
+import json
+
+try:
+    # 전처리 설정 (기존 Drain3 상태 사용)
+    cfg = PreprocessConfig(drain_state_path='$MODEL_DIR/drain3_state.json')
+    pre = LogPreprocessor(cfg)
+    
+    # 전처리 실행
+    df = pre.process_file('$TARGET_LOG')
+    print(f'Target 로그 전처리 완료: {len(df)} 레코드 생성')
+    
+    # 결과 저장
+    output_dir = Path('$RESULT_DIR')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    parquet_path = output_dir / 'parsed.parquet'
+    df.to_parquet(parquet_path, index=False)
+    
+    # 미리보기 저장
+    preview = df.head(10).to_dict(orient='records')
+    (output_dir / 'preview.json').write_text(json.dumps(preview, ensure_ascii=False, default=str, indent=2))
+    
+    print(f'저장 완료: {parquet_path}')
+    
+except Exception as e:
+    print(f'Target 로그 전처리 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ ! -f "$RESULT_DIR/parsed.parquet" ]; then
     echo "❌ Target 로그 전처리 실패"
@@ -182,10 +211,30 @@ echo ""
 echo "2️⃣  베이스라인 이상탐지 중..."
 if [ -f "$MODEL_DIR/baseline_stats.json" ]; then
     # 베이스라인 탐지 실행
-    $PYTHON_CMD -m study_preprocessor.cli detect \
-        --parsed "$RESULT_DIR/parsed.parquet" \
-        --out-dir "$RESULT_DIR" \
-        --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
+    $PYTHON_CMD -c "
+from study_preprocessor.detect import baseline_detect, BaselineParams
+
+try:
+    # 베이스라인 탐지 설정
+    params = BaselineParams(window_size=50, stride=25, ewm_alpha=0.3, anomaly_quantile=0.95)
+    
+    print('베이스라인 이상탐지 시작...')
+    
+    # 베이스라인 탐지 실행
+    result_path = baseline_detect(
+        parsed_parquet='$RESULT_DIR/parsed.parquet',
+        out_dir='$RESULT_DIR',
+        params=params
+    )
+    
+    print(f'베이스라인 이상탐지 완료: {result_path}')
+    
+except Exception as e:
+    print(f'베이스라인 이상탐지 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     
     if [ -f "$RESULT_DIR/baseline_scores.parquet" ]; then
         # 학습된 통계와 비교하여 이상 정도 계산
@@ -200,17 +249,17 @@ with open('$MODEL_DIR/baseline_stats.json', 'r') as f:
     train_stats = json.load(f)
 
 # 학습된 정상 패턴과 비교
-normal_new_rate_mean = train_stats['template_stats']['mean_new_template_rate']
-normal_new_rate_std = train_stats['template_stats']['std_new_template_rate']
-normal_freq_mean = train_stats['frequency_stats']['mean_freq_score']
-normal_freq_std = train_stats['frequency_stats']['std_freq_score']
+normal_unseen_rate_mean = train_stats['unseen_stats']['mean_unseen_rate']
+normal_unseen_rate_std = train_stats['unseen_stats']['std_unseen_rate']
+normal_freq_mean = train_stats['frequency_stats']['mean_freq_z']
+normal_freq_std = train_stats['frequency_stats']['std_freq_z']
 
 # Z-score 계산 (학습 통계 기준)
-infer_df['new_rate_zscore'] = (infer_df['new_template_rate'] - normal_new_rate_mean) / (normal_new_rate_std + 1e-8)
-infer_df['freq_zscore'] = (infer_df['freq_score'] - normal_freq_mean) / (normal_freq_std + 1e-8)
+infer_df['unseen_rate_zscore'] = (infer_df['unseen_rate'] - normal_unseen_rate_mean) / (normal_unseen_rate_std + 1e-8)
+infer_df['freq_zscore'] = (infer_df['freq_z'] - normal_freq_mean) / (normal_freq_std + 1e-8)
 
 # 종합 이상 점수 계산
-infer_df['anomaly_score'] = np.sqrt(infer_df['new_rate_zscore']**2 + infer_df['freq_zscore']**2)
+infer_df['anomaly_score'] = np.sqrt(infer_df['unseen_rate_zscore']**2 + infer_df['freq_zscore']**2)
 
 # 강화된 이상 판정 (학습 통계 기준)
 threshold_95 = np.percentile(infer_df['anomaly_score'], 95)
@@ -242,16 +291,55 @@ echo ""
 echo "3️⃣  DeepLog 추론 중..."
 if [ -f "$MODEL_DIR/deeplog.pth" ] && [ -f "$MODEL_DIR/vocab.json" ]; then
     # DeepLog 입력 생성
-    $PYTHON_CMD -m study_preprocessor.cli build-deeplog \
-        --parsed "$RESULT_DIR/parsed.parquet" \
-        --out-dir "$RESULT_DIR"
+    $PYTHON_CMD -c "
+from study_preprocessor.builders.deeplog import build_deeplog_inputs
+
+try:
+    print('DeepLog 입력 생성 시작...')
+    
+    # DeepLog 입력 생성
+    build_deeplog_inputs(
+        parsed_parquet='$RESULT_DIR/parsed.parquet',
+        out_dir='$RESULT_DIR'
+    )
+    
+    print('DeepLog 입력 생성 완료')
+    
+except Exception as e:
+    print(f'DeepLog 입력 생성 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     
     if [ -f "$RESULT_DIR/sequences.parquet" ]; then
         # DeepLog 추론 실행
-        $PYTHON_CMD -m study_preprocessor.cli deeplog-infer \
-            --seq "$RESULT_DIR/sequences.parquet" \
-            --model "$MODEL_DIR/deeplog.pth" \
-            --k 3
+        $PYTHON_CMD -c "
+from study_preprocessor.builders.deeplog import infer_deeplog_topk
+from pathlib import Path
+
+try:
+    print('DeepLog 추론 시작...')
+    
+    # DeepLog 추론 실행
+    df = infer_deeplog_topk(
+        sequences_parquet='$RESULT_DIR/sequences.parquet',
+        model_path='$MODEL_DIR/deeplog.pth',
+        k=3
+    )
+    
+    # 결과 저장
+    output_path = Path('$RESULT_DIR') / 'deeplog_infer.parquet'
+    df.to_parquet(output_path, index=False)
+    
+    print(f'DeepLog 추론 완료: {len(df)} 시퀀스 처리, 저장됨: {output_path}')
+    
+except Exception as e:
+    print(f'DeepLog 추론 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
         
         if [ -f "$RESULT_DIR/deeplog_infer.parquet" ]; then
             # DeepLog 결과 통계
@@ -262,8 +350,10 @@ total_sequences = len(df)
 violations = (df['in_topk'] == False).sum()
 print(f'✅ DeepLog 분석 완료:')
 print(f'   📊 총 시퀀스: {total_sequences}개')
-print(f'   🚨 Top-K 위반: {violations}개 ({100*violations/total_sequences:.1f}%)')
-print(f'   📈 평균 확률: {df[\"prob\"].mean():.4f}')
+if len(df) > 0:
+    print(f'   🚨 Top-K 위반: {violations}개 ({100*violations/total_sequences:.1f}%)')
+else:
+    print('   🚨 Top-K 위반: 0개 (시퀀스 데이터 없음 - 로그가 너무 짧음)')
 "
         else
             echo "⚠️  DeepLog 추론 실행 실패"
@@ -280,17 +370,57 @@ echo ""
 echo "4️⃣  MS-CRED 추론 중..."
 if [ -f "$MODEL_DIR/mscred.pth" ]; then
     # MS-CRED 입력 생성
-    $PYTHON_CMD -m study_preprocessor.cli build-mscred \
-        --parsed "$RESULT_DIR/parsed.parquet" \
-        --out-dir "$RESULT_DIR" \
-        --window-size 50 --stride 25
+    $PYTHON_CMD -c "
+from study_preprocessor.builders.mscred import build_mscred_window_counts
+
+try:
+    print('MS-CRED 입력 생성 시작...')
+    
+    # MS-CRED 입력 생성
+    build_mscred_window_counts(
+        parsed_parquet='$RESULT_DIR/parsed.parquet',
+        out_dir='$RESULT_DIR',
+        window_size=50,
+        stride=25
+    )
+    
+    print('MS-CRED 입력 생성 완료')
+    
+except Exception as e:
+    print(f'MS-CRED 입력 생성 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
     
     if [ -f "$RESULT_DIR/window_counts.parquet" ]; then
         # MS-CRED 추론 실행
-        $PYTHON_CMD -m study_preprocessor.cli mscred-infer \
-            --window-counts "$RESULT_DIR/window_counts.parquet" \
-            --model "$MODEL_DIR/mscred.pth" \
-            --threshold 95.0
+        $PYTHON_CMD -c "
+from study_preprocessor.mscred_model import infer_mscred
+from pathlib import Path
+
+try:
+    print('MS-CRED 추론 시작...')
+    
+    # MS-CRED 추론 실행
+    df = infer_mscred(
+        window_counts_path='$RESULT_DIR/window_counts.parquet',
+        model_path='$MODEL_DIR/mscred.pth',
+        threshold_percentile=95.0
+    )
+    
+    # 결과 저장
+    output_path = Path('$RESULT_DIR') / 'mscred_infer.parquet'
+    df.to_parquet(output_path, index=False)
+    
+    print(f'MS-CRED 추론 완료: {len(df)} 윈도우 처리, 저장됨: {output_path}')
+    
+except Exception as e:
+    print(f'MS-CRED 추론 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
         
         if [ -f "$RESULT_DIR/mscred_infer.parquet" ]; then
             # MS-CRED 결과 통계

@@ -212,10 +212,39 @@ echo "✅ 새 로그 병합 완료: $(stat -c%s "$NEW_MERGED_LOG" | numfmt --to=
 
 # 기존 Drain3 상태를 사용하여 새 로그 전처리
 echo "   기존 Drain3 상태로 새 로그 파싱 중..."
-$PYTHON_CMD -m study_preprocessor.cli parse \
-    --input "$NEW_MERGED_LOG" \
-    --out-dir "$WORK_DIR" \
-    --drain-state "$UPDATED_DRAIN_STATE"
+$PYTHON_CMD -c "
+from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from pathlib import Path
+import json
+
+try:
+    # 전처리 설정 (기존 Drain3 상태 사용)
+    cfg = PreprocessConfig(drain_state_path='$UPDATED_DRAIN_STATE')
+    pre = LogPreprocessor(cfg)
+    
+    # 전처리 실행
+    df = pre.process_file('$NEW_MERGED_LOG')
+    print(f'새 로그 전처리 완료: {len(df)} 레코드 생성')
+    
+    # 결과 저장
+    output_dir = Path('$WORK_DIR')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    parquet_path = output_dir / 'parsed.parquet'
+    df.to_parquet(parquet_path, index=False)
+    
+    # 미리보기 저장
+    preview = df.head(10).to_dict(orient='records')
+    (output_dir / 'new_preview.json').write_text(json.dumps(preview, ensure_ascii=False, default=str, indent=2))
+    
+    print(f'저장 완료: {parquet_path}')
+    
+except Exception as e:
+    print(f'새 로그 전처리 오류: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
 
 if [ ! -f "$WORK_DIR/parsed.parquet" ]; then
     echo "❌ 새 로그 전처리 실패"
