@@ -299,10 +299,11 @@ ERROR (에러 메시지 포함):
 ### 📊 배치 로그 분석
 
 #### 🔹 기본 배치 분석
-단일 디렉토리의 로그 파일들을 분석:
+> **참고**: `run_batch_analysis.sh`는 이제 `run_enhanced_batch_analysis.sh`의 wrapper입니다.
+> 직접 향상된 버전을 사용하는 것을 권장합니다.
 
 ```bash
-# 폴더 내 모든 로그 파일 분석
+# 폴더 내 모든 로그 파일 분석 (향상된 버전으로 자동 리디렉션)
 ./run_batch_analysis.sh /path/to/logs/
 
 # 특정 파일을 Target으로 지정

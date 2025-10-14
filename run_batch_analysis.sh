@@ -1,147 +1,16 @@
 #!/bin/bash
 
-# 배치 로그 분석 실행 스크립트
+# 배치 로그 분석 실행 스크립트 (Wrapper)
+#
+# ⚠️  이 스크립트는 run_enhanced_batch_analysis.sh로 리디렉션하는 wrapper입니다.
+# ⚠️  새로운 기능은 run_enhanced_batch_analysis.sh를 사용하세요.
+#
 # 사용법: ./run_batch_analysis.sh <로그디렉토리> [target파일] [작업디렉토리]
 
-set -e  # 에러 발생시 즉시 중단
-
-# 기본값 설정
-LOG_DIR="$1"
-TARGET_FILE="$2"
-WORK_DIR="${3:-batch_analysis_$(date +%Y%m%d_%H%M%S)}"
-
-# 인수 확인
-if [ -z "$LOG_DIR" ]; then
-    echo "❌ 사용법: $0 <로그디렉토리> [target파일] [작업디렉토리]"
-    echo ""
-    echo "예시:"
-    echo "  $0 /var/log/servers/"
-    echo "  $0 /var/log/servers/ server1.log"  
-    echo "  $0 /var/log/servers/ server1.log my_analysis"
-    echo ""
-    echo "📋 설명:"
-    echo "  - 로그디렉토리: 분석할 로그 파일들이 있는 폴더"
-    echo "  - target파일: 집중 분석할 파일 (생략시 첫 번째 파일)"
-    echo "  - 작업디렉토리: 결과를 저장할 폴더 (생략시 자동 생성)"
-    exit 1
-fi
-
-if [ ! -d "$LOG_DIR" ]; then
-    echo "❌ 로그 디렉토리를 찾을 수 없습니다: $LOG_DIR"
-    exit 1
-fi
-
-# 가상환경 자동 감지 및 활성화
-VENV_ACTIVATED=false
-
-# 1. 이미 활성화된 가상환경 확인
-if [ -n "$VIRTUAL_ENV" ]; then
-    echo "🔵 기존 가상환경 감지됨: $VIRTUAL_ENV"
-    VENV_ACTIVATED=true
-elif [ -f ".venv/bin/activate" ]; then
-    echo "🔵 .venv 가상환경 발견, 활성화 중..."
-    source .venv/bin/activate
-    VENV_ACTIVATED=true
-    echo "✅ 가상환경 활성화됨: $VIRTUAL_ENV"
-elif [ -f "venv/bin/activate" ]; then
-    echo "🔵 venv 가상환경 발견, 활성화 중..."
-    source venv/bin/activate
-    VENV_ACTIVATED=true
-    echo "✅ 가상환경 활성화됨: $VIRTUAL_ENV"
-fi
-
-# Python 명령어 설정
-PYTHON_CMD="python"
-if [ "$VENV_ACTIVATED" = false ]; then
-    PYTHON_CMD="python3"
-fi
-
-# 필수 파일 존재 확인
-required_files=(
-    "batch_log_analyzer.py"
-    "temporal_anomaly_detector.py" 
-    "comparative_anomaly_detector.py"
-)
-
-for file in "${required_files[@]}"; do
-    if [ ! -f "$file" ]; then
-        echo "❌ 필수 파일이 없습니다: $file"
-        echo "현재 디렉토리가 study_preprocessor 프로젝트 루트인지 확인하세요."
-        exit 1
-    fi
-done
-
-echo "🚀 배치 로그 분석 시작"
-echo "📂 로그 디렉토리: $LOG_DIR"
-if [ -n "$TARGET_FILE" ]; then
-    echo "🎯 Target 파일: $TARGET_FILE"
-else
-    echo "🎯 Target 파일: 자동 선택 (첫 번째 파일)"
-fi
-echo "📁 작업 디렉토리: $WORK_DIR"
-echo "🐍 Python 실행: $PYTHON_CMD"
+echo "⚠️  주의: run_batch_analysis.sh는 이제 run_enhanced_batch_analysis.sh의 wrapper입니다."
+echo "   향후 버전에서는 이 wrapper가 제거될 수 있습니다."
+echo "   직접 run_enhanced_batch_analysis.sh를 사용하는 것을 권장합니다."
 echo ""
 
-# 시작 시간 기록
-START_TIME=$(date +%s)
-
-# 배치 분석 실행
-if [ -n "$TARGET_FILE" ]; then
-    $PYTHON_CMD batch_log_analyzer.py "$LOG_DIR" \
-        --target "$TARGET_FILE" \
-        --work-dir "$WORK_DIR" \
-        --pattern "*.log"
-else
-    $PYTHON_CMD batch_log_analyzer.py "$LOG_DIR" \
-        --work-dir "$WORK_DIR" \
-        --pattern "*.log"
-fi
-
-# 종료 시간 및 소요 시간 계산
-END_TIME=$(date +%s)
-DURATION=$((END_TIME - START_TIME))
-MINUTES=$((DURATION / 60))
-SECONDS=$((DURATION % 60))
-
-echo ""
-echo "🎉 배치 분석 완료!"
-echo "⏱️  소요 시간: ${MINUTES}분 ${SECONDS}초"
-echo ""
-
-# 결과 요약 출력
-if [ -f "$WORK_DIR/BATCH_ANALYSIS_SUMMARY.md" ]; then
-    echo "📋 분석 결과 요약:"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
-    # 요약 파일에서 핵심 정보만 추출하여 출력
-    grep -E "^\*\*|^- ✅|^- ❌|^🚨|^✅|^⚠️" "$WORK_DIR/BATCH_ANALYSIS_SUMMARY.md" | head -20
-    
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-fi
-
-echo "📂 상세 결과 확인:"
-echo "  📄 요약 리포트: $WORK_DIR/BATCH_ANALYSIS_SUMMARY.md"
-echo "  📁 작업 폴더: $WORK_DIR/"
-echo ""
-
-# 결과 파일들 나열
-echo "📊 생성된 결과 파일들:"
-find "$WORK_DIR" -name "*.md" -o -name "*.json" | sort | while read file; do
-    rel_path=$(realpath --relative-to="." "$file")
-    echo "  📝 $rel_path"
-done
-
-echo ""
-echo "🔧 추가 분석 명령어:"
-if [ -d "$WORK_DIR" ]; then
-    processed_dirs=$(find "$WORK_DIR" -name "processed_*" -type d | head -1)
-    if [ -n "$processed_dirs" ]; then
-        echo "  $PYTHON_CMD analyze_results.py --data-dir $processed_dirs"
-        echo "  $PYTHON_CMD visualize_results.py --data-dir $processed_dirs"
-    fi
-fi
-
-echo ""
-echo "💡 Tip: 요약 리포트를 보려면 다음 명령어를 사용하세요:"
-echo "  cat $WORK_DIR/BATCH_ANALYSIS_SUMMARY.md"
+# run_enhanced_batch_analysis.sh로 모든 인자 전달
+exec ./run_enhanced_batch_analysis.sh "$@"
