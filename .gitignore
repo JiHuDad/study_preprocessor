@@ -41,11 +41,13 @@ demo_log_samples/
 **/comparative_analysis/
 demo_batch_*/
 test_*/
+!test_datasets/
 demo_*/
 inference_*/
 validation_*/
 cli_test_*/
 direct_test_*/
+*_test_output/
 
 # Log files (except examples)
 *.log
