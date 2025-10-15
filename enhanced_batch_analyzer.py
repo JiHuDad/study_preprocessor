@@ -388,13 +388,13 @@ class EnhancedBatchAnalyzer:
         try:
             # 로그 샘플 분석 실행
             cmd = [
-                sys.executable, "log_sample_analyzer.py",
-                str(target_result['output_dir']),
+                "study-preprocess", "analyze-samples",
+                "--processed-dir", str(target_result['output_dir']),
                 "--output-dir", str(target_result['output_dir'] / "log_samples_analysis"),
                 "--max-samples", "20",
                 "--context-lines", "3"
             ]
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
             
             if result.returncode != 0:
@@ -1083,11 +1083,11 @@ print("Baseline detection completed")
         
         try:
             cmd = [
-                sys.executable, "temporal_anomaly_detector.py",
+                "study-preprocess", "analyze-temporal",
                 "--data-dir", str(target_result['output_dir']),
                 "--output-dir", str(target_result['output_dir'] / "temporal_analysis")
             ]
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
             
             if result.returncode != 0:
@@ -1135,14 +1135,16 @@ print("Baseline detection completed")
         
         try:
             baseline_paths = [str(r['parsed_file']) for r in validated_baselines]
-            
+
             cmd = [
-                sys.executable, "comparative_anomaly_detector.py",
+                "study-preprocess", "analyze-comparative",
                 "--target", str(target_result['parsed_file']),
-                "--baselines"] + baseline_paths + [
                 "--output-dir", str(target_result['output_dir'] / "comparative_analysis")
             ]
-            
+            # Add baselines with multiple --baselines flags
+            for baseline_path in baseline_paths:
+                cmd.extend(["--baselines", baseline_path])
+
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
             
             if result.returncode != 0:

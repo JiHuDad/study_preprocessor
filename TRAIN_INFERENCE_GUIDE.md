@@ -269,7 +269,7 @@ python analyze_results.py --data-dir inference_results/
 python visualize_results.py --data-dir inference_results/
 
 # MS-CRED 전용 분석
-python mscred_analyzer.py --data-dir inference_results/
+study-preprocess analyze-mscred --data-dir inference_results/
 ```
 
 ---

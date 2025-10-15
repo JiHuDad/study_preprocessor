@@ -183,7 +183,7 @@ python visualize_results.py --data-dir 출력디렉토리
 
 ```bash
 # 시간 패턴 기반 분석
-python temporal_anomaly_detector.py --data-dir data/processed
+study-preprocess analyze-temporal --data-dir data/processed
 
 # 결과 확인
 cat data/processed/temporal_analysis/temporal_report.md
@@ -200,9 +200,9 @@ cat data/processed/temporal_analysis/temporal_report.md
 
 ```bash
 # 파일 간 비교 분석
-python comparative_anomaly_detector.py \
+study-preprocess analyze-comparative \
   --target data/server1/parsed.parquet \
-  --baselines data/server2/parsed.parquet data/server3/parsed.parquet
+  --baselines data/server2/parsed.parquet --baselines data/server3/parsed.parquet
 
 # 결과 확인
 cat data/server1/comparative_analysis/comparative_report.md
@@ -238,7 +238,7 @@ cat data/processed/log_samples_analysis/anomaly_analysis_report.md
 
 ```bash
 # 베이스라인 품질 검증
-python baseline_validator.py /path/to/baseline/logs/ --output-dir validation_result
+study-preprocess validate-baseline /path/to/baseline/logs/ --output-dir validation_result
 
 # 자동화 스크립트
 ./run_baseline_validation.sh /path/to/baseline/logs/

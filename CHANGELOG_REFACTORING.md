@@ -212,6 +212,125 @@ python temporal_anomaly_detector.py --help
 
 ---
 
+## Phase 3.1: CLI 명령어 사용 일관성 개선 (2025-10-15)
+
+### 변경 내용
+
+#### Shell 스크립트 업데이트 (python → study-preprocess)
+
+**run_baseline_validation.sh:**
+- 변경: `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+
+**run_enhanced_batch_analysis.sh:**
+- 변경: `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
+- 변경: `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+
+**demo_mscred.sh:**
+- 변경: `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
+- 변경: `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+
+#### Python 코드 업데이트
+
+**enhanced_batch_analyzer.py (3곳 수정):**
+- 변경: `sys.executable, "log_sample_analyzer.py"` → `"study-preprocess", "analyze-samples"`
+- 변경: `sys.executable, "temporal_anomaly_detector.py"` → `"study-preprocess", "analyze-temporal"`
+- 변경: `sys.executable, "comparative_anomaly_detector.py"` → `"study-preprocess", "analyze-comparative"`
+- 수정: `--baselines` 인자를 리스트로 확장하는 방식으로 변경 (Click 다중 옵션 지원)
+
+**study_preprocessor/cli.py (2곳 수정):**
+- 변경: subprocess로 python 스크립트 호출 → 모듈 import 및 직접 호출
+- 개선: `report` 명령의 `--with-samples` 옵션에서 모듈 import 사용
+- 개선: `analyze-samples` 명령에서 모듈 import 사용
+
+#### 문서 업데이트
+
+**README.md:**
+- `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
+- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
+- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+
+**BATCH_ANALYSIS_GUIDE.md:**
+- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
+- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+
+**CONTEXT.md:**
+- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
+- `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+
+**TRAIN_INFERENCE_GUIDE.md:**
+- `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
+
+**RESULTS_GUIDE.md:**
+- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
+- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+- `python baseline_validator.py` → `study-preprocess validate-baseline`
+
+**.cursor/rules/development-workflow.mdc:**
+- 모든 개발 워크플로우 예제를 CLI 명령어로 업데이트
+
+### 효과
+
+#### 일관성 개선
+- ✨ **명령어 통일**: 모든 스크립트와 문서가 `study-preprocess` CLI를 사용
+- ✨ **사용자 경험**: 일관된 인터페이스로 학습 곡선 감소
+- ✨ **유지보수성**: wrapper 대신 모듈 직접 사용으로 간접 호출 제거
+
+#### 기능 개선
+- 🔧 **모듈 통합**: cli.py에서 subprocess 대신 모듈 import로 직접 호출
+- 🔧 **에러 처리**: 더 명확한 에러 메시지 및 처리
+- 📚 **문서 정확성**: 사용자가 실제로 사용해야 하는 명령어로 문서화
+
+### 영향받은 파일 (총 12개)
+
+**코드 파일 (4개):**
+- run_baseline_validation.sh
+- run_enhanced_batch_analysis.sh
+- demo_mscred.sh
+- enhanced_batch_analyzer.py
+- study_preprocessor/cli.py
+
+**문서 파일 (6개):**
+- README.md
+- BATCH_ANALYSIS_GUIDE.md
+- CONTEXT.md
+- TRAIN_INFERENCE_GUIDE.md
+- RESULTS_GUIDE.md
+- .cursor/rules/development-workflow.mdc
+
+**메타데이터 파일 (1개):**
+- CHANGELOG_REFACTORING.md (이 파일)
+
+### 검증 방법
+
+```bash
+# CLI 명령어 작동 확인
+study-preprocess analyze-temporal --help
+study-preprocess analyze-comparative --help
+study-preprocess analyze-mscred --help
+study-preprocess analyze-samples --help
+study-preprocess validate-baseline --help
+
+# 스크립트에서 python 명령어 사용 확인 (CHANGELOG 제외하고 없어야 함)
+grep -r "python.*_analyzer\|python.*_detector\|python.*_validator" --include="*.sh" --include="*.py" --exclude="CHANGELOG*" .
+
+# Wrapper는 여전히 작동 (deprecation 경고 출력)
+python temporal_anomaly_detector.py --help
+```
+
+### 마이그레이션 영향
+
+#### 기존 사용자
+- ✅ **Wrapper 유지**: 기존 python 스크립트 호출은 여전히 작동 (deprecation 경고 표시)
+- ✅ **자동화 스크립트**: 모든 shell 스크립트는 자동으로 새 CLI 사용
+- ⚠️ **문서 참조**: 문서는 이제 권장 방식(CLI)만 표시
+
+#### 개발자
+- 🔧 **모듈 import**: cli.py에서 더 이상 subprocess 사용하지 않음
+- 🔧 **타입 안정성**: 모듈 직접 호출로 타입 체크 가능
+- 🔧 **디버깅**: subprocess 간접 호출 대신 직접 호출로 디버깅 용이
+
+---
+
 **작성자**: Claude Code
 **날짜**: 2025-10-15
-**Phase**: 3/4 완료
+**Phase**: 3.1/4 완료

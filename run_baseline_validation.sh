@@ -132,7 +132,7 @@ echo "🔧 추천 baseline으로 이상탐지 실행:"
 if [ -f "$output_dir/validation_result.json" ] && command -v jq >/dev/null 2>&1; then
     recommended_count=$(jq -r '.recommended_baselines | length' "$output_dir/validation_result.json")
     if [ "$recommended_count" -gt 0 ]; then
-        echo "  python comparative_anomaly_detector.py \\"
+        echo "  study-preprocess analyze-comparative \\"
         echo "    --target your_target.parquet \\"
         echo "    --baselines \\"
         jq -r '.recommended_baselines[]' "$output_dir/validation_result.json" | head -5 | while read file; do

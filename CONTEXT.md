@@ -154,7 +154,7 @@ cat batch_result/ENHANCED_ANALYSIS_SUMMARY.md
 ### 4. 시간 기반 분석
 ```bash
 # 시간대별 패턴 학습 및 이상탐지
-python temporal_anomaly_detector.py --data-dir data/processed
+study-preprocess analyze-temporal --data-dir data/processed
 cat data/processed/temporal_analysis/temporal_report.md
 ```
 
@@ -224,7 +224,7 @@ cat data/processed/temporal_analysis/temporal_report.md
 ### 이상 로그 샘플 분석
 ```bash
 # 이상탐지 결과에서 실제 문제 로그들 추출
-python log_sample_analyzer.py data/processed --output-dir log_samples
+study-preprocess analyze-samples --processed-dir data/processed --output-dir log_samples
 ```
 
 ### 합성 데이터 생성

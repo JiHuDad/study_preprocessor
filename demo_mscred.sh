@@ -93,7 +93,7 @@ echo ""
 
 # 6. 결과 분석 및 시각화
 echo "6️⃣  MS-CRED 결과 분석 및 시각화..."
-python mscred_analyzer.py \
+study-preprocess analyze-mscred \
   --data-dir "$DEMO_DIR/processed" \
   --output-dir "$DEMO_DIR/analysis"
 
@@ -102,7 +102,8 @@ echo ""
 
 # 7. 로그 샘플 분석 (MS-CRED 포함)
 echo "7️⃣  실제 로그 샘플 분석..."
-python log_sample_analyzer.py "$DEMO_DIR/processed" \
+study-preprocess analyze-samples \
+  --processed-dir "$DEMO_DIR/processed" \
   --output-dir "$DEMO_DIR/log_samples" \
   --max-samples 3
 
@@ -165,6 +166,6 @@ echo ""
 echo "💡 다음 단계:"
 echo "  - 실제 로그로 테스트: ./run_full_pipeline_pip.sh /path/to/your.log"
 echo "  - 배치 분석: ./run_enhanced_batch_analysis.sh /var/log/"
-echo "  - 개별 MS-CRED 분석: python mscred_analyzer.py --data-dir /path/to/data"
+echo "  - 개별 MS-CRED 분석: study-preprocess analyze-mscred --data-dir /path/to/data"
 echo ""
 echo "🎉 MS-CRED 데모를 완료했습니다!"

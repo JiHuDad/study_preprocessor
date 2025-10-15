@@ -254,7 +254,7 @@ study-preprocess mscred-train --window-counts data/processed/window_counts.parqu
 study-preprocess mscred-infer --window-counts data/processed/window_counts.parquet --model models/mscred.pth --threshold 95.0
 
 # 4. 결과 분석
-python mscred_analyzer.py --data-dir data/processed
+study-preprocess analyze-mscred --data-dir data/processed
 ```
 
 ## 🆕 새로운 분석 기능
@@ -386,17 +386,17 @@ logs/
 시간대별/요일별 패턴 학습으로 이상 탐지:
 
 ```bash
-python temporal_anomaly_detector.py --data-dir data/processed
+study-preprocess analyze-temporal --data-dir data/processed
 cat data/processed/temporal_analysis/temporal_report.md
 ```
 
-### 📈 파일별 비교 이상 탐지  
+### 📈 파일별 비교 이상 탐지
 여러 파일 간 패턴 차이로 이상 탐지:
 
 ```bash
-python comparative_anomaly_detector.py \
+study-preprocess analyze-comparative \
   --target server1/parsed.parquet \
-  --baselines server2/parsed.parquet server3/parsed.parquet
+  --baselines server2/parsed.parquet --baselines server3/parsed.parquet
 ```
 
 **분석 방법 비교**:

@@ -205,19 +205,23 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:
     if with_samples:
         click.echo("🔍 이상 로그 샘플 분석 중...")
         try:
+            from .analyzers.log_samples import main as log_samples_main
             import sys
-            import subprocess
-            result = subprocess.run([
-                sys.executable, "log_sample_analyzer.py",
+
+            # Save current sys.argv
+            old_argv = sys.argv
+            sys.argv = [
+                "analyze-samples",
                 str(processed_dir),
                 "--output-dir", str(processed_dir / "log_samples_analysis")
-            ], capture_output=True, text=True, cwd=os.getcwd())
-            
-            if result.returncode == 0:
+            ]
+
+            try:
+                log_samples_main()
                 report_lines.append("Log sample analysis completed successfully")
                 report_lines.append(f"Detailed analysis: {processed_dir / 'log_samples_analysis' / 'anomaly_analysis_report.md'}")
-            else:
-                report_lines.append(f"Log sample analysis failed: {result.stderr}")
+            finally:
+                sys.argv = old_argv
         except Exception as e:
             report_lines.append(f"Log sample analysis error: {e}")
     
@@ -276,23 +280,32 @@ def eval_cmd(processed_dir: Path, labels_path: Path, window_size: int, seq_len: 
 @click.option("--context-lines", type=int, default=3, help="전후 맥락 라인 수")
 def analyze_samples_cmd(processed_dir: Path, output_dir: Path, max_samples: int, context_lines: int) -> None:
     """이상 로그 샘플 추출 및 분석."""
+    from .analyzers.log_samples import main as log_samples_main
     import sys
-    import subprocess
-    
+
     if output_dir is None:
         output_dir = processed_dir / "log_samples_analysis"
-    
+
     click.echo("🔍 이상 로그 샘플 분석 시작...")
-    
-    cmd = [
-        sys.executable, "log_sample_analyzer.py",
+
+    # Save current sys.argv
+    old_argv = sys.argv
+    sys.argv = [
+        "analyze-samples",
         str(processed_dir),
         "--output-dir", str(output_dir),
         "--max-samples", str(max_samples),
         "--context-lines", str(context_lines)
     ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+
+    try:
+        result_code = log_samples_main()
+    finally:
+        sys.argv = old_argv
+
+    if result_code is None:
+        result_code = 0
+    result = type('obj', (object,), {'returncode': result_code, 'stdout': '', 'stderr': ''})
     
     if result.returncode == 0:
         click.echo("✅ 로그 샘플 분석 완료!")
