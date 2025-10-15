@@ -421,3 +421,86 @@ def hybrid_pipeline_cmd(log_file: Path, output_dir: Path, auto_deploy: bool, mod
         click.echo(f"❌ 하이브리드 파이프라인 실패: {e}")
 
 
+@main.command("analyze-temporal")
+@click.option("--data-dir", type=click.Path(exists=True, file_okay=False, path_type=Path), required=True, help="분석할 데이터 디렉토리")
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default=None, help="결과 저장 디렉토리")
+def analyze_temporal_cmd(data_dir: Path, output_dir: Path) -> None:
+    """시간 기반 이상 탐지 분석."""
+    from .analyzers.temporal import main as temporal_main
+    import sys
+
+    # 임시로 sys.argv 조작
+    old_argv = sys.argv
+    sys.argv = ['temporal', '--data-dir', str(data_dir)]
+    if output_dir:
+        sys.argv.extend(['--output-dir', str(output_dir)])
+
+    try:
+        temporal_main()
+    finally:
+        sys.argv = old_argv
+
+
+@main.command("analyze-comparative")
+@click.option("--target", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True, help="Target 파일")
+@click.option("--baselines", multiple=True, required=True, help="Baseline 파일들")
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default=None, help="결과 저장 디렉토리")
+def analyze_comparative_cmd(target: Path, baselines: tuple, output_dir: Path) -> None:
+    """비교 기반 이상 탐지 분석."""
+    from .analyzers.comparative import main as comparative_main
+    import sys
+
+    # 임시로 sys.argv 조작
+    old_argv = sys.argv
+    sys.argv = ['comparative', '--target', str(target)]
+    for baseline in baselines:
+        sys.argv.extend(['--baselines', baseline])
+    if output_dir:
+        sys.argv.extend(['--output-dir', str(output_dir)])
+
+    try:
+        comparative_main()
+    finally:
+        sys.argv = old_argv
+
+
+@main.command("analyze-mscred")
+@click.option("--data-dir", type=click.Path(exists=True, file_okay=False, path_type=Path), required=True, help="MS-CRED 결과 디렉토리")
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default=None, help="분석 결과 저장 디렉토리")
+def analyze_mscred_cmd(data_dir: Path, output_dir: Path) -> None:
+    """MS-CRED 전용 분석."""
+    from .analyzers.mscred_analysis import main as mscred_main
+    import sys
+
+    # 임시로 sys.argv 조작
+    old_argv = sys.argv
+    sys.argv = ['mscred', '--data-dir', str(data_dir)]
+    if output_dir:
+        sys.argv.extend(['--output-dir', str(output_dir)])
+
+    try:
+        mscred_main()
+    finally:
+        sys.argv = old_argv
+
+
+@main.command("validate-baseline")
+@click.argument("baseline_files", nargs=-1, required=True)
+@click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default=None, help="결과 저장 디렉토리")
+def validate_baseline_cmd(baseline_files: tuple, output_dir: Path) -> None:
+    """베이스라인 파일 품질 검증."""
+    from .analyzers.baseline_validation import main as baseline_main
+    import sys
+
+    # 임시로 sys.argv 조작
+    old_argv = sys.argv
+    sys.argv = ['baseline'] + list(baseline_files)
+    if output_dir:
+        sys.argv.extend(['--output-dir', str(output_dir)])
+
+    try:
+        baseline_main()
+    finally:
+        sys.argv = old_argv
+
+

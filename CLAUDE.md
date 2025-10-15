@@ -28,9 +28,15 @@ study_preprocessor/           # Core Python package
 ├── synth.py                  # Synthetic log generation
 ├── eval.py                   # Evaluation metrics (P/R/F1)
 ├── mscred_model.py           # MS-CRED training/inference
-└── builders/
-    ├── deeplog.py            # DeepLog LSTM sequence builder
-    └── mscred.py             # MS-CRED window counts builder
+├── builders/                 # Model input builders
+│   ├── deeplog.py            # DeepLog LSTM sequence builder
+│   └── mscred.py             # MS-CRED window counts builder
+└── analyzers/                # Analysis tools (Phase 3)
+    ├── temporal.py           # Time-based anomaly detection
+    ├── comparative.py        # Cross-file pattern comparison
+    ├── log_samples.py        # Anomaly log sample extraction
+    ├── mscred_analysis.py    # MS-CRED specific analysis
+    └── baseline_validation.py # Baseline quality validation
 
 hybrid_system/                # Advanced hybrid system (Phase 1.3)
 ├── training/                 # ONNX conversion for deployment
@@ -126,6 +132,24 @@ study-preprocess analyze-samples --processed-dir processed/
 
 # Basic batch analysis
 ./run_batch_analysis.sh /var/log/ target.log my_analysis
+```
+
+### Analysis Commands (Phase 3 - New!)
+```bash
+# Time-based anomaly detection
+study-preprocess analyze-temporal --data-dir processed/ --output-dir temporal_results/
+
+# Cross-file pattern comparison
+study-preprocess analyze-comparative --target target.parquet --baselines baseline1.parquet --baselines baseline2.parquet
+
+# MS-CRED specific analysis
+study-preprocess analyze-mscred --data-dir processed/ --output-dir mscred_analysis/
+
+# Baseline quality validation
+study-preprocess validate-baseline file1.log file2.log --output-dir validation_results/
+
+# Anomaly log sample extraction (already existed)
+study-preprocess analyze-samples --processed-dir processed/ --max-samples 10 --context-lines 3
 ```
 
 ### Hybrid System (Advanced)

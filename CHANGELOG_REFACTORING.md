@@ -118,6 +118,100 @@ git status
 
 ---
 
+## Phase 3: 분석 도구 모듈화 (2025-10-15)
+
+### 이동된 파일들 (모듈화)
+
+#### 분석 도구들을 `study_preprocessor/analyzers/`로 이동
+- ✅ `temporal_anomaly_detector.py` → `study_preprocessor/analyzers/temporal.py` (322줄)
+- ✅ `comparative_anomaly_detector.py` → `study_preprocessor/analyzers/comparative.py` (470줄)
+- ✅ `log_sample_analyzer.py` → `study_preprocessor/analyzers/log_samples.py` (1,429줄)
+- ✅ `mscred_analyzer.py` → `study_preprocessor/analyzers/mscred_analysis.py` (523줄)
+- ✅ `baseline_validator.py` → `study_preprocessor/analyzers/baseline_validation.py` (403줄)
+
+**총 이동된 코드**: 3,147줄
+
+### 생성된 파일들
+
+#### 새로운 모듈
+- ✅ `study_preprocessor/analyzers/__init__.py` - 모듈 초기화
+
+#### Wrapper 파일들 (호환성 유지)
+- ✅ `temporal_anomaly_detector.py` (27줄) - deprecation wrapper
+- ✅ `comparative_anomaly_detector.py` (27줄) - deprecation wrapper
+- ✅ `log_sample_analyzer.py` (27줄) - deprecation wrapper
+- ✅ `mscred_analyzer.py` (27줄) - deprecation wrapper
+- ✅ `baseline_validator.py` (27줄) - deprecation wrapper
+
+**기능**: 모듈로 리디렉션 + deprecation 경고 메시지
+
+### 변경된 파일
+
+#### `study_preprocessor/cli.py`
+새로운 CLI 서브명령어 추가 (84줄 추가):
+- `study-preprocess analyze-temporal` - 시간 기반 이상 탐지
+- `study-preprocess analyze-comparative` - 비교 기반 이상 탐지
+- `study-preprocess analyze-mscred` - MS-CRED 전용 분석
+- `study-preprocess validate-baseline` - 베이스라인 품질 검증
+
+(기존 `analyze-samples`는 이미 존재)
+
+### 효과
+
+#### 구조 개선
+- ✨ **모듈화**: 분석 도구들이 일관된 구조로 정리됨
+- ✨ **CLI 통합**: 모든 분석 도구를 CLI 명령어로 사용 가능
+- ✨ **Import 경로**: 명확한 import 경로 (`study_preprocessor.analyzers.*`)
+
+#### 호환성
+- ✅ **기존 스크립트**: Wrapper로 완전한 하위 호환성 유지
+- ⚠️ **Deprecation 경고**: 사용자에게 마이그레이션 권장
+
+#### 유지보수성
+- 📦 **패키지 구조**: 테스트 및 재사용 용이
+- 🔍 **발견 용이성**: 모든 분석 도구가 한 곳에 모임
+- 📚 **문서화**: 일관된 인터페이스
+
+### 마이그레이션 가이드
+
+#### 기존 방식 (여전히 작동, deprecated)
+```bash
+python temporal_anomaly_detector.py --data-dir data/processed
+python comparative_anomaly_detector.py --target file.log --baselines b1.log b2.log
+python log_sample_analyzer.py data/processed
+python mscred_analyzer.py --data-dir data/processed
+python baseline_validator.py file1.log file2.log
+```
+
+#### 새로운 방식 (권장)
+```bash
+study-preprocess analyze-temporal --data-dir data/processed
+study-preprocess analyze-comparative --target file.log --baselines b1.log --baselines b2.log
+study-preprocess analyze-samples --processed-dir data/processed
+study-preprocess analyze-mscred --data-dir data/processed
+study-preprocess validate-baseline file1.log file2.log
+```
+
+### 검증 명령어
+```bash
+# 모듈 구조 확인
+ls -la study_preprocessor/analyzers/
+
+# CLI 명령어 확인
+study-preprocess --help
+
+# 개별 명령어 확인
+study-preprocess analyze-temporal --help
+study-preprocess analyze-comparative --help
+study-preprocess analyze-mscred --help
+study-preprocess validate-baseline --help
+
+# Wrapper 테스트 (deprecation 경고 출력 확인)
+python temporal_anomaly_detector.py --help
+```
+
+---
+
 **작성자**: Claude Code
-**날짜**: 2025-10-14
-**Phase**: 2/4 완료
+**날짜**: 2025-10-15
+**Phase**: 3/4 완료
