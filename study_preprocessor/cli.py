@@ -1,12 +1,16 @@
 import os
 from pathlib import Path
+from typing import Optional
 import json
 import click
 import pandas as pd
 
 from .preprocess import LogPreprocessor, PreprocessConfig
 from .detect import baseline_detect, BaselineParams
-from .builders.deeplog import build_deeplog_inputs, train_deeplog, infer_deeplog_topk
+from .builders.deeplog import (
+    build_deeplog_inputs, train_deeplog, infer_deeplog_topk,
+    infer_deeplog_enhanced, EnhancedInferenceConfig
+)
 from .builders.mscred import build_mscred_window_counts
 from .synth import generate_synthetic_log
 from .eval import evaluate_baseline, evaluate_deeplog
@@ -96,11 +100,137 @@ def deeplog_train_cmd(sequences_parquet: Path, vocab_json: Path, model_out: Path
 @click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)
 @click.option("--k", type=int, default=3)
 def deeplog_infer_cmd(sequences_parquet: Path, model_path: Path, k: int) -> None:
+    """DeepLog 추론 (기본 top-k 방식)."""
     df = infer_deeplog_topk(str(sequences_parquet), str(model_path), k=k)
     out = Path(sequences_parquet).with_name("deeplog_infer.parquet")
     df.to_parquet(out, index=False)
     rate = 1.0 - float(df["in_topk"].mean()) if len(df) > 0 else 0.0
     click.echo(f"Saved inference: {out} (violation_rate={rate:.3f})")
+
+
+@main.command("deeplog-infer-enhanced")
+@click.option("--seq", "sequences_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True, help="sequences.parquet 파일 경로")
+@click.option("--parsed", "parsed_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True, help="parsed.parquet 파일 경로")
+@click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True, help="DeepLog 모델 경로")
+@click.option("--vocab", "vocab_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None, help="vocab.json 경로 (노벨티 탐지용)")
+@click.option("--top-k", type=int, default=3, help="Top-K 값 (top-p 미설정 시 사용)")
+@click.option("--top-p", type=float, default=None, help="Top-P 값 (설정 시 top-k보다 우선)")
+@click.option("--k-of-n-k", type=int, default=7, help="K-of-N 판정: N개 중 K개 이상 실패 시 알림")
+@click.option("--k-of-n-n", type=int, default=10, help="K-of-N 판정: 슬라이딩 윈도우 크기")
+@click.option("--cooldown-seq", type=int, default=60, help="시퀀스 실패 쿨다운 (초)")
+@click.option("--cooldown-novelty", type=int, default=60, help="노벨티 쿨다운 (초)")
+@click.option("--session-timeout", type=int, default=300, help="세션 타임아웃 (초)")
+@click.option("--entity-column", type=str, default="host", help="엔티티 컬럼명 (host, process 등)")
+@click.option("--no-novelty", is_flag=True, default=False, help="노벨티 탐지 비활성화")
+@click.option("--out-dir", type=click.Path(file_okay=False, path_type=Path), default=None, help="출력 디렉토리 (기본: sequences.parquet과 같은 폴더)")
+def deeplog_infer_enhanced_cmd(
+    sequences_parquet: Path,
+    parsed_parquet: Path,
+    model_path: Path,
+    vocab_path: Optional[Path],
+    top_k: int,
+    top_p: Optional[float],
+    k_of_n_k: int,
+    k_of_n_n: int,
+    cooldown_seq: int,
+    cooldown_novelty: int,
+    session_timeout: int,
+    entity_column: str,
+    no_novelty: bool,
+    out_dir: Optional[Path]
+) -> None:
+    """
+    Enhanced DeepLog 추론: top-k/top-p, K-of-N 판정, 쿨다운, 노벨티 탐지, 세션화 지원.
+
+    알림 폭주를 방지하고 엔티티별 세션 기반 이상 탐지를 수행합니다.
+    """
+    # 출력 디렉토리 설정
+    if out_dir is None:
+        out_dir = sequences_parquet.parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 설정 생성
+    config = EnhancedInferenceConfig(
+        top_k=top_k,
+        top_p=top_p,
+        k_of_n_k=k_of_n_k,
+        k_of_n_n=k_of_n_n,
+        cooldown_seq_fail=cooldown_seq,
+        cooldown_novelty=cooldown_novelty,
+        session_timeout=session_timeout,
+        entity_column=entity_column,
+        novelty_enabled=not no_novelty,
+        vocab_path=str(vocab_path) if vocab_path else None
+    )
+
+    click.echo("🚀 Enhanced DeepLog 추론 시작...")
+    click.echo(f"  📊 Top-{'P' if top_p else 'K'}: {top_p if top_p else top_k}")
+    click.echo(f"  🎯 K-of-N: {k_of_n_k}/{k_of_n_n}")
+    click.echo(f"  ⏰ Cooldown: SEQ={cooldown_seq}s, NOVELTY={cooldown_novelty}s")
+    click.echo(f"  🔍 노벨티 탐지: {'ON' if not no_novelty else 'OFF'}")
+    click.echo(f"  👤 엔티티: {entity_column}")
+
+    # Enhanced inference 실행
+    detailed_df, alerts_df, summary = infer_deeplog_enhanced(
+        str(sequences_parquet),
+        str(parsed_parquet),
+        str(model_path),
+        config
+    )
+
+    # 결과 저장
+    detailed_out = out_dir / "deeplog_enhanced_detailed.parquet"
+    alerts_out = out_dir / "deeplog_enhanced_alerts.parquet"
+    summary_out = out_dir / "deeplog_enhanced_summary.json"
+
+    detailed_df.to_parquet(detailed_out, index=False)
+    alerts_df.to_parquet(alerts_out, index=False)
+
+    import json
+    with open(summary_out, 'w') as f:
+        # datetime을 문자열로 변환
+        summary_serializable = {}
+        for key, value in summary.items():
+            if key == "novelty_aggregation":
+                serializable_agg = {}
+                for agg_key, agg_val in value.items():
+                    serializable_agg[agg_key] = {
+                        "count": agg_val["count"],
+                        "first": agg_val["first"].isoformat() if hasattr(agg_val["first"], "isoformat") else str(agg_val["first"]),
+                        "last": agg_val["last"].isoformat() if hasattr(agg_val["last"], "isoformat") else str(agg_val["last"])
+                    }
+                summary_serializable[key] = serializable_agg
+            else:
+                summary_serializable[key] = value
+        json.dump(summary_serializable, f, indent=2)
+
+    # 결과 출력
+    click.echo("\n✅ Enhanced DeepLog 추론 완료!")
+    click.echo(f"\n📊 요약:")
+    click.echo(f"  전체 시퀀스: {summary['total_sequences']:,}개")
+    click.echo(f"  실패 시퀀스: {summary['total_failures']:,}개")
+    click.echo(f"  노벨티 발견: {summary['total_novels']:,}개")
+    click.echo(f"  발생 알림: {summary['total_alerts']:,}개")
+
+    if summary.get('alert_breakdown'):
+        click.echo(f"\n🚨 알림 유형별:")
+        for alert_type, count in summary['alert_breakdown'].items():
+            click.echo(f"  - {alert_type}: {count}개")
+
+    click.echo(f"\n📁 출력 파일:")
+    click.echo(f"  상세 결과: {detailed_out}")
+    click.echo(f"  알림 목록: {alerts_out}")
+    click.echo(f"  요약 정보: {summary_out}")
+
+    # 알림이 있으면 샘플 표시
+    if not alerts_df.empty:
+        click.echo(f"\n🔔 최근 알림 샘플 (최대 5개):")
+        for _, alert in alerts_df.head(5).iterrows():
+            timestamp = alert['timestamp']
+            entity = alert['entity']
+            alert_type = alert['alert_type']
+            template_id = alert.get('template_id', 'N/A')
+            click.echo(f"  [{timestamp}] {entity} - {alert_type} (template: {template_id})")
 
 
 @main.command("build-mscred")
