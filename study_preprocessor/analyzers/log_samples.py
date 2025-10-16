@@ -91,21 +91,102 @@ class LogSampleAnalyzer:
             'samples': samples
         }
     
-    def extract_deeplog_anomaly_samples(self, parsed_file: str, deeplog_infer_file: str, 
+    def extract_deeplog_anomaly_samples(self, parsed_file: str, deeplog_infer_file: str,
                                       vocab_file: str, seq_len: int = 50) -> Dict:
-        """DeepLog 이상탐지에서 문제가 되는 로그 샘플들을 추출합니다."""
-        
+        """DeepLog 이상탐지에서 문제가 되는 로그 샘플들을 추출합니다.
+
+        Enhanced 버전의 경우 실제 발생한 알림(deeplog_alerts.parquet)을 우선 사용합니다.
+        """
+
         # 데이터 로드
         df_parsed = pd.read_parquet(parsed_file)
         df_infer = pd.read_parquet(deeplog_infer_file)
-        
+
         with open(vocab_file, 'r', encoding='utf-8') as f:
             vocab = json.load(f)
         # 역방향 매핑 생성
         idx_to_template = {v: k for k, v in vocab.items()}
-        
+
+        # Enhanced 알림 파일이 있으면 우선 사용 (K-of-N, 쿨다운, 중복제거 적용됨)
+        alerts_file = deeplog_infer_file.replace('deeplog_infer.parquet', 'deeplog_alerts.parquet')
+        from pathlib import Path
+
+        if Path(alerts_file).exists():
+            # Enhanced 알림 사용
+            df_alerts = pd.read_parquet(alerts_file)
+
+            if len(df_alerts) == 0:
+                return {
+                    'type': 'deeplog_enhanced',
+                    'method': 'Enhanced LSTM with K-of-N, Cooldown, Novelty Detection',
+                    'anomaly_count': 0,
+                    'raw_failures': len(df_infer[df_infer.get('prediction_ok', df_infer.get('in_topk', True)) == False]) if not df_infer.empty else 0,
+                    'analyzed_count': 0,
+                    'samples': []
+                }
+
+            # 알림을 기준으로 샘플 추출 (최대 max_samples_per_type개)
+            samples = []
+            for _, alert_row in df_alerts.head(self.max_samples_per_type).iterrows():
+                # alert_row에서 정보 추출
+                alert_type = alert_row.get('alert_type', 'UNKNOWN')
+                entity = alert_row.get('entity', 'unknown')
+                timestamp = alert_row.get('timestamp', None)
+
+                # timestamp를 기준으로 해당 로그 찾기
+                if timestamp is not None:
+                    target_logs = df_parsed[df_parsed['timestamp'] == timestamp].copy()
+
+                    # timestamp로 찾지 못하면 entity 기준으로 근처 로그 찾기
+                    if len(target_logs) == 0 and 'host' in df_parsed.columns:
+                        entity_logs = df_parsed[df_parsed['host'] == entity]
+                        if len(entity_logs) > 0:
+                            # 가장 가까운 시간대의 로그 찾기
+                            target_logs = entity_logs.head(1)
+
+                    if len(target_logs) > 0:
+                        target_line = target_logs.iloc[0]['line_no']
+                        context_logs = df_parsed[
+                            (df_parsed['line_no'] >= target_line - self.context_lines) &
+                            (df_parsed['line_no'] <= target_line + self.context_lines)
+                        ]
+
+                        samples.append({
+                            'alert_type': alert_type,
+                            'entity': entity,
+                            'timestamp': str(timestamp),
+                            'line_no': int(target_line),
+                            'context': [
+                                {
+                                    'line_no': int(row['line_no']),
+                                    'timestamp': str(row.get('timestamp', '')),
+                                    'raw': row.get('raw', row.get('masked', '')),
+                                    'template': row.get('template', ''),
+                                    'is_target': row['line_no'] == target_line
+                                }
+                                for _, row in context_logs.iterrows()
+                            ]
+                        })
+
+            # raw 실패 수 계산
+            if 'prediction_ok' in df_infer.columns:
+                raw_failures = len(df_infer[df_infer['prediction_ok'] == False])
+            elif 'in_topk' in df_infer.columns:
+                raw_failures = len(df_infer[df_infer['in_topk'] == False])
+            else:
+                raw_failures = 0
+
+            return {
+                'type': 'deeplog_enhanced',
+                'method': 'Enhanced LSTM with K-of-N, Cooldown, Novelty Detection',
+                'anomaly_count': len(df_alerts),
+                'raw_failures': raw_failures,
+                'analyzed_count': len(samples),
+                'samples': samples
+            }
+
+        # Enhanced 알림 파일이 없으면 기존 방식 사용
         # 예측 실패한 경우들 필터링
-        # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
         if 'prediction_ok' in df_infer.columns:
             anomalies = df_infer[df_infer['prediction_ok'] == False].copy()
         elif 'in_topk' in df_infer.columns:
@@ -859,10 +940,16 @@ def generate_human_readable_report(all_results: Dict) -> str:
         anomaly_count = results.get('anomaly_count', 0)
         total_anomalies += anomaly_count
         method_description = results.get('method', 'Unknown method')
-        
-        report += f"""### {method.title()} 방법
+
+        # Enhanced 버전의 경우 raw failures도 표시
+        extra_info = ""
+        if 'raw_failures' in results:
+            raw_failures = results['raw_failures']
+            extra_info = f"\n- **Raw 예측 실패**: {raw_failures}개 (K-of-N 필터링 전)"
+
+        report += f"""### {method.title().replace('_', ' ')} 방법
 - **방법론**: {method_description}
-- **발견된 이상**: {anomaly_count}개
+- **실제 발생 알림**: {anomaly_count}개{extra_info}
 - **분석된 샘플**: {results.get('analyzed_count', 0)}개
 
 """
@@ -918,6 +1005,8 @@ def generate_sample_analysis(method: str, sample: Dict, sample_num: int) -> str:
         return generate_baseline_sample_analysis(sample, sample_num)
     elif method == 'deeplog':
         return generate_deeplog_sample_analysis(sample, sample_num)
+    elif method == 'deeplog_enhanced':
+        return generate_deeplog_enhanced_sample_analysis(sample, sample_num)
     elif method == 'mscred':
         return generate_mscred_sample_analysis(sample, sample_num)
     elif method == 'comparative':
@@ -1041,6 +1130,66 @@ def generate_deeplog_sample_analysis(sample: Dict, sample_num: int) -> str:
             report += f"{log.get('line_no', '?'):>6}: {log.get('raw_message', 'N/A')}\n"
         report += "```\n"
     
+    report += "\n---\n\n"
+    return report
+
+def generate_deeplog_enhanced_sample_analysis(sample: Dict, sample_num: int) -> str:
+    """DeepLog Enhanced 알림 샘플 분석을 생성합니다."""
+
+    alert_type = sample.get('alert_type', 'UNKNOWN')
+    entity = sample.get('entity', 'unknown')
+    timestamp = sample.get('timestamp', 'N/A')
+    line_no = sample.get('line_no', 'N/A')
+
+    alert_type_emoji = "🔥" if alert_type == "SEQ_FAIL" else "🆕"
+    alert_type_name = "시퀀스 실패" if alert_type == "SEQ_FAIL" else "노벨티 발견"
+
+    report = f"""### {alert_type_emoji} DeepLog Enhanced 알림 #{sample_num}
+
+**알림 정보**:
+- **유형**: {alert_type_name} ({alert_type})
+- **엔티티**: {entity}
+- **발생 시각**: {timestamp}
+- **라인 번호**: {line_no}
+
+**발생 로그 및 전후 맥락**:
+"""
+
+    # 컨텍스트 로그 출력
+    context = sample.get('context', [])
+    if context:
+        report += "```\n"
+        for log in context:
+            is_target = log.get('is_target', False)
+            prefix = ">>> " if is_target else "    "
+            line_no = log.get('line_no', '?')
+            timestamp = log.get('timestamp', 'N/A')
+            raw = log.get('raw', 'N/A')
+            report += f"{prefix}{line_no:>6} [{timestamp}] {raw}\n"
+        report += "```\n"
+
+    # 알림 설명
+    if alert_type == "SEQ_FAIL":
+        report += """
+**의미**: K-of-N 판정 로직에 의해 실제 알림이 발생했습니다.
+최근 N개의 시퀀스 중 K개 이상이 예측에 실패하여 비정상적인 패턴으로 판단되었습니다.
+
+**권장 조치**:
+- 해당 엔티티(호스트/프로세스)의 동작 상태 확인
+- 최근 변경사항이나 배포 이력 확인
+- 유사한 알림이 반복 발생하는지 모니터링
+"""
+    else:  # NOVELTY
+        report += """
+**의미**: 학습 시 보지 못한 새로운 템플릿이 발견되었습니다.
+새로운 에러 메시지나 시스템 변경을 나타낼 수 있습니다.
+
+**권장 조치**:
+- 새로운 템플릿이 정상 동작인지 확인
+- 에러나 경고 메시지인 경우 즉시 조사
+- 향후 모델 재학습 시 반영 검토
+"""
+
     report += "\n---\n\n"
     return report
 
