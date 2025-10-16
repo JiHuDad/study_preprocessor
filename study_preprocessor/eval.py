@@ -33,8 +33,14 @@ def evaluate_deeplog(infer_parquet: str | Path, labels_path: str | Path, seq_len
     d = pd.read_parquet(infer_parquet)
     # Align by sequence index -> approximate line_no = idx + seq_len
     d = d.assign(line_no=d["idx"].astype(int) + int(seq_len))
-    # Mark anomaly if in_topk == False
-    d = d.assign(is_anom=(~d["in_topk"]).astype(int))
+
+    # Mark anomaly - Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+    if 'prediction_ok' in d.columns:
+        d = d.assign(is_anom=(~d["prediction_ok"]).astype(int))
+    elif 'in_topk' in d.columns:
+        d = d.assign(is_anom=(~d["in_topk"]).astype(int))
+    else:
+        d = d.assign(is_anom=0)
 
     labels = pd.read_parquet(labels_path)[["line_no", "is_anomaly"]]
     merged = pd.merge(d, labels, on="line_no", how="inner")

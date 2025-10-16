@@ -76,13 +76,24 @@ def visualize_results(data_dir: str = "data/processed"):
     print_chart("이상 탐지 결과", anomaly_data)
     
     # 5. DeepLog 성능
+    # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+    if 'prediction_ok' in deeplog_df.columns:
+        success_count = len(deeplog_df[deeplog_df['prediction_ok'] == True])
+        failure_count = len(deeplog_df[deeplog_df['prediction_ok'] == False])
+    elif 'in_topk' in deeplog_df.columns:
+        success_count = len(deeplog_df[deeplog_df['in_topk'] == True])
+        failure_count = len(deeplog_df[deeplog_df['in_topk'] == False])
+    else:
+        success_count = 0
+        failure_count = 0
+
     deeplog_data = {
-        "예측 성공": len(deeplog_df[deeplog_df['in_topk'] == True]),
-        "예측 실패": len(deeplog_df[deeplog_df['in_topk'] == False])
+        "예측 성공": success_count,
+        "예측 실패": failure_count
     }
-    
+
     print_chart("DeepLog 예측 성능", deeplog_data)
-    
+
     # 6. 상세 통계
     print(f"\n📊 상세 통계")
     print("="*60)
@@ -91,7 +102,8 @@ def visualize_results(data_dir: str = "data/processed"):
     print(f"분석 윈도우 수: {len(baseline_scores)}")
     print(f"이상률: {len(baseline_scores[baseline_scores['is_anomaly']==True])/len(baseline_scores)*100:.1f}%")
     if len(deeplog_df) > 0:
-        print(f"DeepLog 위반율: {len(deeplog_df[deeplog_df['in_topk']==False])/len(deeplog_df)*100:.1f}%")
+        violation_rate = failure_count / len(deeplog_df) * 100
+        print(f"DeepLog 위반율: {violation_rate:.1f}%")
     else:
         print("DeepLog 위반율: N/A (추론 결과 없음)")
     print(f"평균 이상 점수: {baseline_scores['score'].mean():.3f}")
@@ -129,7 +141,17 @@ def create_summary_report(data_dir: str = "data/processed"):
     deeplog_df = pd.read_parquet(data_path / "deeplog_infer.parquet")
     
     anomaly_rate = len(baseline_scores[baseline_scores['is_anomaly']==True])/len(baseline_scores)*100
-    violation_rate = len(deeplog_df[deeplog_df['in_topk']==False])/len(deeplog_df)*100 if len(deeplog_df) > 0 else 0
+
+    # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+    if len(deeplog_df) > 0:
+        if 'prediction_ok' in deeplog_df.columns:
+            violation_rate = len(deeplog_df[deeplog_df['prediction_ok']==False])/len(deeplog_df)*100
+        elif 'in_topk' in deeplog_df.columns:
+            violation_rate = len(deeplog_df[deeplog_df['in_topk']==False])/len(deeplog_df)*100
+        else:
+            violation_rate = 0
+    else:
+        violation_rate = 0
     
     # 안전한 시간 정보 처리
     try:
@@ -152,7 +174,7 @@ def create_summary_report(data_dir: str = "data/processed"):
 
 ## 핵심 지표
 - **이상률**: {anomaly_rate:.1f}% ({len(baseline_scores[baseline_scores['is_anomaly']==True])}개 / {len(baseline_scores)}개 윈도우)
-- **DeepLog 위반율**: {violation_rate:.1f}% ({len(deeplog_df[deeplog_df['in_topk']==False])}개 / {len(deeplog_df)}개 시퀀스)
+- **DeepLog 위반율**: {violation_rate:.1f}% ({int(violation_rate * len(deeplog_df) / 100) if len(deeplog_df) > 0 else 0}개 / {len(deeplog_df)}개 시퀀스)
 
 ## 해석
 """

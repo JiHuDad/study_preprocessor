@@ -344,10 +344,21 @@ def load_inference_results(result_dir):
     deeplog_file = f'{result_dir}/deeplog_infer.parquet'
     if Path(deeplog_file).exists():
         df = pd.read_parquet(deeplog_file)
+        # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+        if 'prediction_ok' in df.columns:
+            violation_count = int((df['prediction_ok'] == False).sum())
+            violation_rate = float((df['prediction_ok'] == False).mean()) if len(df) > 0 else 0.0
+        elif 'in_topk' in df.columns:
+            violation_count = int((df['in_topk'] == False).sum())
+            violation_rate = float((df['in_topk'] == False).mean()) if len(df) > 0 else 0.0
+        else:
+            violation_count = 0
+            violation_rate = 0.0
+
         results['deeplog'] = {
             'total_sequences': len(df),
-            'violation_count': int((df['in_topk'] == False).sum()),
-            'violation_rate': float((df['in_topk'] == False).mean()) if len(df) > 0 else 0.0
+            'violation_count': violation_count,
+            'violation_rate': violation_rate
         }
     
     # MS-CRED 결과

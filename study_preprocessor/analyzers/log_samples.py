@@ -105,7 +105,14 @@ class LogSampleAnalyzer:
         idx_to_template = {v: k for k, v in vocab.items()}
         
         # 예측 실패한 경우들 필터링
-        anomalies = df_infer[df_infer['in_topk'] == False].copy()
+        # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+        if 'prediction_ok' in df_infer.columns:
+            anomalies = df_infer[df_infer['prediction_ok'] == False].copy()
+        elif 'in_topk' in df_infer.columns:
+            anomalies = df_infer[df_infer['in_topk'] == False].copy()
+        else:
+            return {'type': 'deeplog', 'anomaly_count': 0, 'samples': []}
+
         if len(anomalies) == 0:
             return {'type': 'deeplog', 'anomaly_count': 0, 'samples': []}
         
