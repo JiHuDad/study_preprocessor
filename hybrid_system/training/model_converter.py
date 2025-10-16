@@ -77,24 +77,30 @@ class ModelConverter:
         
         # 더미 입력 생성 (배치 크기 1, 시퀀스 길이)
         dummy_input = torch.randint(0, vocab_size, (1, seq_len), dtype=torch.long)
-        
+
         # ONNX 변환
         onnx_path = self.output_dir / output_name
-        
-        torch.onnx.export(
-            model,
-            dummy_input,
-            str(onnx_path),
-            export_params=True,
-            opset_version=11,  # 호환성을 위해 안정적인 버전 사용
-            do_constant_folding=True,
-            input_names=['input_sequence'],
-            output_names=['predictions'],
-            dynamic_axes={
-                'input_sequence': {0: 'batch_size'},
-                'predictions': {0: 'batch_size'}
-            }
-        )
+
+        # LSTM 경고 억제
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning, message=".*LSTM.*")
+
+            torch.onnx.export(
+                model,
+                dummy_input,
+                str(onnx_path),
+                export_params=True,
+                opset_version=11,  # 호환성을 위해 안정적인 버전 사용
+                do_constant_folding=True,
+                input_names=['input_sequence'],
+                output_names=['predictions'],
+                dynamic_axes={
+                    'input_sequence': {0: 'batch_size', 1: 'sequence_length'},
+                    'predictions': {0: 'batch_size'}
+                },
+                verbose=False
+            )
         
         # 메타데이터 저장
         metadata = {
@@ -219,42 +225,53 @@ class ModelConverter:
                     if hasattr(module, 'in_channels'):
                         feature_dim = module.in_channels
                         break
-                
+
                 if feature_dim is None:
                     feature_dim = 100  # 기본값
                     logger.warning(f"피처 차원 자동 감지 실패, 기본값 사용: {feature_dim}")
             except Exception as e:
                 feature_dim = 100
                 logger.warning(f"피처 차원 감지 오류: {e}, 기본값 사용: {feature_dim}")
-        
-        # 더미 입력 생성 (배치 크기 1, 윈도우 크기, 피처 차원)
-        dummy_input = torch.randn(1, window_size, feature_dim)
+
+        # 더미 입력 생성
+        # MSCREDModel은 4D 텐서 (batch, channels, height, width) 기대
+        # - batch: 1
+        # - channels: 1 (input_channels)
+        # - height: window_size (시간 축)
+        # - width: feature_dim (템플릿 수)
+        dummy_input = torch.randn(1, 1, window_size, feature_dim)
         
         # ONNX 변환
         onnx_path = self.output_dir / output_name
-        
-        torch.onnx.export(
-            model,
-            dummy_input,
-            str(onnx_path),
-            export_params=True,
-            opset_version=11,
-            do_constant_folding=True,
-            input_names=['input_features'],
-            output_names=['reconstructed'],
-            dynamic_axes={
-                'input_features': {0: 'batch_size'},
-                'reconstructed': {0: 'batch_size'}
-            }
-        )
+
+        # 불필요한 경고 억제
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+
+            torch.onnx.export(
+                model,
+                dummy_input,
+                str(onnx_path),
+                export_params=True,
+                opset_version=11,
+                do_constant_folding=True,
+                input_names=['input_features'],
+                output_names=['reconstructed'],
+                dynamic_axes={
+                    'input_features': {0: 'batch_size'},
+                    'reconstructed': {0: 'batch_size'}
+                },
+                verbose=False
+            )
         
         # 메타데이터 저장
         metadata = {
             'model_type': 'mscred',
             'window_size': window_size,
             'feature_dim': feature_dim,
-            'input_shape': [1, window_size, feature_dim],
-            'output_shape': [1, window_size, feature_dim],
+            'input_shape': [1, 1, window_size, feature_dim],  # (batch, channels, height, width)
+            'output_shape': [1, 1, window_size, feature_dim],
             'input_names': ['input_features'],
             'output_names': ['reconstructed'],
             'opset_version': 11
