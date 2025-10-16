@@ -26,34 +26,54 @@ class ModelConverter:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def convert_deeplog_to_onnx(
-        self, 
-        model_path: str, 
+        self,
+        model_path: str,
         vocab_path: str,
         output_name: str = "deeplog.onnx",
         seq_len: int = 50
     ) -> Dict[str, Any]:
         """
         DeepLog 모델을 ONNX로 변환
-        
+
         Args:
             model_path: PyTorch 모델 파일 경로
             vocab_path: 어휘 사전 파일 경로
             output_name: 출력 ONNX 파일명
             seq_len: 시퀀스 길이
-            
+
         Returns:
             변환 결과 정보
         """
         logger.info(f"🔄 DeepLog 모델 변환 시작: {model_path}")
-        
+
         # 어휘 사전 로드
         with open(vocab_path, 'r') as f:
             vocab = json.load(f)
         vocab_size = len(vocab)
-        
+
         # PyTorch 모델 로드
-        model = torch.load(model_path, map_location='cpu')
+        # DeepLog 모델 클래스 import
+        import sys
+        from pathlib import Path
+        # study_preprocessor 패키지 경로 추가
+        root_dir = Path(__file__).parent.parent.parent
+        if str(root_dir) not in sys.path:
+            sys.path.insert(0, str(root_dir))
+
+        from study_preprocessor.builders.deeplog import DeepLogLSTM
+
+        # state dict 로드
+        state = torch.load(model_path, map_location='cpu')
+        model_vocab_size = int(state.get("vocab_size", vocab_size))
+        model_seq_len = int(state.get("seq_len", seq_len))
+
+        # 모델 생성 및 가중치 로드
+        model = DeepLogLSTM(vocab_size=model_vocab_size)
+        model.load_state_dict(state["state_dict"])
         model.eval()
+
+        # seq_len 업데이트 (모델에 저장된 값 사용)
+        seq_len = model_seq_len
         
         # 더미 입력 생성 (배치 크기 1, 시퀀스 길이)
         dummy_input = torch.randint(0, vocab_size, (1, seq_len), dtype=torch.long)
@@ -128,10 +148,53 @@ class ModelConverter:
             변환 결과 정보
         """
         logger.info(f"🔄 MS-CRED 모델 변환 시작: {model_path}")
-        
-        # PyTorch 모델 로드
-        model = torch.load(model_path, map_location='cpu')
-        model.eval()
+
+        # MS-CRED 모델 클래스 import
+        import sys
+        from pathlib import Path
+        # study_preprocessor 패키지 경로 추가
+        root_dir = Path(__file__).parent.parent.parent
+        if str(root_dir) not in sys.path:
+            sys.path.insert(0, str(root_dir))
+
+        from study_preprocessor.mscred_model import MSCRED
+
+        # state dict 로드
+        state = torch.load(model_path, map_location='cpu')
+
+        # 모델 파라미터 추출
+        # state에서 feature_dim, window_size 등을 추출 시도
+        if isinstance(state, dict) and 'state_dict' in state:
+            # 메타데이터가 있는 경우
+            state_dict = state['state_dict']
+            saved_feature_dim = state.get('feature_dim', feature_dim)
+            saved_window_size = state.get('window_size', window_size)
+        else:
+            # state_dict만 있는 경우
+            state_dict = state
+            saved_feature_dim = feature_dim
+            saved_window_size = window_size
+
+        # 모델 생성
+        try:
+            model = MSCRED(feature_dim=saved_feature_dim if saved_feature_dim else 100)
+            model.load_state_dict(state_dict)
+            model.eval()
+            if saved_feature_dim:
+                feature_dim = saved_feature_dim
+        except Exception as e:
+            logger.warning(f"MSCRED 로딩 실패, 기본 모델 사용: {e}")
+            # 기본 파라미터로 재시도
+            model = MSCRED(feature_dim=feature_dim if feature_dim else 100)
+            try:
+                model.load_state_dict(state_dict if isinstance(state, dict) and 'state_dict' not in state else state.get('state_dict', state))
+            except:
+                # state 자체가 모델일 수 있음 (구버전)
+                if hasattr(state, 'eval'):
+                    model = state
+                else:
+                    raise
+            model.eval()
         
         # 피처 차원 자동 감지 (모델의 첫 번째 레이어에서)
         if feature_dim is None:
