@@ -157,44 +157,59 @@ class ModelConverter:
         if str(root_dir) not in sys.path:
             sys.path.insert(0, str(root_dir))
 
-        from study_preprocessor.mscred_model import MSCRED
+        from study_preprocessor.mscred_model import MSCREDModel
 
         # state dict 로드
         state = torch.load(model_path, map_location='cpu')
 
         # 모델 파라미터 추출
-        # state에서 feature_dim, window_size 등을 추출 시도
-        if isinstance(state, dict) and 'state_dict' in state:
-            # 메타데이터가 있는 경우
-            state_dict = state['state_dict']
-            saved_feature_dim = state.get('feature_dim', feature_dim)
-            saved_window_size = state.get('window_size', window_size)
+        # MS-CRED는 'model_state_dict' 키로 저장됨
+        if isinstance(state, dict):
+            if 'model_state_dict' in state:
+                # MSCREDTrainer.save_model() 형식
+                state_dict = state['model_state_dict']
+                saved_feature_dim = state.get('feature_dim', feature_dim)
+                saved_window_size = state.get('window_size', window_size)
+            elif 'state_dict' in state:
+                # 다른 저장 형식
+                state_dict = state['state_dict']
+                saved_feature_dim = state.get('feature_dim', feature_dim)
+                saved_window_size = state.get('window_size', window_size)
+            else:
+                # state_dict만 있는 경우 (구버전)
+                state_dict = state
+                saved_feature_dim = feature_dim
+                saved_window_size = window_size
         else:
-            # state_dict만 있는 경우
             state_dict = state
             saved_feature_dim = feature_dim
             saved_window_size = window_size
 
         # 모델 생성
+        # MSCREDModel의 파라미터: input_channels, base_channels
+        # feature_dim은 ONNX export시 입력 크기 결정에만 사용
         try:
-            model = MSCRED(feature_dim=saved_feature_dim if saved_feature_dim else 100)
+            # 기본값으로 모델 생성 (input_channels=1, base_channels=32)
+            model = MSCREDModel(input_channels=1, base_channels=32)
             model.load_state_dict(state_dict)
             model.eval()
-            if saved_feature_dim:
-                feature_dim = saved_feature_dim
         except Exception as e:
-            logger.warning(f"MSCRED 로딩 실패, 기본 모델 사용: {e}")
-            # 기본 파라미터로 재시도
-            model = MSCRED(feature_dim=feature_dim if feature_dim else 100)
+            logger.warning(f"MSCREDModel 로딩 실패, 재시도: {e}")
+            # state_dict 키를 확인하여 파라미터 추정
             try:
-                model.load_state_dict(state_dict if isinstance(state, dict) and 'state_dict' not in state else state.get('state_dict', state))
+                # state dict에서 첫 Conv 레이어의 in_channels 추출 시도
+                first_conv_key = [k for k in state_dict.keys() if 'encoder' in k and 'conv' in k and 'weight' in k][0]
+                in_channels = state_dict[first_conv_key].shape[1]
+                model = MSCREDModel(input_channels=in_channels, base_channels=32)
+                model.load_state_dict(state_dict)
+                model.eval()
             except:
-                # state 자체가 모델일 수 있음 (구버전)
+                # 그래도 실패하면 state 자체가 모델일 수 있음
                 if hasattr(state, 'eval'):
                     model = state
+                    model.eval()
                 else:
-                    raise
-            model.eval()
+                    raise RuntimeError(f"MSCREDModel 로딩 실패: {e}")
         
         # 피처 차원 자동 감지 (모델의 첫 번째 레이어에서)
         if feature_dim is None:
