@@ -25,7 +25,7 @@ if [ -z "$MODEL_DIR" ] || [ -z "$TARGET_LOG" ]; then
     echo "  - 결과디렉토리: 분석 결과를 저장할 폴더 (생략시 자동 생성)"
     echo ""
     echo "💡 특징:"
-    echo "  - 🧠 DeepLog LSTM 이상탐지"
+    echo "  - 🧠 DeepLog Enhanced LSTM 이상탐지 (Top-K/P, K-of-N, 쿨다운, 노벨티)"
     echo "  - 🔬 MS-CRED 멀티스케일 이상탐지"
     echo "  - 📊 베이스라인 통계 기반 이상탐지"
     echo "  - 🕐 시간 기반 패턴 분석"
@@ -144,7 +144,7 @@ echo ""
 echo "🔄 수행할 추론 단계:"
 echo "  1️⃣  Target 로그 전처리 (기존 Drain3 상태 사용)"
 echo "  2️⃣  베이스라인 이상탐지 (학습된 통계와 비교)"
-echo "  3️⃣  DeepLog 추론 (LSTM 시퀀스 예측)"
+echo "  3️⃣  DeepLog Enhanced 추론 (K-of-N, 쿨다운, 노벨티)"
 echo "  4️⃣  MS-CRED 추론 (멀티스케일 재구성 오차)"
 echo "  5️⃣  시간 기반 이상탐지"
 echo "  6️⃣  이상 로그 샘플 추출 및 분석"
@@ -313,47 +313,86 @@ except Exception as e:
 "
     
     if [ -f "$RESULT_DIR/sequences.parquet" ]; then
-        # DeepLog 추론 실행
+        # DeepLog Enhanced 추론 실행
         $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import infer_deeplog_topk
+from study_preprocessor.builders.deeplog import infer_deeplog_enhanced, EnhancedInferenceConfig
 from pathlib import Path
 
 try:
-    print('DeepLog 추론 시작...')
-    
-    # DeepLog 추론 실행
-    df = infer_deeplog_topk(
-        sequences_parquet='$RESULT_DIR/sequences.parquet',
-        model_path='$MODEL_DIR/deeplog.pth',
-        k=3
+    print('DeepLog Enhanced 추론 시작...')
+
+    # Enhanced 설정 (프로덕션 권장 설정)
+    config = EnhancedInferenceConfig(
+        top_k=3,                    # Top-K 예측
+        top_p=None,                 # Top-P는 필요시 활성화
+        k_of_n_k=7,                 # 10개 중 7개 실패 시 알림
+        k_of_n_n=10,
+        cooldown_seq_fail=60,       # 시퀀스 실패 60초 쿨다운
+        cooldown_novelty=60,        # 노벨티 60초 쿨다운
+        session_timeout=300,        # 5분 세션 타임아웃
+        entity_column='host',       # host 기준 세션
+        novelty_enabled=True,       # 노벨티 탐지 활성화
+        vocab_path='$MODEL_DIR/vocab.json'
     )
-    
+
+    # Enhanced 추론 실행
+    infer_df, alerts_df, summary = infer_deeplog_enhanced(
+        sequences_parquet='$RESULT_DIR/sequences.parquet',
+        parsed_parquet='$RESULT_DIR/parsed.parquet',
+        model_path='$MODEL_DIR/deeplog.pth',
+        config=config
+    )
+
     # 결과 저장
-    output_path = Path('$RESULT_DIR') / 'deeplog_infer.parquet'
-    df.to_parquet(output_path, index=False)
-    
-    print(f'DeepLog 추론 완료: {len(df)} 시퀀스 처리, 저장됨: {output_path}')
-    
+    output_dir = Path('$RESULT_DIR')
+    infer_df.to_parquet(output_dir / 'deeplog_infer.parquet', index=False)
+    alerts_df.to_parquet(output_dir / 'deeplog_alerts.parquet', index=False)
+
+    # 요약 정보 저장
+    import json
+    (output_dir / 'deeplog_summary.json').write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, default=str)
+    )
+
+    print(f'DeepLog Enhanced 추론 완료:')
+    print(f'  📊 시퀀스 처리: {len(infer_df)}개')
+    print(f'  🚨 발생 알림: {len(alerts_df)}개')
+    print(f'  📝 세션 수: {summary[\"total_sessions\"]}개')
+
 except Exception as e:
-    print(f'DeepLog 추론 오류: {e}')
+    print(f'DeepLog Enhanced 추론 오류: {e}')
     import traceback
     traceback.print_exc()
     exit(1)
 "
-        
+
         if [ -f "$RESULT_DIR/deeplog_infer.parquet" ]; then
-            # DeepLog 결과 통계
+            # DeepLog Enhanced 결과 통계
             $PYTHON_CMD -c "
 import pandas as pd
-df = pd.read_parquet('$RESULT_DIR/deeplog_infer.parquet')
-total_sequences = len(df)
-violations = (df['in_topk'] == False).sum()
-print(f'✅ DeepLog 분석 완료:')
-print(f'   📊 총 시퀀스: {total_sequences}개')
-if len(df) > 0:
-    print(f'   🚨 Top-K 위반: {violations}개 ({100*violations/total_sequences:.1f}%)')
-else:
-    print('   🚨 Top-K 위반: 0개 (시퀀스 데이터 없음 - 로그가 너무 짧음)')
+import json
+
+# 추론 결과 로드
+infer_df = pd.read_parquet('$RESULT_DIR/deeplog_infer.parquet')
+alerts_df = pd.read_parquet('$RESULT_DIR/deeplog_alerts.parquet')
+
+# 요약 로드
+with open('$RESULT_DIR/deeplog_summary.json', 'r') as f:
+    summary = json.load(f)
+
+print(f'✅ DeepLog Enhanced 분석 완료:')
+print(f'   📊 총 시퀀스: {len(infer_df):,}개')
+print(f'   🚨 발생 알림: {len(alerts_df)}건')
+print(f'   📝 활성 세션: {summary[\"total_sessions\"]}개')
+print(f'   🔥 시퀀스 실패 알림: {summary[\"alerts_by_type\"].get(\"SEQ_FAIL\", 0)}건')
+print(f'   🆕 노벨티 알림: {summary[\"alerts_by_type\"].get(\"NOVELTY\", 0)}건')
+
+# 엔티티별 통계
+if len(alerts_df) > 0:
+    top_entities = alerts_df['entity'].value_counts().head(3)
+    print(f'   👥 주요 알림 엔티티:')
+    for entity, count in top_entities.items():
+        print(f'      - {entity}: {count}건')
 "
         else
             echo "⚠️  DeepLog 추론 실행 실패"
@@ -553,19 +592,40 @@ if 'baseline' in available_results:
     report_lines.append(f'- **평균 이상 점수**: {df[\"anomaly_score\"].mean():.3f}' if 'anomaly_score' in df.columns else '- **평균 이상 점수**: N/A')
     report_lines.append('')
 
-# DeepLog 결과
+# DeepLog Enhanced 결과
 if 'deeplog' in available_results:
-    df = pd.read_parquet(available_results['deeplog'])
-    total_sequences = len(df)
-    violations = (df['in_topk'] == False).sum()
-    
-    report_lines.append('### 🧠 DeepLog 이상탐지')
+    infer_df = pd.read_parquet(available_results['deeplog'])
+
+    # Enhanced 추가 파일들 로드
+    alerts_path = '$RESULT_DIR/deeplog_alerts.parquet'
+    summary_path = '$RESULT_DIR/deeplog_summary.json'
+
+    report_lines.append('### 🧠 DeepLog Enhanced 이상탐지')
     report_lines.append('')
-    report_lines.append(f'- **총 시퀀스**: {total_sequences:,}개')
-    if total_sequences > 0:
-        report_lines.append(f'- **Top-K 위반**: {violations}개 ({100*violations/total_sequences:.1f}%)')
-    else:
-        report_lines.append(f'- **Top-K 위반**: 0개 (시퀀스 없음)')
+    report_lines.append(f'- **총 시퀀스**: {len(infer_df):,}개')
+
+    if os.path.exists(alerts_path):
+        alerts_df = pd.read_parquet(alerts_path)
+        report_lines.append(f'- **발생 알림**: {len(alerts_df)}건')
+
+        if len(alerts_df) > 0:
+            # 알림 유형별 통계
+            seq_fail = (alerts_df['alert_type'] == 'SEQ_FAIL').sum()
+            novelty = (alerts_df['alert_type'] == 'NOVELTY').sum()
+            report_lines.append(f'  - 시퀀스 실패: {seq_fail}건')
+            report_lines.append(f'  - 노벨티 발견: {novelty}건')
+
+            # 상위 엔티티
+            top_entities = alerts_df['entity'].value_counts().head(3)
+            report_lines.append(f'- **주요 알림 엔티티**:')
+            for entity, count in top_entities.items():
+                report_lines.append(f'  - {entity}: {count}건')
+
+    if os.path.exists(summary_path):
+        with open(summary_path, 'r') as f:
+            summary = json.load(f)
+        report_lines.append(f'- **활성 세션**: {summary.get(\"total_sessions\", 0)}개')
+
     report_lines.append('')
 
 # MS-CRED 결과
@@ -750,8 +810,8 @@ echo "  ./run_inference.sh $MODEL_DIR /path/to/another.log"
 echo ""
 echo "🎉 이상탐지 추론이 완료되었습니다!"
 echo "   - ✅ Target 로그 전처리"
-echo "   - ✅ 베이스라인 통계 기반 이상탐지" 
-echo "   - ✅ DeepLog LSTM 이상탐지"
+echo "   - ✅ 베이스라인 통계 기반 이상탐지"
+echo "   - ✅ DeepLog Enhanced 이상탐지 (알림 관리 포함)"
 echo "   - ✅ MS-CRED 컨볼루션 이상탐지"
 echo "   - ✅ 시간 기반 패턴 분석"
 echo "   - ✅ 이상 로그 샘플 추출 및 분석"
