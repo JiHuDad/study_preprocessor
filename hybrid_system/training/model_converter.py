@@ -217,21 +217,25 @@ class ModelConverter:
                 else:
                     raise RuntimeError(f"MSCREDModel 로딩 실패: {e}")
         
-        # 피처 차원 자동 감지 (모델의 첫 번째 레이어에서)
+        # 피처 차원 결정
+        # MS-CRED의 feature_dim은 템플릿 개수 (width)를 의미
         if feature_dim is None:
-            try:
-                # 일반적인 MS-CRED 구조에서 첫 번째 Conv 레이어 찾기
-                for module in model.modules():
-                    if hasattr(module, 'in_channels'):
-                        feature_dim = module.in_channels
-                        break
-
-                if feature_dim is None:
-                    feature_dim = 100  # 기본값
-                    logger.warning(f"피처 차원 자동 감지 실패, 기본값 사용: {feature_dim}")
-            except Exception as e:
+            # saved state에서 확인
+            if saved_feature_dim and saved_feature_dim > 1:
+                feature_dim = saved_feature_dim
+            else:
+                # 기본값: 일반적인 로그 템플릿 개수
+                # 너무 작으면 conv 계산이 실패하므로 충분히 큰 값 사용
                 feature_dim = 100
-                logger.warning(f"피처 차원 감지 오류: {e}, 기본값 사용: {feature_dim}")
+                logger.warning(f"피처 차원을 명시하지 않음. 기본값 사용: {feature_dim}")
+                logger.warning(f"실제 사용한 템플릿 개수와 맞지 않으면 --feature-dim 옵션으로 지정하세요.")
+
+        # 최소 크기 검증 (conv 레이어를 통과하기 위한 최소 크기)
+        # MultiScaleConvBlock의 최대 kernel_size=7, padding=3이므로
+        # 최소 feature_dim >= 7 필요
+        if feature_dim < 10:
+            logger.warning(f"feature_dim({feature_dim})이 너무 작습니다. 최소 10으로 설정합니다.")
+            feature_dim = 10
 
         # 더미 입력 생성
         # MSCREDModel은 4D 텐서 (batch, channels, height, width) 기대
@@ -239,6 +243,7 @@ class ModelConverter:
         # - channels: 1 (input_channels)
         # - height: window_size (시간 축)
         # - width: feature_dim (템플릿 수)
+        logger.info(f"MSCRED 더미 입력 크기: (1, 1, {window_size}, {feature_dim})")
         dummy_input = torch.randn(1, 1, window_size, feature_dim)
         
         # ONNX 변환
@@ -362,23 +367,25 @@ def convert_all_models(
     deeplog_model: str,
     mscred_model: str,
     vocab_path: str,
-    output_dir: str = "models/onnx"
+    output_dir: str = "models/onnx",
+    feature_dim: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     모든 모델을 일괄 변환
-    
+
     Args:
         deeplog_model: DeepLog 모델 경로
         mscred_model: MS-CRED 모델 경로
         vocab_path: 어휘 사전 경로
         output_dir: 출력 디렉토리
-        
+        feature_dim: MS-CRED 피처 차원 (템플릿 개수, None이면 자동 감지)
+
     Returns:
         변환 결과 요약
     """
     converter = ModelConverter(output_dir)
     results = {}
-    
+
     # DeepLog 변환
     if os.path.exists(deeplog_model):
         try:
@@ -400,15 +407,18 @@ def convert_all_models(
     # MS-CRED 변환
     if os.path.exists(mscred_model):
         try:
-            mscred_result = converter.convert_mscred_to_onnx(mscred_model)
-            
+            mscred_result = converter.convert_mscred_to_onnx(
+                mscred_model,
+                feature_dim=feature_dim
+            )
+
             # 검증 및 최적화
             if converter.validate_onnx_model(mscred_result['onnx_path']):
                 optimized_path = converter.optimize_onnx_model(mscred_result['onnx_path'])
                 mscred_result['optimized_path'] = optimized_path
-            
+
             results['mscred'] = mscred_result
-            
+
         except Exception as e:
             logger.error(f"❌ MS-CRED 변환 실패: {e}")
             results['mscred'] = {'error': str(e)}

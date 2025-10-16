@@ -331,6 +331,141 @@ python temporal_anomaly_detector.py --help
 
 ---
 
+## Phase 4: ONNX 변환 개선 (2025-10-16)
+
+### 수정된 버그들
+
+#### ONNX 변환 오류 수정
+
+**문제 1**: DeepLog ONNX 변환 시 "'dict' object has no attribute 'eval'" 오류
+- **원인**: `torch.load()`로 state_dict를 로드한 후 `.eval()` 직접 호출
+- **해결**: DeepLogLSTM 클래스 import 후 모델 인스턴스 생성 → state_dict 로드
+
+**문제 2**: MS-CRED ONNX 변환 시 "cannot import name MSCRED" 오류
+- **원인**: 잘못된 클래스 이름 (MSCRED vs MSCREDModel)
+- **해결**: `from study_preprocessor.mscred_model import MSCREDModel`로 수정
+- **추가 수정**: state_dict 키 처리 (model_state_dict vs state_dict)
+
+**문제 3**: MS-CRED 텐서 차원 불일치 오류
+- **원인**: 3D 텐서 제공, 4D 텐서 필요
+- **해결**: 더미 입력을 `(1, window_size, feature_dim)` → `(1, 1, window_size, feature_dim)`로 변경
+
+**문제 4**: LSTM 배치 크기 경고
+- **원인**: batch_size != 1 및 가변 길이 시퀀스 경고
+- **해결**: `warnings.catch_warnings()`로 경고 억제
+
+**문제 5**: MS-CRED "Output size is too small" 오류 ✅ **해결됨**
+- **원인**: feature_dim이 1로 잘못 감지되어 conv 출력 크기가 0이 됨
+- **해결**:
+  - CLI에 `--feature-dim` 옵션 추가
+  - vocab.json에서 템플릿 개수 자동 감지: `len(vocab_dict)`
+  - 최소값 검증: `if feature_dim < 10: feature_dim = 10`
+  - `convert_all_models()` 시그니처 업데이트로 feature_dim 전달
+
+### 변경된 파일들
+
+#### `study_preprocessor/cli.py` (convert-onnx 명령어)
+```python
+@click.option("--feature-dim", type=int, default=None,
+              help="MS-CRED 피처 차원 (템플릿 개수, 미지정시 vocab에서 자동 감지)")
+def convert_onnx_cmd(..., feature_dim: Optional[int]):
+    # vocab.json에서 템플릿 개수 자동 감지
+    if mscred_model and feature_dim is None and vocab:
+        try:
+            with open(vocab, 'r') as f:
+                vocab_dict = json.load(f)
+                feature_dim = len(vocab_dict)
+                click.echo(f"📊 vocab에서 템플릿 개수 감지: {feature_dim}")
+        except Exception as e:
+            feature_dim = 100  # 안전한 기본값
+```
+
+#### `hybrid_system/training/model_converter.py`
+**convert_deeplog_to_onnx()** (Lines 28-103):
+- DeepLogLSTM 클래스 import 추가
+- 모델 인스턴스 생성 후 state_dict 로드
+- LSTM 경고 억제
+
+**convert_mscred_to_onnx()** (Lines 131-295):
+- MSCREDModel 클래스 import (MSCRED → MSCREDModel)
+- state_dict 키 처리: 'model_state_dict' 또는 'state_dict'
+- feature_dim 파라미터 추가 및 자동 감지
+- 최소값 검증: `max(10, feature_dim)`
+- 4D 텐서 생성: `(1, 1, window_size, feature_dim)`
+
+**convert_all_models()** (Lines 366-385):
+```python
+def convert_all_models(
+    deeplog_model: str,
+    mscred_model: str,
+    vocab_path: str,
+    output_dir: str = "models/onnx",
+    feature_dim: Optional[int] = None  # 새로운 파라미터
+) -> Dict[str, Any]:
+```
+
+### 효과
+
+#### 기능 개선
+- ✅ **자동 feature_dim 감지**: vocab.json에서 템플릿 개수 자동 추출
+- ✅ **안전한 기본값**: feature_dim < 10일 때 10으로 설정 (conv 레이어 보호)
+- ✅ **수동 오버라이드**: `--feature-dim` 옵션으로 명시적 지정 가능
+- ✅ **경고 제거**: LSTM 배치 크기 경고 억제
+
+#### 사용자 경험
+- 🎯 **간편한 사용**: vocab만 제공하면 자동으로 올바른 차원 설정
+- 🎯 **명확한 피드백**: "📊 vocab에서 템플릿 개수 감지: N" 메시지
+- 🎯 **오류 방지**: 최소 차원 검증으로 conv 크기 오류 예방
+
+### 검증 방법
+
+```bash
+# 자동 감지 테스트 (7개 템플릿 → 10으로 조정됨)
+study-preprocess convert-onnx \
+  --deeplog-model models/deeplog.pth \
+  --mscred-model models/mscred.pth \
+  --vocab models/vocab.json \
+  --output-dir models/onnx \
+  --validate
+
+# 100개 템플릿 테스트 (100 그대로 사용)
+study-preprocess convert-onnx \
+  --deeplog-model models/deeplog.pth \
+  --mscred-model models/mscred.pth \
+  --vocab large_vocab.json \
+  --output-dir models/onnx
+
+# 수동 지정 테스트
+study-preprocess convert-onnx \
+  --deeplog-model models/deeplog.pth \
+  --mscred-model models/mscred.pth \
+  --vocab models/vocab.json \
+  --feature-dim 50 \
+  --output-dir models/onnx
+```
+
+### 검증 결과
+
+**테스트 1** (7개 템플릿):
+- 감지된 템플릿: 7
+- 실제 사용된 feature_dim: 10 (최소값으로 조정)
+- 입력 형태: `[1, 1, 50, 10]`
+- 결과: ✅ 변환 성공
+
+**테스트 2** (100개 템플릿):
+- 감지된 템플릿: 100
+- 실제 사용된 feature_dim: 100
+- 입력 형태: `[1, 1, 50, 100]`
+- 결과: ✅ 변환 성공
+
+### 다음 단계
+
+- [ ] ONNX Runtime 설치 및 C 추론 엔진 테스트
+- [ ] 프로덕션 환경 배포 가이드 작성
+- [ ] 성능 벤치마크 수행
+
+---
+
 **작성자**: Claude Code
-**날짜**: 2025-10-15
-**Phase**: 3.1/4 완료
+**날짜**: 2025-10-16
+**Phase**: 4/4 완료 (ONNX 변환 개선)
