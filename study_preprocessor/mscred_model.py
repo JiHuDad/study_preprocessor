@@ -140,19 +140,20 @@ class MSCREDModel(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # 입력 크기 저장
         input_shape = x.shape
-        
+
         encoded = self.encoder(x)
         reconstructed = self.decoder(encoded)
-        
+
         # 출력 크기를 입력 크기와 정확히 맞춤
-        if reconstructed.shape != input_shape:
-            reconstructed = F.interpolate(
-                reconstructed, 
-                size=(input_shape[2], input_shape[3]), 
-                mode='bilinear', 
-                align_corners=False
-            )
-        
+        # ONNX 추적 호환성: shape 비교 대신 항상 interpolate 수행
+        # (입력과 출력이 같으면 interpolate는 no-op)
+        reconstructed = F.interpolate(
+            reconstructed,
+            size=(input_shape[2], input_shape[3]),
+            mode='bilinear',
+            align_corners=False
+        )
+
         return reconstructed
     
     def compute_reconstruction_error(self, x: torch.Tensor, reconstructed: torch.Tensor) -> torch.Tensor:

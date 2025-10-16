@@ -338,24 +338,25 @@ class ModelConverter:
         """
         try:
             import onnxruntime as ort
-            
+
             # 최적화 설정
             sess_options = ort.SessionOptions()
             sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            
-            # 최적화된 모델 경로
-            optimized_path = onnx_path.replace('.onnx', '_optimized.onnx')
-            
-            # 세션 생성 (최적화 적용)
+            sess_options.optimized_model_filepath = onnx_path.replace('.onnx', '_optimized.onnx')
+
+            # 세션 생성 시 자동으로 최적화된 모델 저장
             session = ort.InferenceSession(onnx_path, sess_options)
-            
-            # 최적화된 그래프 저장 (ONNX Runtime 1.9+)
-            try:
-                session.save(optimized_path)
+
+            optimized_path = sess_options.optimized_model_filepath
+
+            # 최적화 파일이 생성되었는지 확인
+            import os
+            if os.path.exists(optimized_path):
                 logger.info(f"✅ ONNX 모델 최적화 완료: {optimized_path}")
                 return optimized_path
-            except AttributeError:
-                logger.warning("ONNX Runtime 버전이 낮아 최적화 저장 불가, 원본 반환")
+            else:
+                # 최적화가 적용되었지만 파일로 저장되지 않음 (메모리 내 최적화)
+                logger.info(f"⚡ ONNX 모델 최적화 적용됨 (메모리 내): {onnx_path}")
                 return onnx_path
                 
         except Exception as e:

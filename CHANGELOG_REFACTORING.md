@@ -458,9 +458,42 @@ study-preprocess convert-onnx \
 - 입력 형태: `[1, 1, 50, 100]`
 - 결과: ✅ 변환 성공
 
+### 추가 개선사항
+
+**문제 6**: MS-CRED forward() TracerWarning 경고
+- **원인**: `if reconstructed.shape != input_shape:` Python boolean 비교가 ONNX 추적 중 문제 발생
+- **해결**: shape 비교 제거하고 항상 `F.interpolate()` 수행 (같은 크기일 경우 no-op)
+
+**문제 7**: ONNX Runtime 최적화 저장 실패
+- **원인**: ONNX Runtime 1.9+ 이후 `session.save()` 메서드 제거됨
+- **해결**: `sess_options.optimized_model_filepath` 사용하여 세션 생성 시 자동 최적화 파일 저장
+
+### 최종 결과
+
+#### 생성 파일들
+```
+output_dir/
+├── deeplog.onnx                 # DeepLog 원본 ONNX 모델
+├── deeplog_optimized.onnx       # 하드웨어 최적화 적용
+├── deeplog.onnx.meta.json       # 메타데이터
+├── mscred.onnx                  # MS-CRED 원본 ONNX 모델
+├── mscred_optimized.onnx        # 하드웨어 최적화 적용
+├── mscred.onnx.meta.json        # 메타데이터
+├── vocab.json                   # 어휘 사전
+└── conversion_summary.json      # 변환 요약
+```
+
+#### 경고 메시지
+- ✅ **TracerWarning 제거**: MS-CRED forward() 수정으로 경고 사라짐
+- ✅ **최적화 성공**: `*_optimized.onnx` 파일 생성 확인
+- ℹ️ **GPU 경고 무시 가능**: "GPU device discovery failed" - CPU 환경에서 정상
+
 ### 다음 단계
 
-- [ ] ONNX Runtime 설치 및 C 추론 엔진 테스트
+- [x] ONNX Runtime 설치 ✅ (v1.23.1)
+- [x] TracerWarning 수정 ✅
+- [x] 최적화 파일 생성 ✅
+- [ ] C 추론 엔진 테스트
 - [ ] 프로덕션 환경 배포 가이드 작성
 - [ ] 성능 벤치마크 수행
 
@@ -468,4 +501,4 @@ study-preprocess convert-onnx \
 
 **작성자**: Claude Code
 **날짜**: 2025-10-16
-**Phase**: 4/4 완료 (ONNX 변환 개선)
+**Phase**: 4/4 완료 (ONNX 변환 개선 + 최적화)
