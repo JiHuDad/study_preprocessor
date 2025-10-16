@@ -326,13 +326,15 @@ class ModelConverter:
             logger.error(f"❌ ONNX 모델 검증 실패: {e}")
             return False
     
-    def optimize_onnx_model(self, onnx_path: str) -> str:
+    def optimize_onnx_model(self, onnx_path: str, portable: bool = False) -> str:
         """
         ONNX 모델 최적화 (그래프 최적화, 상수 폴딩 등)
-        
+
         Args:
             onnx_path: 원본 ONNX 모델 경로
-            
+            portable: True이면 범용 최적화만 적용 (하드웨어 특화 최적화 제외)
+                     False이면 최대 최적화 적용 (현재 하드웨어에 특화)
+
         Returns:
             최적화된 모델 경로
         """
@@ -341,8 +343,21 @@ class ModelConverter:
 
             # 최적화 설정
             sess_options = ort.SessionOptions()
-            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            sess_options.optimized_model_filepath = onnx_path.replace('.onnx', '_optimized.onnx')
+
+            if portable:
+                # 범용 최적화: 모든 환경에서 사용 가능
+                # ORT_ENABLE_BASIC: 기본 그래프 최적화만 적용
+                sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
+                suffix = '_portable'
+                logger.info("🌍 범용 최적화 모드 (모든 환경에서 사용 가능)")
+            else:
+                # 최대 최적화: 현재 하드웨어에 특화
+                # ORT_ENABLE_ALL: 하드웨어별 최적화 포함
+                sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+                suffix = '_optimized'
+                logger.info("⚡ 최대 최적화 모드 (현재 환경에 특화)")
+
+            sess_options.optimized_model_filepath = onnx_path.replace('.onnx', f'{suffix}.onnx')
 
             # 세션 생성 시 자동으로 최적화된 모델 저장
             session = ort.InferenceSession(onnx_path, sess_options)
@@ -358,7 +373,7 @@ class ModelConverter:
                 # 최적화가 적용되었지만 파일로 저장되지 않음 (메모리 내 최적화)
                 logger.info(f"⚡ ONNX 모델 최적화 적용됨 (메모리 내): {onnx_path}")
                 return onnx_path
-                
+
         except Exception as e:
             logger.error(f"❌ ONNX 모델 최적화 실패: {e}")
             return onnx_path
@@ -369,7 +384,8 @@ def convert_all_models(
     mscred_model: str,
     vocab_path: str,
     output_dir: str = "models/onnx",
-    feature_dim: Optional[int] = None
+    feature_dim: Optional[int] = None,
+    portable: bool = False
 ) -> Dict[str, Any]:
     """
     모든 모델을 일괄 변환
@@ -380,6 +396,7 @@ def convert_all_models(
         vocab_path: 어휘 사전 경로
         output_dir: 출력 디렉토리
         feature_dim: MS-CRED 피처 차원 (템플릿 개수, None이면 자동 감지)
+        portable: True이면 범용 최적화 (모든 환경), False이면 최대 최적화 (현재 하드웨어)
 
     Returns:
         변환 결과 요약
@@ -393,18 +410,21 @@ def convert_all_models(
             deeplog_result = converter.convert_deeplog_to_onnx(
                 deeplog_model, vocab_path
             )
-            
+
             # 검증 및 최적화
             if converter.validate_onnx_model(deeplog_result['onnx_path']):
-                optimized_path = converter.optimize_onnx_model(deeplog_result['onnx_path'])
+                optimized_path = converter.optimize_onnx_model(
+                    deeplog_result['onnx_path'],
+                    portable=portable
+                )
                 deeplog_result['optimized_path'] = optimized_path
-            
+
             results['deeplog'] = deeplog_result
-            
+
         except Exception as e:
             logger.error(f"❌ DeepLog 변환 실패: {e}")
             results['deeplog'] = {'error': str(e)}
-    
+
     # MS-CRED 변환
     if os.path.exists(mscred_model):
         try:
@@ -415,7 +435,10 @@ def convert_all_models(
 
             # 검증 및 최적화
             if converter.validate_onnx_model(mscred_result['onnx_path']):
-                optimized_path = converter.optimize_onnx_model(mscred_result['onnx_path'])
+                optimized_path = converter.optimize_onnx_model(
+                    mscred_result['onnx_path'],
+                    portable=portable
+                )
                 mscred_result['optimized_path'] = optimized_path
 
             results['mscred'] = mscred_result

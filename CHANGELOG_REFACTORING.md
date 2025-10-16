@@ -488,11 +488,45 @@ output_dir/
 - ✅ **최적화 성공**: `*_optimized.onnx` 파일 생성 확인
 - ℹ️ **GPU 경고 무시 가능**: "GPU device discovery failed" - CPU 환경에서 정상
 
+**문제 8**: 하드웨어 특화 최적화 경고
+- **경고**: "hardware specific optimizations, should only be used in the same environment"
+- **원인**: `ORT_ENABLE_ALL` 최적화 레벨이 현재 하드웨어에 특화된 최적화 적용
+- **해결**: `--portable` 옵션 추가
+  - Portable 모드: `ORT_ENABLE_BASIC` (범용, 모든 환경에서 사용 가능)
+  - 기본 모드: `ORT_ENABLE_ALL` (최대 성능, 현재 환경 특화)
+
+### 최적화 모드 비교
+
+| 모드 | 최적화 레벨 | 파일명 | 용도 |
+|------|-------------|--------|------|
+| **Portable** (권장) | ORT_ENABLE_BASIC | `*_portable.onnx` | C 추론 엔진 배포, 여러 환경 |
+| **Maximum** | ORT_ENABLE_ALL | `*_optimized.onnx` | 최대 성능, 같은 환경 전용 |
+
+### 사용 예시
+
+```bash
+# C 추론 엔진 배포용 (권장)
+study-preprocess convert-onnx \
+  --deeplog-model models/deeplog.pth \
+  --mscred-model models/mscred.pth \
+  --vocab models/vocab.json \
+  --output-dir models/onnx \
+  --portable
+
+# 현재 환경 최대 성능
+study-preprocess convert-onnx \
+  --deeplog-model models/deeplog.pth \
+  --mscred-model models/mscred.pth \
+  --vocab models/vocab.json \
+  --output-dir models/onnx
+```
+
 ### 다음 단계
 
 - [x] ONNX Runtime 설치 ✅ (v1.23.1)
 - [x] TracerWarning 수정 ✅
 - [x] 최적화 파일 생성 ✅
+- [x] 하드웨어 특화 경고 해결 ✅ (portable 모드)
 - [ ] C 추론 엔진 테스트
 - [ ] 프로덕션 환경 배포 가이드 작성
 - [ ] 성능 벤치마크 수행
@@ -501,4 +535,4 @@ output_dir/
 
 **작성자**: Claude Code
 **날짜**: 2025-10-16
-**Phase**: 4/4 완료 (ONNX 변환 개선 + 최적화)
+**Phase**: 4/4 완료 (ONNX 변환 완전 최적화)

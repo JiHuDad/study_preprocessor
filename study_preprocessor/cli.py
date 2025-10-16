@@ -471,19 +471,25 @@ def analyze_samples_cmd(processed_dir: Path, output_dir: Path, max_samples: int,
 @click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default="models/onnx", help="ONNX 출력 디렉토리")
 @click.option("--validate", is_flag=True, default=False, help="변환 후 검증 실행")
 @click.option("--feature-dim", type=int, default=None, help="MS-CRED 피처 차원 (템플릿 개수, 기본: 자동 감지)")
-def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, output_dir: Path, validate: bool, feature_dim: Optional[int]) -> None:
+@click.option("--portable", is_flag=True, default=False, help="범용 최적화 모드 (모든 환경에서 사용 가능, 하드웨어 특화 최적화 제외)")
+def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, output_dir: Path, validate: bool, feature_dim: Optional[int], portable: bool) -> None:
     """PyTorch 모델을 ONNX 포맷으로 변환."""
     try:
         # 하이브리드 시스템 모듈 동적 임포트
         import sys
         sys.path.append(str(Path(__file__).parent.parent))
         from hybrid_system.training.model_converter import convert_all_models
-        
+
         if not deeplog_model and not mscred_model:
             click.echo("❌ 최소 하나의 모델 경로를 지정해야 합니다.")
             return
-        
+
         click.echo("🔄 ONNX 변환 시작...")
+
+        if portable:
+            click.echo("🌍 범용 최적화 모드: 모든 환경에서 사용 가능한 모델 생성")
+        else:
+            click.echo("⚡ 최대 최적화 모드: 현재 하드웨어에 특화된 모델 생성")
 
         # vocab에서 템플릿 개수 추출 (MS-CRED용)
         if mscred_model and feature_dim is None and vocab:
@@ -502,7 +508,8 @@ def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, outpu
             str(mscred_model) if mscred_model else "",
             str(vocab) if vocab else "",
             str(output_dir),
-            feature_dim=feature_dim
+            feature_dim=feature_dim,
+            portable=portable
         )
         
         click.echo("\n🎉 ONNX 변환 완료!")
