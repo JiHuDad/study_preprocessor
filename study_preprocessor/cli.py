@@ -212,9 +212,9 @@ def deeplog_infer_enhanced_cmd(
     click.echo(f"  노벨티 발견: {summary['total_novels']:,}개")
     click.echo(f"  발생 알림: {summary['total_alerts']:,}개")
 
-    if summary.get('alert_breakdown'):
+    if summary.get('alerts_by_type'):
         click.echo(f"\n🚨 알림 유형별:")
-        for alert_type, count in summary['alert_breakdown'].items():
+        for alert_type, count in summary['alerts_by_type'].items():
             click.echo(f"  - {alert_type}: {count}개")
 
     click.echo(f"\n📁 출력 파일:")

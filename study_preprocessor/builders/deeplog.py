@@ -490,7 +490,8 @@ def infer_deeplog_enhanced(
         "total_failures": int((~predictions_ok).sum()),
         "total_novels": int(detailed_df["is_novel"].sum() if not detailed_df.empty else 0),
         "total_alerts": len(alerts),
-        "alert_breakdown": alerts_df["alert_type"].value_counts().to_dict() if not alerts_df.empty else {},
+        "alerts_by_type": alerts_df["alert_type"].value_counts().to_dict() if not alerts_df.empty else {},
+        "total_sessions": len(entity_sessions),
         "entities_analyzed": len(entity_sessions),
         "novelty_aggregation": alert_manager.get_novelty_aggregation_summary()
     }
