@@ -290,6 +290,17 @@ def infer_deeplog_enhanced(
     seq_df = pd.read_parquet(sequences_parquet)
     parsed_df = pd.read_parquet(parsed_parquet)
 
+    # template_index -> template_id 매핑을 위해 parsed_df에 template_index 추가
+    if "template_id" in parsed_df.columns and "template_index" not in parsed_df.columns:
+        # vocab 로드하여 template_id -> template_index 매핑
+        if config.vocab_path:
+            try:
+                with open(config.vocab_path, 'r') as f:
+                    vocab = json.load(f)
+                parsed_df["template_index"] = parsed_df["template_id"].map(vocab).astype("Int64")
+            except Exception:
+                pass
+
     # 노벨티 판정을 위한 vocab 로드
     known_templates = set()
     if config.novelty_enabled and config.vocab_path:
@@ -393,11 +404,12 @@ def infer_deeplog_enhanced(
         # 여기서는 단순화: parsed_df에서 target_idx와 일치하는 template_id 찾기
         if config.novelty_enabled:
             # parsed_df에서 template_index가 target_idx인 행 찾기
-            matching_rows = parsed_df[parsed_df.get("template_index", -1) == target_idx]
-            if not matching_rows.empty:
-                target_template = str(matching_rows.iloc[0].get("template_id", ""))
-                if target_template and target_template not in known_templates:
-                    is_novel = True
+            if "template_index" in parsed_df.columns:
+                matching_rows = parsed_df[parsed_df["template_index"] == target_idx]
+                if not matching_rows.empty and "template_id" in matching_rows.columns:
+                    target_template = str(matching_rows.iloc[0]["template_id"])
+                    if target_template and target_template not in known_templates:
+                        is_novel = True
 
         # 예측 성공 여부
         pred_ok = predictions_ok[idx].item()
