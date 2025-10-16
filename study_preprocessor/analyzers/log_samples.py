@@ -1012,13 +1012,17 @@ def generate_human_readable_report(all_results: Dict) -> str:
 
 def generate_sample_analysis(method: str, sample: Dict, sample_num: int) -> str:
     """개별 샘플에 대한 분석 섹션을 생성합니다."""
-    
+
     if method == 'baseline':
         return generate_baseline_sample_analysis(sample, sample_num)
-    elif method == 'deeplog':
-        return generate_deeplog_sample_analysis(sample, sample_num)
     elif method == 'deeplog_enhanced':
         return generate_deeplog_enhanced_sample_analysis(sample, sample_num)
+    elif method == 'deeplog':
+        # Enhanced 샘플 구조인지 확인 (alert_type 필드 존재 여부로 판단)
+        if 'alert_type' in sample:
+            return generate_deeplog_enhanced_sample_analysis(sample, sample_num)
+        else:
+            return generate_deeplog_sample_analysis(sample, sample_num)
     elif method == 'mscred':
         return generate_mscred_sample_analysis(sample, sample_num)
     elif method == 'comparative':
@@ -1096,17 +1100,17 @@ def generate_baseline_sample_analysis(sample: Dict, sample_num: int) -> str:
 
 def generate_deeplog_sample_analysis(sample: Dict, sample_num: int) -> str:
     """DeepLog 샘플 분석을 생성합니다."""
-    
+
     target_log = sample.get('target_log', {})
     analysis = sample.get('analysis', {})
-    
+
     report = f"""### 🧠 DeepLog 예측 실패 #{sample_num}
 
 **기본 정보**:
-- 시퀀스 인덱스: {sample['sequence_index']}
-- 예측된 템플릿: `{sample['predicted_template_id']}`
-- 실제 템플릿: `{sample['actual_template_id']}`
-- 실제 라인 번호: {sample['actual_line_no']}
+- 시퀀스 인덱스: {sample.get('sequence_index', 'N/A')}
+- 예측된 템플릿: `{sample.get('predicted_template_id', 'N/A')}`
+- 실제 템플릿: `{sample.get('actual_template_id', 'N/A')}`
+- 실제 라인 번호: {sample.get('actual_line_no', 'N/A')}
 
 **실제 발생한 로그**:
 ```

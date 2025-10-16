@@ -574,6 +574,12 @@ study-preprocess convert-onnx \
     2. timestamp 문자열 변환 후 매칭
     3. entity 기준 근사 매칭
 
+**문제 15**: 리포트 생성 시 KeyError 'sequence_index'
+- **원인**: Enhanced 샘플 구조가 구버전 리포트 생성 함수로 전달됨
+- **해결**:
+  - `generate_sample_analysis()`에서 샘플 구조 자동 감지 (alert_type 필드 확인)
+  - `generate_deeplog_sample_analysis()`에서 모든 필드 접근을 `.get()` 메서드로 안전하게 처리
+
 ### 변경된 파일들
 
 #### `study_preprocessor/builders/deeplog.py`
@@ -650,6 +656,25 @@ return {
     'analyzed_count': len(samples),            # 추출된 샘플 수
     'samples': samples
 }
+```
+
+**Lines 1013-1031**: 샘플 구조 자동 감지 및 안전한 처리
+```python
+def generate_sample_analysis(method: str, sample: Dict, sample_num: int) -> str:
+    # Enhanced 샘플 구조인지 자동 감지
+    if method == 'deeplog':
+        if 'alert_type' in sample:
+            return generate_deeplog_enhanced_sample_analysis(sample, sample_num)
+        else:
+            return generate_deeplog_sample_analysis(sample, sample_num)
+```
+
+**Lines 1101-1113**: 안전한 필드 접근 (KeyError 방지)
+```python
+report = f"""### 🧠 DeepLog 예측 실패 #{sample_num}
+- 시퀀스 인덱스: {sample.get('sequence_index', 'N/A')}
+- 예측된 템플릿: `{sample.get('predicted_template_id', 'N/A')}`
+# 모든 필드를 .get() 메서드로 안전하게 접근
 ```
 
 #### `run_inference.sh`
