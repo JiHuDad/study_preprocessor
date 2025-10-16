@@ -666,7 +666,14 @@ if 'baseline' in available_results:
 
 if 'deeplog' in available_results:
     df = pd.read_parquet(available_results['deeplog'])
-    violation_rate = (df['in_topk'] == False).mean()
+    # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+    if 'prediction_ok' in df.columns:
+        violation_rate = (df['prediction_ok'] == False).mean()
+    elif 'in_topk' in df.columns:
+        violation_rate = (df['in_topk'] == False).mean()
+    else:
+        violation_rate = 0
+
     if violation_rate > 0.05:
         anomaly_indicators.append(f'DeepLog 위반율 높음 ({violation_rate:.1%})')
 

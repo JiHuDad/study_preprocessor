@@ -894,9 +894,17 @@ print("Baseline detection completed")
             # 결과 요약
             import pandas as pd
             deeplog_df = pd.read_parquet(infer_file)
-            violations = deeplog_df[deeplog_df['in_topk'] == False]
+
+            # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+            if 'prediction_ok' in deeplog_df.columns:
+                violations = deeplog_df[deeplog_df['prediction_ok'] == False]
+            elif 'in_topk' in deeplog_df.columns:
+                violations = deeplog_df[deeplog_df['in_topk'] == False]
+            else:
+                violations = deeplog_df.iloc[0:0]  # 빈 DataFrame
+
             violation_rate = len(violations) / len(deeplog_df) if len(deeplog_df) > 0 else 0
-            
+
             print(f"✅ DeepLog 분석 완료: 위반율 {violation_rate:.1%} ({len(violations)}/{len(deeplog_df)})")
             
             return {
@@ -1652,8 +1660,14 @@ python visualize_results.py --data-dir {target_result['output_dir']}
             
             deeplog_df = pd.read_parquet(deeplog_file)
             parsed_df = pd.read_parquet(parsed_file)
-            
-            violations = deeplog_df[deeplog_df['in_topk'] == False].head(5)
+
+            # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+            if 'prediction_ok' in deeplog_df.columns:
+                violations = deeplog_df[deeplog_df['prediction_ok'] == False].head(5)
+            elif 'in_topk' in deeplog_df.columns:
+                violations = deeplog_df[deeplog_df['in_topk'] == False].head(5)
+            else:
+                violations = deeplog_df.iloc[0:0]  # 빈 DataFrame
             
             if len(violations) == 0:
                 return ""
