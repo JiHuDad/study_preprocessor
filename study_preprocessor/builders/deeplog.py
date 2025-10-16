@@ -435,6 +435,7 @@ def infer_deeplog_enhanced(
                 alerts.append({
                     "alert_id": len(alerts),
                     "timestamp": current_time,
+                    "line_no": int(row.get("line_no", -1)),
                     "entity": entity_val,
                     "alert_type": "SEQ_FAIL",
                     "template_id": None,
@@ -456,6 +457,7 @@ def infer_deeplog_enhanced(
                 alerts.append({
                     "alert_id": len(alerts),
                     "timestamp": current_time,
+                    "line_no": int(row.get("line_no", -1)),
                     "entity": entity_val,
                     "alert_type": "NOVELTY",
                     "template_id": target_template,

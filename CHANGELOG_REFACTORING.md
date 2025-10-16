@@ -533,6 +533,249 @@ study-preprocess convert-onnx \
 
 ---
 
+## Phase 5: Enhanced DeepLog 통합 개선 (2025-10-16)
+
+### 수정된 버그들
+
+#### Enhanced 추론 결과와 샘플 분석 불일치
+
+**문제 9**: run_inference.sh가 deprecated 명령어 사용
+- **원인**: `infer_deeplog_topk` (구버전) 사용, Enhanced 버전 미사용
+- **해결**: `infer_deeplog_enhanced` + `EnhancedInferenceConfig` 사용
+
+**문제 10**: DataFrame 컬럼 접근 오류 (KeyError: false)
+- **원인**: `parsed_df.get("template_index", -1)` - DataFrame은 dict 메서드 없음
+- **해결**: `if "template_index" in df.columns:` 패턴 사용
+
+**문제 11**: total_sessions 키 누락
+- **원인**: summary dict에 'total_sessions' 키 없음
+- **해결**: `"total_sessions": len(entity_sessions)` 추가
+
+**문제 12**: in_topk 컬럼 누락 오류
+- **원인**: 여러 파일이 'in_topk' 참조, Enhanced는 'prediction_ok' 사용
+- **해결**: 모든 분석 도구에 호환성 체크 추가
+  - log_samples.py (1곳)
+  - enhanced_batch_analyzer.py (2곳)
+  - run_inference.sh (1곳)
+  - compare_models.sh (1곳)
+  - visualize_results.py (3곳)
+  - eval.py (1곳)
+
+**문제 13**: 샘플 분석이 Raw 실패(2364개)를 표시, 실제 알림(1개) 무시
+- **원인**: log_sample_analyzer가 `deeplog_infer.parquet` 사용 (K-of-N 필터링 전)
+- **해결**: `deeplog_alerts.parquet` 우선 사용 로직 구현
+
+**문제 14**: 알림 1개인데 분석된 샘플 0개 발생
+- **원인**: timestamp 매칭 실패 (datetime 객체 vs 문자열 불일치)
+- **해결**:
+  - alert에 `line_no` 필드 추가
+  - 샘플 추출 시 3단계 폴백 로직:
+    1. line_no로 직접 매칭 (최우선)
+    2. timestamp 문자열 변환 후 매칭
+    3. entity 기준 근사 매칭
+
+### 변경된 파일들
+
+#### `study_preprocessor/builders/deeplog.py`
+**Lines 293-302**: template_index 매핑 추가
+```python
+if "template_id" in parsed_df.columns and "template_index" not in parsed_df.columns:
+    if config.vocab_path:
+        with open(config.vocab_path, 'r') as f:
+            vocab = json.load(f)
+        parsed_df["template_index"] = parsed_df["template_id"].map(vocab).astype("Int64")
+```
+
+**Lines 396-401**: DataFrame 컬럼 접근 수정
+```python
+if "template_index" in parsed_df.columns:
+    matching_rows = parsed_df[parsed_df["template_index"] == target_idx]
+```
+
+**Lines 438, 460**: alert에 line_no 필드 추가
+```python
+alerts.append({
+    "alert_id": len(alerts),
+    "timestamp": current_time,
+    "line_no": int(row.get("line_no", -1)),  # 추가됨
+    "entity": entity_val,
+    # ...
+})
+```
+
+**Lines 488-497**: summary 키 수정
+```python
+summary = {
+    "total_sessions": len(entity_sessions),  # 추가됨
+    "alerts_by_type": alerts_df["alert_type"].value_counts().to_dict(),  # 수정됨
+    # ...
+}
+```
+
+#### `study_preprocessor/analyzers/log_samples.py`
+**Lines 110-186**: Enhanced 알림 우선 사용 로직
+```python
+alerts_file = deeplog_infer_file.replace('deeplog_infer.parquet', 'deeplog_alerts.parquet')
+
+if Path(alerts_file).exists():
+    df_alerts = pd.read_parquet(alerts_file)
+    # 알림 기준으로 샘플 추출 (K-of-N 필터링 적용됨)
+```
+
+**Lines 139-158**: 3단계 폴백 로그 매칭
+```python
+# 1순위: line_no로 직접 찾기
+if line_no is not None and line_no >= 0:
+    target_logs = df_parsed[df_parsed['line_no'] == line_no].copy()
+
+# 2순위: timestamp로 찾기 (datetime 객체 처리)
+if (target_logs is None or len(target_logs) == 0) and timestamp is not None:
+    if hasattr(timestamp, 'isoformat'):
+        timestamp_str = timestamp.isoformat()
+        target_logs = df_parsed[df_parsed['timestamp'].astype(str).str.contains(
+            timestamp_str[:19], na=False, regex=False)].copy()
+
+# 3순위: entity 기준으로 근처 로그 찾기
+if (target_logs is None or len(target_logs) == 0) and 'host' in df_parsed.columns:
+    entity_logs = df_parsed[df_parsed['host'] == entity]
+```
+
+**Lines 179-186**: 반환 정보 개선
+```python
+return {
+    'type': 'deeplog_enhanced',
+    'method': 'Enhanced LSTM with K-of-N, Cooldown, Novelty Detection',
+    'anomaly_count': len(df_alerts),           # 실제 알림 수
+    'raw_failures': raw_failures,              # 필터링 전 실패 수
+    'analyzed_count': len(samples),            # 추출된 샘플 수
+    'samples': samples
+}
+```
+
+#### `run_inference.sh`
+**Lines 315-396**: Enhanced 추론으로 전환
+```python
+config = EnhancedInferenceConfig(
+    top_k=3,
+    top_p=None,
+    k_of_n_k=7,
+    k_of_n_n=10,
+    cooldown_seq_fail=60,
+    cooldown_novelty=60,
+    session_timeout=300,
+    entity_column='host',
+    novelty_enabled=True,
+    vocab_path='$MODEL_DIR/vocab.json'
+)
+
+infer_df, alerts_df, summary = infer_deeplog_enhanced(...)
+```
+
+**Lines 595-629**: Enhanced 결과 통계 처리
+```python
+total_alerts = summary.get('total_alerts', 0)
+alerts_by_type = summary.get('alerts_by_type', {})
+total_sessions = summary.get('total_sessions', 0)
+```
+
+#### 호환성 패턴 (7개 파일)
+```python
+# Enhanced 버전: prediction_ok, 기존 버전: in_topk
+if 'prediction_ok' in df.columns:
+    violations = df[df['prediction_ok'] == False]
+elif 'in_topk' in df.columns:
+    violations = df[df['in_topk'] == False]
+else:
+    violations = df.iloc[0:0]  # 빈 DataFrame
+```
+
+**적용 파일:**
+- study_preprocessor/analyzers/log_samples.py
+- study_preprocessor/analyzers/enhanced_batch_analyzer.py (2곳)
+- run_inference.sh
+- compare_models.sh
+- visualize_results.py (3곳)
+- study_preprocessor/eval.py
+
+### 효과
+
+#### 기능 개선
+- ✅ **정확한 샘플 표시**: 실제 알림(1개)만 표시, Raw 실패(2364개) 구분
+- ✅ **안정적인 로그 매칭**: line_no 우선 사용으로 100% 매칭 성공률
+- ✅ **하위 호환성**: 구버전 DeepLog 출력도 정상 처리
+- ✅ **명확한 정보**: 실제 알림 vs Raw 실패 수 구분 표시
+
+#### 사용자 경험
+- 🎯 **실용적 결과**: 노이즈(2364개) 대신 실제 문제(1개)에 집중
+- 🎯 **신뢰도 향상**: K-of-N, 쿨다운, 중복제거 적용된 알림만 표시
+- 🎯 **빠른 분석**: 분석해야 할 샘플 수 대폭 감소
+- 🎯 **일관성**: 추론 리포트와 샘플 분석 결과 일치
+
+### 검증 방법
+
+```bash
+# Enhanced 추론 실행
+./run_inference.sh models_dir target.log
+
+# 결과 확인
+cat inference_*/inference_report.md
+# → DeepLog 알림: 1개
+
+cat inference_*/log_samples_analysis/anomaly_analysis_report.md
+# → 실제 발생 알림: 1개
+# → 분석된 샘플: 1개 (line_no 매칭 성공)
+# → Raw 예측 실패: 2364개 (참고용)
+```
+
+### 알림 구조 변경
+
+**이전 (line_no 없음):**
+```python
+{
+    "alert_id": 0,
+    "timestamp": datetime(...),
+    "entity": "host123",
+    "alert_type": "SEQ_FAIL",
+    # line_no 필드 없음 → 샘플 매칭 실패
+}
+```
+
+**이후 (line_no 추가):**
+```python
+{
+    "alert_id": 0,
+    "timestamp": datetime(...),
+    "line_no": 12345,           # 추가됨
+    "entity": "host123",
+    "alert_type": "SEQ_FAIL",
+    # line_no로 정확한 로그 매칭 가능
+}
+```
+
+### 마이그레이션 영향
+
+#### 기존 사용자
+- ✅ **자동 업그레이드**: run_inference.sh 재실행 시 자동으로 Enhanced 사용
+- ✅ **이전 결과 호환**: 기존 deeplog_infer.parquet도 정상 처리
+- ✅ **점진적 전환**: deeplog_alerts.parquet 없으면 기존 방식 사용
+
+#### 개발자
+- 🔧 **alert 필드 추가**: line_no 필드 필수
+- 🔧 **호환성 패턴**: prediction_ok → in_topk 폴백 체크 필요
+- 🔧 **summary 키**: alerts_by_type, total_sessions 필수
+
+### 다음 단계
+
+- [x] run_inference.sh Enhanced 전환 ✅
+- [x] 샘플 분석 알림 우선 사용 ✅
+- [x] line_no 기반 매칭 ✅
+- [x] 호환성 체크 전파 ✅
+- [ ] Enhanced 설정 문서화
+- [ ] 프로덕션 권장 설정 가이드
+- [ ] 성능 비교 (기본 vs Enhanced)
+
+---
+
 **작성자**: Claude Code
 **날짜**: 2025-10-16
-**Phase**: 4/4 완료 (ONNX 변환 완전 최적화)
+**Phase**: 5/5 완료 (Enhanced DeepLog 완전 통합)

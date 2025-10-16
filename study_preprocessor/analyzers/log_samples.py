@@ -132,41 +132,53 @@ class LogSampleAnalyzer:
                 alert_type = alert_row.get('alert_type', 'UNKNOWN')
                 entity = alert_row.get('entity', 'unknown')
                 timestamp = alert_row.get('timestamp', None)
+                line_no = alert_row.get('line_no', None)
 
-                # timestamp를 기준으로 해당 로그 찾기
-                if timestamp is not None:
-                    target_logs = df_parsed[df_parsed['timestamp'] == timestamp].copy()
+                target_logs = None
 
-                    # timestamp로 찾지 못하면 entity 기준으로 근처 로그 찾기
-                    if len(target_logs) == 0 and 'host' in df_parsed.columns:
-                        entity_logs = df_parsed[df_parsed['host'] == entity]
-                        if len(entity_logs) > 0:
-                            # 가장 가까운 시간대의 로그 찾기
-                            target_logs = entity_logs.head(1)
+                # 1순위: line_no로 직접 찾기 (가장 정확)
+                if line_no is not None and line_no >= 0:
+                    target_logs = df_parsed[df_parsed['line_no'] == line_no].copy()
 
-                    if len(target_logs) > 0:
-                        target_line = target_logs.iloc[0]['line_no']
-                        context_logs = df_parsed[
-                            (df_parsed['line_no'] >= target_line - self.context_lines) &
-                            (df_parsed['line_no'] <= target_line + self.context_lines)
+                # 2순위: timestamp로 찾기
+                if (target_logs is None or len(target_logs) == 0) and timestamp is not None:
+                    # timestamp가 datetime 객체인 경우 문자열로 변환하여 비교
+                    if hasattr(timestamp, 'isoformat'):
+                        timestamp_str = timestamp.isoformat()
+                        target_logs = df_parsed[df_parsed['timestamp'].astype(str).str.contains(timestamp_str[:19], na=False, regex=False)].copy()
+                    else:
+                        target_logs = df_parsed[df_parsed['timestamp'] == timestamp].copy()
+
+                # 3순위: entity 기준으로 근처 로그 찾기
+                if (target_logs is None or len(target_logs) == 0) and 'host' in df_parsed.columns:
+                    entity_logs = df_parsed[df_parsed['host'] == entity]
+                    if len(entity_logs) > 0:
+                        # 가장 처음 나오는 로그 사용
+                        target_logs = entity_logs.head(1)
+
+                if target_logs is not None and len(target_logs) > 0:
+                    target_line = target_logs.iloc[0]['line_no']
+                    context_logs = df_parsed[
+                        (df_parsed['line_no'] >= target_line - self.context_lines) &
+                        (df_parsed['line_no'] <= target_line + self.context_lines)
+                    ]
+
+                    samples.append({
+                        'alert_type': alert_type,
+                        'entity': entity,
+                        'timestamp': str(timestamp),
+                        'line_no': int(target_line),
+                        'context': [
+                            {
+                                'line_no': int(row['line_no']),
+                                'timestamp': str(row.get('timestamp', '')),
+                                'raw': row.get('raw', row.get('masked', '')),
+                                'template': row.get('template', ''),
+                                'is_target': row['line_no'] == target_line
+                            }
+                            for _, row in context_logs.iterrows()
                         ]
-
-                        samples.append({
-                            'alert_type': alert_type,
-                            'entity': entity,
-                            'timestamp': str(timestamp),
-                            'line_no': int(target_line),
-                            'context': [
-                                {
-                                    'line_no': int(row['line_no']),
-                                    'timestamp': str(row.get('timestamp', '')),
-                                    'raw': row.get('raw', row.get('masked', '')),
-                                    'template': row.get('template', ''),
-                                    'is_target': row['line_no'] == target_line
-                                }
-                                for _, row in context_logs.iterrows()
-                            ]
-                        })
+                    })
 
             # raw 실패 수 계산
             if 'prediction_ok' in df_infer.columns:
