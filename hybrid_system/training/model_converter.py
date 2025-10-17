@@ -20,10 +20,89 @@ logger = logging.getLogger(__name__)
 
 class ModelConverter:
     """PyTorch 모델을 ONNX로 변환하는 클래스"""
-    
+
     def __init__(self, output_dir: str = "models/onnx"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def _convert_vocab_for_c_engine(self, vocab: Dict, vocab_path: str) -> Dict[str, str]:
+        """
+        vocab.json을 C 엔진용 형식으로 변환
+
+        Python 학습용: {"template_id": index} 형식
+        C 엔진용: {"template_id": "template_string"} 형식
+
+        Args:
+            vocab: 원본 vocab (인덱스 형식일 수 있음)
+            vocab_path: vocab.json 파일 경로 (parsed.parquet 찾기 위해 사용)
+
+        Returns:
+            C 엔진용 vocab (템플릿 문자열 포함)
+        """
+        # 이미 템플릿 문자열 형식인지 확인
+        sample_value = next(iter(vocab.values())) if vocab else None
+        if sample_value and isinstance(sample_value, str) and len(sample_value) > 10:
+            # 이미 올바른 형식
+            logger.info("📋 vocab이 이미 템플릿 문자열 형식입니다")
+            return vocab
+
+        # 인덱스 형식이므로 변환 필요
+        logger.info("🔄 vocab을 C 엔진용 템플릿 문자열 형식으로 변환 중...")
+
+        # vocab.json과 같은 디렉토리에서 parsed.parquet 또는 preview.json 찾기
+        vocab_dir = Path(vocab_path).parent
+
+        # Option 1: parsed.parquet에서 추출
+        parsed_path = vocab_dir / "parsed.parquet"
+        if parsed_path.exists():
+            try:
+                import pandas as pd
+                logger.info(f"📂 parsed.parquet에서 템플릿 추출: {parsed_path}")
+                df = pd.read_parquet(parsed_path)
+
+                if 'template_id' in df.columns and 'template' in df.columns:
+                    template_map = {}
+                    for _, row in df[['template_id', 'template']].drop_duplicates('template_id').iterrows():
+                        tid = str(row['template_id'])
+                        template_str = str(row['template'])
+                        if not pd.isna(tid) and not pd.isna(template_str):
+                            template_map[tid] = template_str
+
+                    if template_map:
+                        logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료")
+                        return template_map
+            except Exception as e:
+                logger.warning(f"parsed.parquet 처리 실패: {e}")
+
+        # Option 2: preview.json에서 추출
+        preview_path = vocab_dir / "preview.json"
+        if preview_path.exists():
+            try:
+                logger.info(f"📂 preview.json에서 템플릿 추출: {preview_path}")
+                with open(preview_path, 'r') as f:
+                    preview = json.load(f)
+
+                template_map = {}
+                for item in preview:
+                    tid = str(item.get('template_id', ''))
+                    template = item.get('template', '')
+                    if tid and template:
+                        template_map[tid] = template
+
+                if template_map:
+                    logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료")
+                    return template_map
+            except Exception as e:
+                logger.warning(f"preview.json 처리 실패: {e}")
+
+        # 변환 실패 - 원본 vocab 반환하고 경고
+        logger.warning("⚠️  템플릿 문자열을 추출할 수 없습니다.")
+        logger.warning(f"⚠️  {vocab_dir}에 parsed.parquet 또는 preview.json이 필요합니다.")
+        logger.warning("⚠️  C 엔진 사용을 위해 다음 스크립트를 실행하세요:")
+        logger.warning(f"    python hybrid_system/training/export_vocab_with_templates.py \\")
+        logger.warning(f"        {vocab_dir}/parsed.parquet \\")
+        logger.warning(f"        {self.output_dir}/vocab.json")
+        return vocab
         
     def convert_deeplog_to_onnx(
         self,
@@ -118,14 +197,25 @@ class ModelConverter:
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
         
-        # 어휘 사전도 함께 복사
+        # 어휘 사전 처리
         vocab_output = self.output_dir / "vocab.json"
+
+        # vocab.json 형식 확인 및 변환
+        vocab_for_c_engine = self._convert_vocab_for_c_engine(vocab, vocab_path)
+
         with open(vocab_output, 'w') as f:
-            json.dump(vocab, f, ensure_ascii=False, indent=2)
-        
+            json.dump(vocab_for_c_engine, f, ensure_ascii=False, indent=2)
+
         logger.info(f"✅ DeepLog 변환 완료: {onnx_path}")
         logger.info(f"📊 메타데이터: {metadata_path}")
         logger.info(f"📚 어휘 사전: {vocab_output}")
+
+        # vocab 형식 확인 메시지
+        sample_value = next(iter(vocab_for_c_engine.values())) if vocab_for_c_engine else None
+        if sample_value and isinstance(sample_value, str) and len(sample_value) > 10:
+            logger.info(f"✅ C 엔진용 vocab 형식 (template strings): {len(vocab_for_c_engine)} templates")
+        else:
+            logger.warning(f"⚠️  vocab이 인덱스 형식입니다. C 엔진 사용 시 템플릿 문자열이 필요합니다.")
         
         return {
             'onnx_path': str(onnx_path),

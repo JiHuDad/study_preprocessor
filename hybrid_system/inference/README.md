@@ -64,16 +64,26 @@ make all static shared
 
 ### 기본 사용법
 
+**⚠️ 중요**: ONNX 모델 변환 시 vocab.json이 자동으로 올바른 형식으로 생성됩니다!
+
 ```bash
-# 기본 실행
-./bin/inference_engine -d deeplog.onnx -v vocab.json -i /var/log/syslog
+# 1. ONNX 모델 생성 (자동 vocab 변환 포함!)
+python ../../hybrid_system/training/model_converter.py \
+    --deeplog-model ../../.cache/deeplog.pth \
+    --vocab ../../data/processed/vocab.json \
+    --output-dir ./models
 
-# 테스트 모드
-./bin/inference_engine -d deeplog.onnx -v vocab.json -t
+# 2. 테스트 모드로 실행
+./bin/inference_engine -d models/deeplog.onnx -v models/vocab.json -t
 
-# 실시간 스트림 처리
-tail -f /var/log/syslog | ./bin/inference_engine -d deeplog.onnx -v vocab.json
+# 3. 실제 로그 파일 처리
+./bin/inference_engine -d models/deeplog.onnx -v models/vocab.json -i /var/log/syslog
+
+# 4. 실시간 스트림 처리
+tail -f /var/log/syslog | ./bin/inference_engine -d models/deeplog.onnx -v models/vocab.json
 ```
+
+**참고**: 자세한 ONNX 변환 가이드는 [ONNX Conversion Guide](../../docs/guides/ONNX_CONVERSION_GUIDE.md)를 참조하세요.
 
 ### 명령행 옵션
 

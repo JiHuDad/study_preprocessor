@@ -53,8 +53,7 @@ int run_test_mode(InferenceEngine* engine) {
     };
     
     printf("\nProcessing test logs:\n");
-    printf("=" * 60);
-    printf("\n");
+    printf("============================================================\n");
     
     for (int i = 0; test_logs[i] != NULL; i++) {
         AnomalyResult result;
