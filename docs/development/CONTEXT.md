@@ -296,6 +296,6 @@ pip install -e .
 
 - [PRD.md](./prd.md): 제품 요구사항 명세서
 - [README.md](./README.md): 사용자 가이드
-- [BATCH_ANALYSIS_GUIDE.md](./BATCH_ANALYSIS_GUIDE.md): 배치 분석 가이드
+- [BATCH_ANALYSIS_GUIDE.md]guides/BATCH_ANALYSIS_GUIDE.md): 배치 분석 가이드
 - [ANOMALY_DETECTION_METHODS.md](./ANOMALY_DETECTION_METHODS.md): 이상탐지 방법론
-- [RESULTS_GUIDE.md](./RESULTS_GUIDE.md): 결과 해석 가이드
+- [RESULTS_GUIDE.md]guides/RESULTS_GUIDE.md): 결과 해석 가이드

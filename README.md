@@ -176,12 +176,12 @@ alog-detect eval --processed-dir data/processed/synth --labels data/raw/synth_lo
 
 **uv 환경용:**
 ```bash
-./run_full_pipeline.sh /path/to/your.log [출력디렉토리]
+./scripts/run_full_pipeline.sh /path/to/your.log [출력디렉토리]
 ```
 
 **pip/venv 환경용:**
 ```bash
-./run_full_pipeline_pip.sh /path/to/your.log [출력디렉토리]
+./scripts/run_full_pipeline_pip.sh /path/to/your.log [출력디렉토리]
 ```
 
 자동 기능:
@@ -197,16 +197,16 @@ alog-detect eval --processed-dir data/processed/synth --labels data/raw/synth_lo
 **1단계: 모델 학습**
 ```bash
 # 정상 로그로 모델 학습
-./train_models.sh /var/log/normal/ my_models
+./scripts/train_models.sh /var/log/normal/ my_models
 
 # 모델 품질 검증
-./validate_models.sh my_models
+./scripts/validate_models.sh my_models
 ```
 
 **2단계: 이상탐지 추론**
 ```bash
 # Target 로그 이상탐지 (실제 로그 샘플 포함)
-./run_inference.sh my_models /var/log/suspicious.log
+./scripts/run_inference.sh my_models /var/log/suspicious.log
 
 # 이상 로그 샘플 확인
 cat inference_*/log_samples_analysis/anomaly_analysis_report.md
@@ -215,10 +215,10 @@ cat inference_*/log_samples_analysis/anomaly_analysis_report.md
 **고급 기능들:**
 ```bash
 # 모델 성능 비교
-./compare_models.sh old_models new_models
+./scripts/compare_models.sh old_models new_models
 
 # 점진적 학습 (기존 모델 개선)
-./train_models_incremental.sh old_models /var/log/new_normal/ updated_models
+./scripts/train_models_incremental.sh old_models /var/log/new_normal/ updated_models
 ```
 
 **장점:**
@@ -267,10 +267,10 @@ alog-detect analyze-mscred --data-dir data/processed
 #### 🎬 빠른 데모
 ```bash
 # 전체 기능을 한번에 체험
-./demo_log_samples.sh
+./scripts/demo/demo_log_samples.sh
 
 # MS-CRED 기능 데모
-./demo_mscred.sh
+./scripts/demo/demo_mscred.sh
 ```
 
 #### 🔧 주요 기능
@@ -304,10 +304,10 @@ ERROR (에러 메시지 포함):
 
 ```bash
 # 폴더 내 모든 로그 파일 분석 (향상된 버전으로 자동 리디렉션)
-./run_batch_analysis.sh /path/to/logs/
+./scripts/run_batch_analysis.sh /path/to/logs/
 
 # 특정 파일을 Target으로 지정
-./run_batch_analysis.sh /path/to/logs/ server1.log my_analysis
+./scripts/run_batch_analysis.sh /path/to/logs/ server1.log my_analysis
 ```
 
 #### 🌟 향상된 배치 분석 (추천)
@@ -315,16 +315,16 @@ ERROR (에러 메시지 포함):
 
 ```bash
 # 기본 사용법: 자동 날짜/시간 폴더 생성
-./run_enhanced_batch_analysis.sh /var/log/
+./scripts/run_enhanced_batch_analysis.sh /var/log/
 
 # Target 파일 지정 (같은 디렉토리 내)
-./run_enhanced_batch_analysis.sh /var/log/ system.log
+./scripts/run_enhanced_batch_analysis.sh /var/log/ system.log
 
 # 🆕 외부 Target 파일 지원 (다른 디렉토리)
-./run_enhanced_batch_analysis.sh /var/log/baseline/ /var/log/target/problem.log
+./scripts/run_enhanced_batch_analysis.sh /var/log/baseline/ /var/log/target/problem.log
 
 # 세부 옵션 지정 (디렉토리, Target파일, 깊이, 최대파일수, 결과폴더)
-./run_enhanced_batch_analysis.sh /logs/2025/09/ app.log 3 20 my_analysis
+./scripts/run_enhanced_batch_analysis.sh /logs/2025/09/ app.log 3 20 my_analysis
 
 # 결과 확인 - 🆕 통합 종합 리포트
 cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
@@ -344,25 +344,25 @@ cat my_analysis/COMPREHENSIVE_ANALYSIS_REPORT.md
 ### 🔧 **모델 학습 도구**
 ```bash
 # 정상 로그로 모델 학습
-./train_models.sh /var/log/normal/ my_models
+./scripts/train_models.sh /var/log/normal/ my_models
 
 # 점진적 학습 (기존 모델 개선)
-./train_models_incremental.sh old_models /var/log/new_normal/ updated_models
+./scripts/train_models_incremental.sh old_models /var/log/new_normal/ updated_models
 ```
 
 ### 🔍 **모델 검증 및 비교**
 ```bash
 # 모델 품질 검증 (0-100점 품질 점수)
-./validate_models.sh my_models
+./scripts/validate_models.sh my_models
 
 # 두 모델 성능 비교
-./compare_models.sh old_models new_models
+./scripts/compare_models.sh old_models new_models
 ```
 
 ### 🎯 **이상탐지 추론**
 ```bash
 # Target 로그 이상탐지 (실제 로그 샘플 포함)
-./run_inference.sh my_models /var/log/suspicious.log
+./scripts/run_inference.sh my_models /var/log/suspicious.log
 
 # 결과 확인
 cat inference_*/log_samples_analysis/anomaly_analysis_report.md
