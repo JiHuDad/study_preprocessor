@@ -3,6 +3,7 @@
 # ONNX 변환 및 실행
 onnx>=1.14.0
 onnxruntime>=1.16.0
+onnxscript>=1.0.0  # PyTorch dynamo 기반 ONNX export 지원 (PyTorch 2.4+)
 
 # 파일 시스템 감시
 watchdog>=3.0.0

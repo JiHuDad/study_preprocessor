@@ -160,26 +160,63 @@ class ModelConverter:
         # ONNX 변환
         onnx_path = self.output_dir / output_name
 
-        # LSTM 경고 억제
+        # PyTorch 버전에 따라 적절한 ONNX export 방식 선택
         import warnings
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=UserWarning, message=".*LSTM.*")
+        pytorch_version = tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2])
 
-            torch.onnx.export(
-                model,
-                dummy_input,
-                str(onnx_path),
-                export_params=True,
-                opset_version=11,  # 호환성을 위해 안정적인 버전 사용
-                do_constant_folding=True,
-                input_names=['input_sequence'],
-                output_names=['predictions'],
-                dynamic_axes={
-                    'input_sequence': {0: 'batch_size', 1: 'sequence_length'},
-                    'predictions': {0: 'batch_size'}
-                },
-                verbose=False
-            )
+        # PyTorch 2.9+ 또는 dynamo 지원 버전에서는 새로운 방식 사용 시도
+        export_success = False
+
+        if pytorch_version >= (2, 4):  # dynamo 기반 export는 2.4+에서 사용 가능
+            try:
+                logger.info("🔄 PyTorch dynamo 기반 ONNX export 시도...")
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=UserWarning)
+
+                    torch.onnx.export(
+                        model,
+                        dummy_input,
+                        str(onnx_path),
+                        export_params=True,
+                        opset_version=11,
+                        do_constant_folding=True,
+                        input_names=['input_sequence'],
+                        output_names=['predictions'],
+                        dynamic_axes={
+                            'input_sequence': {0: 'batch_size', 1: 'sequence_length'},
+                            'predictions': {0: 'batch_size'}
+                        },
+                        dynamo=True,  # 새로운 export 방식
+                        verbose=False
+                    )
+                export_success = True
+                logger.info("✅ dynamo 기반 export 성공")
+            except Exception as e:
+                logger.warning(f"⚠️  dynamo export 실패: {e}")
+                logger.info("🔄 레거시 TorchScript 방식으로 재시도...")
+
+        # 레거시 방식 또는 dynamo 실패 시
+        if not export_success:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning)
+                warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    str(onnx_path),
+                    export_params=True,
+                    opset_version=11,  # 호환성을 위해 안정적인 버전 사용
+                    do_constant_folding=True,
+                    input_names=['input_sequence'],
+                    output_names=['predictions'],
+                    dynamic_axes={
+                        'input_sequence': {0: 'batch_size', 1: 'sequence_length'},
+                        'predictions': {0: 'batch_size'}
+                    },
+                    verbose=False
+                )
+            logger.info("✅ 레거시 TorchScript 방식 export 성공")
         
         # 메타데이터 저장
         metadata = {
