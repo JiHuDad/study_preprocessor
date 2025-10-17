@@ -55,7 +55,7 @@ fi
 # 필수 파일 확인
 if [ ! -f "baseline_validator.py" ]; then
     echo "❌ baseline_validator.py 파일이 없습니다"
-    echo "현재 디렉토리가 study_preprocessor 프로젝트 루트인지 확인하세요."
+    echo "현재 디렉토리가 anomaly_log_detector 프로젝트 루트인지 확인하세요."
     exit 1
 fi
 

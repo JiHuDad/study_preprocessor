@@ -81,14 +81,14 @@ required_files=(
 for file in "${required_files[@]}"; do
     if [ ! -f "$file" ]; then
         echo "❌ 필수 파일이 없습니다: $file"
-        echo "현재 디렉토리가 study_preprocessor 프로젝트 루트인지 확인하세요."
+        echo "현재 디렉토리가 anomaly_log_detector 프로젝트 루트인지 확인하세요."
         exit 1
     fi
 done
 
 # 프로젝트 설치 확인
-if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
-    echo "🔧 study_preprocessor 패키지 설치 중..."
+if ! $PYTHON_CMD -c "import anomaly_log_detector" 2>/dev/null; then
+    echo "🔧 anomaly_log_detector 패키지 설치 중..."
     .venv/bin/pip install -e . || {
         echo "❌ 패키지 설치 실패"
         exit 1

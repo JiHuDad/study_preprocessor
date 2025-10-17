@@ -66,8 +66,8 @@ if [ "$VENV_ACTIVATED" = false ]; then
 fi
 
 # 프로젝트 설치 확인
-if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
-    echo "🔧 study_preprocessor 패키지 설치 중..."
+if ! $PYTHON_CMD -c "import anomaly_log_detector" 2>/dev/null; then
+    echo "🔧 anomaly_log_detector 패키지 설치 중..."
     .venv/bin/pip install -e . || {
         echo "❌ 패키지 설치 실패"
         exit 1

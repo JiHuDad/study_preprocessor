@@ -77,8 +77,8 @@ if [ "$VENV_ACTIVATED" = false ]; then
 fi
 
 # 프로젝트 설치 확인
-if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
-    echo "🔧 study_preprocessor 패키지 설치 중..."
+if ! $PYTHON_CMD -c "import anomaly_log_detector" 2>/dev/null; then
+    echo "🔧 anomaly_log_detector 패키지 설치 중..."
     .venv/bin/pip install -e . || {
         echo "❌ 패키지 설치 실패"
         exit 1
@@ -163,7 +163,7 @@ TARGET_NAME=$(basename "$TARGET_LOG" .log)
 
 # 기존 Drain3 상태를 사용하여 전처리
 $PYTHON_CMD -c "
-from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from anomaly_log_detector.preprocess import LogPreprocessor, PreprocessConfig
 from pathlib import Path
 import json
 
@@ -212,7 +212,7 @@ echo "2️⃣  베이스라인 이상탐지 중..."
 if [ -f "$MODEL_DIR/baseline_stats.json" ]; then
     # 베이스라인 탐지 실행
     $PYTHON_CMD -c "
-from study_preprocessor.detect import baseline_detect, BaselineParams
+from anomaly_log_detector.detect import baseline_detect, BaselineParams
 
 try:
     # 베이스라인 탐지 설정
@@ -292,7 +292,7 @@ echo "3️⃣  DeepLog 추론 중..."
 if [ -f "$MODEL_DIR/deeplog.pth" ] && [ -f "$MODEL_DIR/vocab.json" ]; then
     # DeepLog 입력 생성
     $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import build_deeplog_inputs
+from anomaly_log_detector.builders.deeplog import build_deeplog_inputs
 
 try:
     print('DeepLog 입력 생성 시작...')
@@ -315,7 +315,7 @@ except Exception as e:
     if [ -f "$RESULT_DIR/sequences.parquet" ]; then
         # DeepLog Enhanced 추론 실행
         $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import infer_deeplog_enhanced, EnhancedInferenceConfig
+from anomaly_log_detector.builders.deeplog import infer_deeplog_enhanced, EnhancedInferenceConfig
 from pathlib import Path
 
 try:
@@ -410,7 +410,7 @@ echo "4️⃣  MS-CRED 추론 중..."
 if [ -f "$MODEL_DIR/mscred.pth" ]; then
     # MS-CRED 입력 생성
     $PYTHON_CMD -c "
-from study_preprocessor.builders.mscred import build_mscred_window_counts
+from anomaly_log_detector.builders.mscred import build_mscred_window_counts
 
 try:
     print('MS-CRED 입력 생성 시작...')
@@ -435,7 +435,7 @@ except Exception as e:
     if [ -f "$RESULT_DIR/window_counts.parquet" ]; then
         # MS-CRED 추론 실행
         $PYTHON_CMD -c "
-from study_preprocessor.mscred_model import infer_mscred
+from anomaly_log_detector.mscred_model import infer_mscred
 from pathlib import Path
 
 try:

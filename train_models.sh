@@ -68,8 +68,8 @@ fi
 
 # 프로젝트 설치 확인
 echo "🔍 패키지 상태 확인 중..."
-if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
-    echo "🔧 study_preprocessor 패키지 설치 중..."
+if ! $PYTHON_CMD -c "import anomaly_log_detector" 2>/dev/null; then
+    echo "🔧 anomaly_log_detector 패키지 설치 중..."
     
     # 가상환경에서 pip 사용
     if [ "$VENV_ACTIVATED" = true ] && [ -n "$VIRTUAL_ENV" ]; then
@@ -92,7 +92,7 @@ if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
     fi
     echo "✅ 패키지 설치 완료"
 else
-    echo "✅ study_preprocessor 패키지 이미 설치됨"
+    echo "✅ anomaly_log_detector 패키지 이미 설치됨"
 fi
 
 # 필수 의존성 확인
@@ -207,11 +207,11 @@ echo "✅ 병합된 로그 크기: $(stat -c%s "$MERGED_LOG" | numfmt --to=iec)"
 
 # Drain3로 전처리
 echo "   Drain3 템플릿 추출 중..."
-echo "   📝 명령어: $PYTHON_CMD -m study_preprocessor.cli parse --input \"$MERGED_LOG\" --out-dir \"$WORK_DIR\" --drain-state \"$DRAIN_STATE\""
+echo "   📝 명령어: $PYTHON_CMD -m anomaly_log_detector.cli parse --input \"$MERGED_LOG\" --out-dir \"$WORK_DIR\" --drain-state \"$DRAIN_STATE\""
 
 # 전처리 실행 (Python 코드 직접 호출)
 if ! $PYTHON_CMD -c "
-from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from anomaly_log_detector.preprocess import LogPreprocessor, PreprocessConfig
 from pathlib import Path
 import json
 
@@ -270,7 +270,7 @@ echo ""
 # 3단계: 베이스라인 통계 학습
 echo "3️⃣  베이스라인 통계 학습 중..."
 $PYTHON_CMD -c "
-from study_preprocessor.detect import baseline_detect, BaselineParams
+from anomaly_log_detector.detect import baseline_detect, BaselineParams
 from pathlib import Path
 
 try:
@@ -342,7 +342,7 @@ echo "4️⃣  DeepLog 모델 학습 중..."
 
 # DeepLog 입력 생성 및 모델 학습
 $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import build_deeplog_inputs, train_deeplog
+from anomaly_log_detector.builders.deeplog import build_deeplog_inputs, train_deeplog
 import pandas as pd
 from pathlib import Path
 import json
@@ -414,8 +414,8 @@ echo "5️⃣  MS-CRED 모델 학습 중..."
 
 # MS-CRED 입력 생성 및 모델 학습
 $PYTHON_CMD -c "
-from study_preprocessor.builders.mscred import build_mscred_window_counts
-from study_preprocessor.mscred_model import train_mscred
+from anomaly_log_detector.builders.mscred import build_mscred_window_counts
+from anomaly_log_detector.mscred_model import train_mscred
 from pathlib import Path
 
 try:

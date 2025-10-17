@@ -34,7 +34,7 @@ echo "   - 위치: $(which $PYTHON_CMD)"
 # 패키지 확인
 echo ""
 echo "🔍 패키지 확인"
-packages=("pandas" "torch" "drain3" "study_preprocessor")
+packages=("pandas" "torch" "drain3" "anomaly_log_detector")
 for pkg in "${packages[@]}"; do
     if $PYTHON_CMD -c "import $pkg" 2>/dev/null; then
         version=$($PYTHON_CMD -c "import $pkg; print(getattr($pkg, '__version__', 'unknown'))" 2>/dev/null || echo "unknown")
@@ -71,10 +71,10 @@ echo ""
 echo "🚀 전처리 실행"
 echo "   입력: $TEST_LOG"
 echo "   출력: $TEST_DIR"
-echo "   명령어: $PYTHON_CMD -m study_preprocessor.cli parse --input \"$TEST_LOG\" --out-dir \"$TEST_DIR\""
+echo "   명령어: $PYTHON_CMD -m anomaly_log_detector.cli parse --input \"$TEST_LOG\" --out-dir \"$TEST_DIR\""
 
 # 전처리 실행
-if $PYTHON_CMD -m study_preprocessor.cli parse \
+if $PYTHON_CMD -m anomaly_log_detector.cli parse \
     --input "$TEST_LOG" \
     --out-dir "$TEST_DIR" 2>&1; then
     echo "✅ 전처리 명령어 실행 성공"

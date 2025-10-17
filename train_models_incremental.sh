@@ -99,8 +99,8 @@ if [ "$VENV_ACTIVATED" = false ]; then
 fi
 
 # 프로젝트 설치 확인
-if ! $PYTHON_CMD -c "import study_preprocessor" 2>/dev/null; then
-    echo "🔧 study_preprocessor 패키지 설치 중..."
+if ! $PYTHON_CMD -c "import anomaly_log_detector" 2>/dev/null; then
+    echo "🔧 anomaly_log_detector 패키지 설치 중..."
     .venv/bin/pip install -e . || {
         echo "❌ 패키지 설치 실패"
         exit 1
@@ -213,7 +213,7 @@ echo "✅ 새 로그 병합 완료: $(stat -c%s "$NEW_MERGED_LOG" | numfmt --to=
 # 기존 Drain3 상태를 사용하여 새 로그 전처리
 echo "   기존 Drain3 상태로 새 로그 파싱 중..."
 $PYTHON_CMD -c "
-from study_preprocessor.preprocess import LogPreprocessor, PreprocessConfig
+from anomaly_log_detector.preprocess import LogPreprocessor, PreprocessConfig
 from pathlib import Path
 import json
 
@@ -295,7 +295,7 @@ echo "4️⃣  베이스라인 통계 점진적 업데이트 중..."
 
 # 통합된 데이터로 베이스라인 재계산
 $PYTHON_CMD -c "
-from study_preprocessor.detect import baseline_detect, BaselineParams
+from anomaly_log_detector.detect import baseline_detect, BaselineParams
 
 try:
     # 베이스라인 탐지 설정
@@ -398,7 +398,7 @@ echo "5️⃣  DeepLog 점진적 학습 중..."
 
 # DeepLog 입력 생성 (통합된 데이터로)
 $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import build_deeplog_inputs
+from anomaly_log_detector.builders.deeplog import build_deeplog_inputs
 
 try:
     print('DeepLog 입력 생성 시작...')
@@ -428,7 +428,7 @@ if [ -f "$WORK_DIR/sequences.parquet" ] && [ -f "$WORK_DIR/vocab.json" ]; then
 import torch
 import pandas as pd
 import json
-from study_preprocessor.builders.deeplog import train_deeplog
+from anomaly_log_detector.builders.deeplog import train_deeplog
 from pathlib import Path
 
 # 기존 모델을 백업
@@ -452,7 +452,7 @@ print(f'✅ DeepLog 점진적 학습 완료: {updated_model}')
         # 새로 학습
         UPDATED_DEEPLOG_MODEL="$OUTPUT_MODEL_DIR/deeplog.pth"
         $PYTHON_CMD -c "
-from study_preprocessor.builders.deeplog import train_deeplog
+from anomaly_log_detector.builders.deeplog import train_deeplog
 
 try:
     print('새로운 DeepLog 모델 학습 시작...')
@@ -494,7 +494,7 @@ echo "6️⃣  MS-CRED 점진적 학습 중..."
 
 # MS-CRED 입력 생성 (통합된 데이터로)
 $PYTHON_CMD -c "
-from study_preprocessor.builders.mscred import build_mscred_window_counts
+from anomaly_log_detector.builders.mscred import build_mscred_window_counts
 
 try:
     print('MS-CRED 입력 생성 시작...')
@@ -526,7 +526,7 @@ if [ -f "$WORK_DIR/window_counts.parquet" ]; then
         # 점진적 학습 (에포크 수를 줄여서)
         UPDATED_MSCRED_MODEL="$OUTPUT_MODEL_DIR/mscred.pth"
         $PYTHON_CMD -c "
-from study_preprocessor.mscred_model import train_mscred
+from anomaly_log_detector.mscred_model import train_mscred
 
 try:
     print('기존 MS-CRED 모델 점진적 학습 시작...')
@@ -550,7 +550,7 @@ except Exception as e:
         # 새로 학습
         UPDATED_MSCRED_MODEL="$OUTPUT_MODEL_DIR/mscred.pth"
         $PYTHON_CMD -c "
-from study_preprocessor.mscred_model import train_mscred
+from anomaly_log_detector.mscred_model import train_mscred
 
 try:
     print('새로운 MS-CRED 모델 학습 시작...')

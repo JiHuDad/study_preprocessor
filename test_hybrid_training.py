@@ -168,7 +168,7 @@ def test_cli_integration():
         
         # CLI 도움말 테스트
         result = subprocess.run([
-            sys.executable, "-m", "study_preprocessor.cli", "--help"
+            sys.executable, "-m", "anomaly_log_detector.cli", "--help"
         ], capture_output=True, text=True, cwd=Path(__file__).parent)
         
         if result.returncode == 0:
