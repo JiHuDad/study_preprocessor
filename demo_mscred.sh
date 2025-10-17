@@ -42,7 +42,7 @@ echo ""
 
 # 1. 합성 데이터 생성
 echo "1️⃣  합성 로그 데이터 생성..."
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$DEMO_DIR/demo.log" \
   --lines 1000 \
   --anomaly-rate 0.05
@@ -52,7 +52,7 @@ echo ""
 
 # 2. 전처리
 echo "2️⃣  로그 전처리..."
-study-preprocess parse \
+alog-detect parse \
   --input "$DEMO_DIR/demo.log" \
   --out-dir "$DEMO_DIR/processed" \
   --drain-state "$DEMO_DIR/drain3.json"
@@ -62,7 +62,7 @@ echo ""
 
 # 3. MS-CRED 입력 생성
 echo "3️⃣  MS-CRED 입력 데이터 생성..."
-study-preprocess build-mscred \
+alog-detect build-mscred \
   --parsed "$DEMO_DIR/processed/parsed.parquet" \
   --out-dir "$DEMO_DIR/processed" \
   --window-size 50 \
@@ -73,7 +73,7 @@ echo ""
 
 # 4. MS-CRED 학습
 echo "4️⃣  MS-CRED 모델 학습 (20 에포크)..."
-study-preprocess mscred-train \
+alog-detect mscred-train \
   --window-counts "$DEMO_DIR/processed/window_counts.parquet" \
   --out "$DEMO_DIR/mscred_demo.pth" \
   --epochs 20
@@ -83,7 +83,7 @@ echo ""
 
 # 5. MS-CRED 추론
 echo "5️⃣  MS-CRED 이상탐지 추론..."
-study-preprocess mscred-infer \
+alog-detect mscred-infer \
   --window-counts "$DEMO_DIR/processed/window_counts.parquet" \
   --model "$DEMO_DIR/mscred_demo.pth" \
   --threshold 95.0
@@ -93,7 +93,7 @@ echo ""
 
 # 6. 결과 분석 및 시각화
 echo "6️⃣  MS-CRED 결과 분석 및 시각화..."
-study-preprocess analyze-mscred \
+alog-detect analyze-mscred \
   --data-dir "$DEMO_DIR/processed" \
   --output-dir "$DEMO_DIR/analysis"
 
@@ -102,7 +102,7 @@ echo ""
 
 # 7. 로그 샘플 분석 (MS-CRED 포함)
 echo "7️⃣  실제 로그 샘플 분석..."
-study-preprocess analyze-samples \
+alog-detect analyze-samples \
   --processed-dir "$DEMO_DIR/processed" \
   --output-dir "$DEMO_DIR/log_samples" \
   --max-samples 3
@@ -112,7 +112,7 @@ echo ""
 
 # 8. 리포트 생성
 echo "8️⃣  최종 리포트 생성..."
-study-preprocess report --processed-dir "$DEMO_DIR/processed"
+alog-detect report --processed-dir "$DEMO_DIR/processed"
 
 echo "✅ 리포트 생성 완료"
 echo ""
@@ -166,6 +166,6 @@ echo ""
 echo "💡 다음 단계:"
 echo "  - 실제 로그로 테스트: ./run_full_pipeline_pip.sh /path/to/your.log"
 echo "  - 배치 분석: ./run_enhanced_batch_analysis.sh /var/log/"
-echo "  - 개별 MS-CRED 분석: study-preprocess analyze-mscred --data-dir /path/to/data"
+echo "  - 개별 MS-CRED 분석: alog-detect analyze-mscred --data-dir /path/to/data"
 echo ""
 echo "🎉 MS-CRED 데모를 완료했습니다!"

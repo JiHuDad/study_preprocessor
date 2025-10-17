@@ -1,7 +1,7 @@
 # 리팩토링 계획서
 
 **작성일**: 2025-10-14
-**대상 프로젝트**: study-preprocessor (로그 이상탐지 프레임워크)
+**대상 프로젝트**: alog-detector (로그 이상탐지 프레임워크)
 
 ---
 
@@ -15,7 +15,7 @@
 
 ### 코드베이스 구성
 
-#### 핵심 모듈 (`study_preprocessor/`)
+#### 핵심 모듈 (`anomaly_log_detector/`)
 ✅ **잘 구조화됨** - 수정 불필요
 - `cli.py` - CLI 진입점 (Click 기반)
 - `preprocess.py` - Drain3 + 마스킹
@@ -173,7 +173,7 @@
 
 **제안 구조**:
 ```
-study_preprocessor/
+anomaly_log_detector/
 ├── analyzers/                    # 새로운 모듈
 │   ├── __init__.py
 │   ├── temporal.py               # temporal_anomaly_detector 내용
@@ -185,12 +185,12 @@ study_preprocessor/
 
 **장점**:
 - 일관된 모듈 구조
-- CLI로 통합 가능: `study-preprocess analyze-temporal`, `study-preprocess analyze-comparative`
+- CLI로 통합 가능: `alog-detect analyze-temporal`, `alog-detect analyze-comparative`
 - 테스트 및 재사용 용이
 - Import 경로 명확
 
 **마이그레이션 계획**:
-1. `study_preprocessor/analyzers/` 디렉토리 생성
+1. `anomaly_log_detector/analyzers/` 디렉토리 생성
 2. 각 파일을 모듈로 이동, 리팩토링
 3. CLI에 새로운 서브명령어 추가
 4. 루트의 원본 파일들은 CLI 호출 wrapper로 변경 (호환성)
@@ -202,7 +202,7 @@ study_preprocessor/
 - 문제: matplotlib/seaborn 없이 텍스트 차트만 출력 (제한적)
 - 옵션:
   1. **제거**: 시각화는 사용자가 Jupyter/별도 도구 사용 권장
-  2. **CLI 통합**: `study-preprocess visualize` 명령어로 추가
+  2. **CLI 통합**: `alog-detect visualize` 명령어로 추가
   3. **개선**: 제대로 된 시각화 라이브러리 사용 (선택적 의존성)
 - 권장: 옵션 1 (제거) 또는 옵션 2 (CLI 통합)
 
@@ -210,8 +210,8 @@ study_preprocessor/
 **`baseline_validator.py`**:
 - 현재: 루트 레벨, 특수 목적
 - 용도: 베이스라인 파일들의 품질 검증
-- 제안: `study_preprocessor/validators/` 또는 `analyzers/` 아래로 이동
-- CLI 통합: `study-preprocess validate-baseline`
+- 제안: `anomaly_log_detector/validators/` 또는 `analyzers/` 아래로 이동
+- CLI 통합: `alog-detect validate-baseline`
 
 ### Phase 3: 아키텍처 개선 (우선순위: 낮음, 장기)
 
@@ -220,7 +220,7 @@ study_preprocessor/
 
 **제안 구조**:
 ```
-study_preprocessor/
+anomaly_log_detector/
 ├── core/                         # 핵심 기능
 │   ├── preprocess.py
 │   ├── pipeline.py
@@ -246,7 +246,7 @@ study_preprocessor/
 - Drain3 설정은 코드에 하드코딩
 
 **제안**:
-- `config.yaml` 또는 `study_preprocessor.toml` 생성
+- `config.yaml` 또는 `anomaly_log_detector.toml` 생성
 - 모든 설정을 한 곳에서 관리
 - 환경 변수 오버라이드 지원
 
@@ -319,7 +319,7 @@ tests/
 ### Step 3: 중기 리팩토링 (1-2주)
 
 1. **분석 도구 모듈화**
-   - `study_preprocessor/analyzers/` 생성
+   - `anomaly_log_detector/analyzers/` 생성
    - 파일 이동 및 리팩토링
    - CLI 통합
 

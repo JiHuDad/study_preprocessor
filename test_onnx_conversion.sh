@@ -16,26 +16,26 @@ mkdir -p "$TEST_DIR"
 
 # 1. 간단한 합성 로그 생성
 echo "1️⃣  합성 로그 생성..."
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$TEST_DIR/test.log" \
   --lines 500 \
   --anomaly-rate 0.05
 
 # 2. 전처리
 echo "2️⃣  전처리..."
-study-preprocess parse \
+alog-detect parse \
   --input "$TEST_DIR/test.log" \
   --out-dir "$TEST_DIR/processed"
 
 # 3. DeepLog 입력 생성
 echo "3️⃣  DeepLog 입력 생성..."
-study-preprocess build-deeplog \
+alog-detect build-deeplog \
   --parsed "$TEST_DIR/processed/parsed.parquet" \
   --out-dir "$TEST_DIR/processed"
 
 # 4. DeepLog 학습 (빠른 테스트)
 echo "4️⃣  DeepLog 학습..."
-study-preprocess deeplog-train \
+alog-detect deeplog-train \
   --seq "$TEST_DIR/processed/sequences.parquet" \
   --vocab "$TEST_DIR/processed/vocab.json" \
   --out "$TEST_DIR/deeplog.pth" \
@@ -44,7 +44,7 @@ study-preprocess deeplog-train \
 
 # 5. ONNX 변환 (핵심 테스트!)
 echo "5️⃣  ONNX 변환..."
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model "$TEST_DIR/deeplog.pth" \
   --vocab "$TEST_DIR/processed/vocab.json" \
   --output-dir "$TEST_DIR/onnx" \

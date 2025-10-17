@@ -344,7 +344,7 @@ EOF
     fi
     
     if [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
-        echo "study-preprocess analyze-mscred --data-dir $target_processed_dir --output-dir $target_processed_dir/mscred_analysis" >> "$quick_script"
+        echo "alog-detect analyze-mscred --data-dir $target_processed_dir --output-dir $target_processed_dir/mscred_analysis" >> "$quick_script"
     fi
     
     echo "echo '✅ 추가 분석 완료!'" >> "$quick_script"
@@ -355,10 +355,10 @@ fi
 
 echo "  📊 개별 분석:"
 if [ -n "$target_processed_dir" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
-    echo "    study-preprocess analyze-mscred --data-dir $target_processed_dir"
+    echo "    alog-detect analyze-mscred --data-dir $target_processed_dir"
 fi
 if [ -n "$target_processed_dir" ]; then
-    echo "    study-preprocess analyze-samples --processed-dir $target_processed_dir"
+    echo "    alog-detect analyze-samples --processed-dir $target_processed_dir"
 fi
 
 echo ""

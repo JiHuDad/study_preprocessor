@@ -272,10 +272,10 @@ python analyze_results.py --data-dir 작업디렉토리/processed_*
 python visualize_results.py --data-dir 작업디렉토리/processed_*
 
 # 개별 시간 분석
-study-preprocess analyze-temporal --data-dir 작업디렉토리/processed_*
+alog-detect analyze-temporal --data-dir 작업디렉토리/processed_*
 
 # 개별 비교 분석
-study-preprocess analyze-comparative --target file1 --baselines file2 --baselines file3
+alog-detect analyze-comparative --target file1 --baselines file2 --baselines file3
 ```
 
 ## 📚 관련 문서

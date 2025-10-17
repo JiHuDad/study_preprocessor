@@ -18,7 +18,7 @@ from .eval import evaluate_baseline, evaluate_deeplog
 
 @click.group()
 def main() -> None:
-    """study-preprocess: 로그 전처리 CLI"""
+    """Anomaly Log Detector: Comprehensive log anomaly detection framework with DeepLog, MS-CRED, and baseline methods"""
 
 
 @main.command()

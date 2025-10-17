@@ -33,7 +33,7 @@ echo ""
 
 # 1단계: 로그 전처리 및 파싱
 echo "1️⃣  로그 전처리 중..."
-uv run study-preprocess parse \
+uv run alog-detect parse \
   --input "$LOG_FILE" \
   --out-dir "$OUTPUT_DIR" \
   --drain-state "$CACHE_DIR/drain3.json"
@@ -48,7 +48,7 @@ echo ""
 
 # 2단계: DeepLog 입력 데이터 생성
 echo "2️⃣  DeepLog 입력 데이터 생성 중..."
-uv run study-preprocess build-deeplog \
+uv run alog-detect build-deeplog \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR"
 
@@ -57,7 +57,7 @@ echo ""
 
 # 3단계: MS-CRED 입력 데이터 생성
 echo "3️⃣  MS-CRED 입력 데이터 생성 중..."
-uv run study-preprocess build-mscred \
+uv run alog-detect build-mscred \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR" \
   --window-size 50 --stride 25
@@ -67,7 +67,7 @@ echo ""
 
 # 4단계: 베이스라인 이상탐지
 echo "4️⃣  베이스라인 이상탐지 실행 중..."
-uv run study-preprocess detect \
+uv run alog-detect detect \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR" \
   --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
@@ -78,7 +78,7 @@ echo ""
 # 5단계: DeepLog 학습
 echo "5️⃣  DeepLog 모델 학습 중..."
 MODEL_PATH="$CACHE_DIR/deeplog_$(basename "$LOG_FILE" .log).pth"
-uv run study-preprocess deeplog-train \
+uv run alog-detect deeplog-train \
   --seq "$OUTPUT_DIR/sequences.parquet" \
   --vocab "$OUTPUT_DIR/vocab.json" \
   --out "$MODEL_PATH" \
@@ -89,7 +89,7 @@ echo ""
 
 # 6단계: DeepLog 추론
 echo "6️⃣  DeepLog 이상탐지 추론 중..."
-uv run study-preprocess deeplog-infer \
+uv run alog-detect deeplog-infer \
   --seq "$OUTPUT_DIR/sequences.parquet" \
   --model "$MODEL_PATH" \
   --k 3
@@ -99,7 +99,7 @@ echo ""
 
 # 7단계: 리포트 생성
 echo "7️⃣  최종 리포트 생성 중..."
-uv run study-preprocess report --processed-dir "$OUTPUT_DIR"
+uv run alog-detect report --processed-dir "$OUTPUT_DIR"
 
 echo "✅ 리포트 완료: $OUTPUT_DIR/report.md"
 echo ""

@@ -59,9 +59,9 @@ if [ "$VENV_ACTIVATED" = false ]; then
     PYTHON_CMD="python3"
 fi
 
-# study-preprocess 명령어 확인 및 설치
-if ! command -v study-preprocess &> /dev/null; then
-    echo "❌ study-preprocess 명령어를 찾을 수 없습니다."
+# alog-detect 명령어 확인 및 설치
+if ! command -v alog-detect &> /dev/null; then
+    echo "❌ alog-detect 명령어를 찾을 수 없습니다."
     echo ""
     if [ "$VENV_ACTIVATED" = false ]; then
         echo "📋 가상환경 생성 및 설치 방법:"
@@ -74,7 +74,7 @@ if ! command -v study-preprocess &> /dev/null; then
         echo "pip install -e . 실행 중..."
         pip install -e .
         echo "✅ 설치 완료, 다시 시도합니다."
-        if ! command -v study-preprocess &> /dev/null; then
+        if ! command -v alog-detect &> /dev/null; then
             echo "❌ 설치 후에도 명령어를 찾을 수 없습니다."
             exit 1
         fi
@@ -92,7 +92,7 @@ echo ""
 
 # 1단계: 로그 전처리 및 파싱
 echo "1️⃣  로그 전처리 중..."
-study-preprocess parse \
+alog-detect parse \
   --input "$LOG_FILE" \
   --out-dir "$OUTPUT_DIR" \
   --drain-state "$CACHE_DIR/drain3.json"
@@ -107,7 +107,7 @@ echo ""
 
 # 2단계: DeepLog 입력 데이터 생성
 echo "2️⃣  DeepLog 입력 데이터 생성 중..."
-study-preprocess build-deeplog \
+alog-detect build-deeplog \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR"
 
@@ -116,7 +116,7 @@ echo ""
 
 # 3단계: MS-CRED 입력 데이터 생성
 echo "3️⃣  MS-CRED 입력 데이터 생성 중..."
-study-preprocess build-mscred \
+alog-detect build-mscred \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR" \
   --window-size 50 --stride 25
@@ -126,7 +126,7 @@ echo ""
 
 # 4단계: 베이스라인 이상탐지
 echo "4️⃣  베이스라인 이상탐지 실행 중..."
-study-preprocess detect \
+alog-detect detect \
   --parsed "$OUTPUT_DIR/parsed.parquet" \
   --out-dir "$OUTPUT_DIR" \
   --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
@@ -137,7 +137,7 @@ echo ""
 # 5단계: DeepLog 학습
 echo "5️⃣  DeepLog 모델 학습 중..."
 MODEL_PATH="$CACHE_DIR/deeplog_$(basename "$LOG_FILE" .log).pth"
-study-preprocess deeplog-train \
+alog-detect deeplog-train \
   --seq "$OUTPUT_DIR/sequences.parquet" \
   --vocab "$OUTPUT_DIR/vocab.json" \
   --out "$MODEL_PATH" \
@@ -148,7 +148,7 @@ echo ""
 
 # 6단계: DeepLog 추론
 echo "6️⃣  DeepLog 이상탐지 추론 중..."
-study-preprocess deeplog-infer \
+alog-detect deeplog-infer \
   --seq "$OUTPUT_DIR/sequences.parquet" \
   --model "$MODEL_PATH" \
   --k 3
@@ -161,7 +161,7 @@ echo "7️⃣  MS-CRED 학습/추론 중..."
 MS_MODEL_PATH="$CACHE_DIR/mscred.pth"
 
 # MS-CRED 학습
-study-preprocess mscred-train \
+alog-detect mscred-train \
   --window-counts "$OUTPUT_DIR/window_counts.parquet" \
   --out "$MS_MODEL_PATH" \
   --epochs 30
@@ -173,7 +173,7 @@ else
     echo "✅ MS-CRED 학습 완료: $MS_MODEL_PATH"
     
     # MS-CRED 추론
-    study-preprocess mscred-infer \
+    alog-detect mscred-infer \
       --window-counts "$OUTPUT_DIR/window_counts.parquet" \
       --model "$MS_MODEL_PATH" \
       --threshold 95.0
@@ -184,7 +184,7 @@ echo ""
 
 # 8단계: 리포트 생성
 echo "8️⃣  최종 리포트 생성 중..."
-study-preprocess report --processed-dir "$OUTPUT_DIR"
+alog-detect report --processed-dir "$OUTPUT_DIR"
 
 echo "✅ 리포트 완료: $OUTPUT_DIR/report.md"
 echo ""

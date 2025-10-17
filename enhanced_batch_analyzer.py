@@ -181,9 +181,9 @@ class EnhancedBatchAnalyzer:
         print(f"📋 파일 정보: {validation['file_size_mb']:.1f}MB, {validation.get('total_lines', '?')}라인, 형식: {validation['format']}")
         
         try:
-            # study-preprocess 바이너리로 전처리 실행
+            # alog-detect 바이너리로 전처리 실행
             cmd = [
-                "study-preprocess", "parse",
+                "alog-detect", "parse",
                 "--input", str(log_file),
                 "--out-dir", str(output_dir),
                 "--drain-state", str(self.work_dir / f"drain_{file_name}.json")
@@ -388,7 +388,7 @@ class EnhancedBatchAnalyzer:
         try:
             # 로그 샘플 분석 실행
             cmd = [
-                "study-preprocess", "analyze-samples",
+                "alog-detect", "analyze-samples",
                 "--processed-dir", str(target_result['output_dir']),
                 "--output-dir", str(target_result['output_dir'] / "log_samples_analysis"),
                 "--max-samples", "20",
@@ -447,7 +447,7 @@ class EnhancedBatchAnalyzer:
                 f"""
 import sys
 sys.path.append('.')
-from study_preprocessor.cli import main
+from anomaly_log_detector.cli import main
 import click
 from pathlib import Path
 
@@ -750,8 +750,8 @@ print("CLI report generation completed")
                 f"""
 import sys
 sys.path.append('.')
-from study_preprocessor.detect import baseline_detect
-from study_preprocessor.detect import BaselineParams
+from anomaly_log_detector.detect import baseline_detect
+from anomaly_log_detector.detect import BaselineParams
 
 # Baseline 이상 탐지 실행
 baseline_detect(
@@ -817,7 +817,7 @@ print("Baseline detection completed")
             print("  📊 DeepLog 입력 생성 중...")
             
             try:
-                from study_preprocessor.builders.deeplog import build_deeplog_inputs
+                from anomaly_log_detector.builders.deeplog import build_deeplog_inputs
                 build_deeplog_inputs(str(parsed_file), str(target_result['output_dir']))
                 
                 # 필수 파일 확인
@@ -838,7 +838,7 @@ print("Baseline detection completed")
             model_path = target_result['output_dir'] / "deeplog.pth"
             
             try:
-                from study_preprocessor.builders.deeplog import train_deeplog
+                from anomaly_log_detector.builders.deeplog import train_deeplog
                 train_deeplog(
                     str(sequences_file),
                     str(vocab_file), 
@@ -875,7 +875,7 @@ print("Baseline detection completed")
                 else:
                     inference_input = str(sequences_file)
                 
-                from study_preprocessor.builders.deeplog import infer_deeplog_topk
+                from anomaly_log_detector.builders.deeplog import infer_deeplog_topk
                 infer_df = infer_deeplog_topk(inference_input, str(model_path), k=3)
                 
                 # 결과 저장
@@ -938,7 +938,7 @@ print("Baseline detection completed")
             
             # 직접 함수 호출로 변경 (subprocess 대신)
             try:
-                from study_preprocessor.builders.mscred import build_mscred_window_counts
+                from anomaly_log_detector.builders.mscred import build_mscred_window_counts
                 
                 # 입력 데이터 확인
                 import pandas as pd
@@ -1014,7 +1014,7 @@ print("Baseline detection completed")
             print("  🧠 MS-CRED 모델 학습 중...")
             
             try:
-                from study_preprocessor.mscred_model import train_mscred
+                from anomaly_log_detector.mscred_model import train_mscred
                 
                 model_file.parent.mkdir(parents=True, exist_ok=True)
                 
@@ -1040,7 +1040,7 @@ print("Baseline detection completed")
             print("  🔍 MS-CRED 이상탐지 추론 중...")
             
             try:
-                from study_preprocessor.mscred_model import infer_mscred
+                from anomaly_log_detector.mscred_model import infer_mscred
                 
                 results_df = infer_mscred(
                     window_counts_path=str(window_counts_file),
@@ -1091,7 +1091,7 @@ print("Baseline detection completed")
         
         try:
             cmd = [
-                "study-preprocess", "analyze-temporal",
+                "alog-detect", "analyze-temporal",
                 "--data-dir", str(target_result['output_dir']),
                 "--output-dir", str(target_result['output_dir'] / "temporal_analysis")
             ]
@@ -1145,7 +1145,7 @@ print("Baseline detection completed")
             baseline_paths = [str(r['parsed_file']) for r in validated_baselines]
 
             cmd = [
-                "study-preprocess", "analyze-comparative",
+                "alog-detect", "analyze-comparative",
                 "--target", str(target_result['parsed_file']),
                 "--output-dir", str(target_result['output_dir'] / "comparative_analysis")
             ]
@@ -1558,10 +1558,10 @@ print("Baseline detection completed")
 ## 🔧 추가 분석 명령어
 ```bash
 # 상세 로그 샘플 분석 (단독 실행)
-study-preprocess analyze-samples --processed-dir {target_result['output_dir']}
+alog-detect analyze-samples --processed-dir {target_result['output_dir']}
 
 # 로그 샘플 포함 리포트 생성
-study-preprocess report --processed-dir {target_result['output_dir']} --with-samples
+alog-detect report --processed-dir {target_result['output_dir']} --with-samples
 
 # 상세 분석
 python analyze_results.py --data-dir {target_result['output_dir']}

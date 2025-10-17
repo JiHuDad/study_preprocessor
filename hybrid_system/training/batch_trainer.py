@@ -169,7 +169,7 @@ class BatchTrainer:
     def _run_preprocessing(self, log_file: str, output_dir: str, results: Dict[str, Any]):
         """로그 전처리 실행"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "parse",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "parse",
             "--input", log_file,
             "--out-dir", output_dir,
             "--drain-state", str(self.cache_dir / "drain3_state.json")
@@ -189,7 +189,7 @@ class BatchTrainer:
     def _prepare_deeplog_data(self, output_dir: str, results: Dict[str, Any]):
         """DeepLog 입력 데이터 준비"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "build-deeplog",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "build-deeplog",
             "--parsed", str(Path(output_dir) / "parsed.parquet"),
             "--out-dir", output_dir
         ]
@@ -210,7 +210,7 @@ class BatchTrainer:
     def _prepare_mscred_data(self, output_dir: str, config: Dict[str, Any], results: Dict[str, Any]):
         """MS-CRED 입력 데이터 준비"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "build-mscred",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "build-mscred",
             "--parsed", str(Path(output_dir) / "parsed.parquet"),
             "--out-dir", output_dir,
             "--window-size", str(config['window_size']),
@@ -230,7 +230,7 @@ class BatchTrainer:
     def _run_baseline_detection(self, output_dir: str, config: Dict[str, Any], results: Dict[str, Any]):
         """베이스라인 이상탐지 실행"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "detect",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "detect",
             "--parsed", str(Path(output_dir) / "parsed.parquet"),
             "--out-dir", output_dir,
             "--window-size", str(config['window_size']),
@@ -255,7 +255,7 @@ class BatchTrainer:
         model_path = self.models_dir / model_name
         
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "deeplog-train",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "deeplog-train",
             "--seq", str(Path(output_dir) / "sequences.parquet"),
             "--vocab", str(Path(output_dir) / "vocab.json"),
             "--out", str(model_path),
@@ -285,7 +285,7 @@ class BatchTrainer:
     def _run_deeplog_inference(self, output_dir: str, model_path: Path, results: Dict[str, Any]):
         """DeepLog 추론 실행"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "deeplog-infer",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "deeplog-infer",
             "--seq", str(Path(output_dir) / "sequences.parquet"),
             "--model", str(model_path),
             "--k", "3"
@@ -307,7 +307,7 @@ class BatchTrainer:
         model_path = self.models_dir / model_name
         
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "mscred-train",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "mscred-train",
             "--window-counts", str(Path(output_dir) / "window_counts.parquet"),
             "--out", str(model_path),
             "--epochs", str(config['mscred_epochs'])
@@ -342,7 +342,7 @@ class BatchTrainer:
     def _run_mscred_inference(self, output_dir: str, model_path: Path, results: Dict[str, Any]):
         """MS-CRED 추론 실행"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "mscred-infer",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "mscred-infer",
             "--window-counts", str(Path(output_dir) / "window_counts.parquet"),
             "--model", str(model_path),
             "--threshold", "95.0"
@@ -367,7 +367,7 @@ class BatchTrainer:
     def _generate_report(self, output_dir: str, results: Dict[str, Any]):
         """리포트 생성"""
         cmd = [
-            self.python_cmd, "-m", "study_preprocessor.cli", "report",
+            self.python_cmd, "-m", "anomaly_log_detector.cli", "report",
             "--processed-dir", output_dir
         ]
         

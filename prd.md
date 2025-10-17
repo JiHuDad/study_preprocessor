@@ -64,7 +64,7 @@
 - uv 설치: `brew install uv`
 - 의존성 설치 및 실행 예:
 ```
-uv run study-preprocess parse \
+uv run alog-detect parse \
   --input data/raw/dmesg.sample.log \
   --out-dir data/processed \
   --drain-state .cache/drain3.json
@@ -72,27 +72,27 @@ uv run study-preprocess parse \
 - 산출물: `data/processed/parsed.parquet`, `data/processed/preview.json`
 
 #### CLI / API 사양
-- 엔트리포인트: `study-preprocess`
+- 엔트리포인트: `alog-detect`
 - 서브커맨드:
   - `parse`: 원시 로그 → 파스드 테이블 생성(구현됨)
-    - 예: `study-preprocess parse --input data/raw/dmesg.sample.log --out-dir data/processed --drain-state .cache/drain3.json`
+    - 예: `alog-detect parse --input data/raw/dmesg.sample.log --out-dir data/processed --drain-state .cache/drain3.json`
 - (임시) Python API로 빌더 사용:
 ```
-uv run python -c "from study_preprocessor.builders.deeplog import build_deeplog_inputs as b; b('data/processed/parsed.parquet','data/processed')"
-uv run python -c "from study_preprocessor.builders.mscred import build_mscred_window_counts as b; b('data/processed/parsed.parquet','data/processed',window_size=50,stride=25)"
+uv run python -c "from anomaly_log_detector.builders.deeplog import build_deeplog_inputs as b; b('data/processed/parsed.parquet','data/processed')"
+uv run python -c "from anomaly_log_detector.builders.mscred import build_mscred_window_counts as b; b('data/processed/parsed.parquet','data/processed',window_size=50,stride=25)"
 ```
 - 향후 계획: `build-deeplog`, `build-mscred` 서브커맨드 추가
 
 #### 디렉터리 구조(제안)
 ```
-/Users/kaeulkim/dev/study_preprocessor/
+/Users/kaeulkim/dev/anomaly_log_detector/
   ├─ data/
   │   ├─ raw/                  # 예제 원시 로그
   │   └─ processed/            # 파스드/윈도우 산출물
   ├─ config/
   │   └─ drain3.yaml           # Drain3 파라미터(Depth, similarity 등)
   ├─ .cache/
-  ├─ study_preprocessor/
+  ├─ anomaly_log_detector/
   │   ├─ __init__.py
   │   ├─ cli.py                # click CLI
   │   ├─ preprocess.py         # 마스킹 + Drain3 래퍼
@@ -167,8 +167,8 @@ uv run python -c "from study_preprocessor.builders.mscred import build_mscred_wi
   - **타입별 20개 샘플**: Baseline, DeepLog, 시간 기반, 비교 분석별로 최대 20개씩 (기존 10개 → 20개)
   - 이상 유형별 설명 및 패턴 분석 제공
   - 마크다운 형식 종합 리포트 생성 (`anomaly_analysis_report.md`)
-  - CLI 명령어: `study-preprocess analyze-samples`
-  - `study-preprocess report --with-samples` 옵션으로 통합 분석
+  - CLI 명령어: `alog-detect analyze-samples`
+  - `alog-detect report --with-samples` 옵션으로 통합 분석
 
 ##### 외부 Target 파일 지원 🆕
 - **문제 정의**: Target 파일이 베이스라인 디렉토리와 다른 위치에 있을 때 분석 불가
@@ -206,8 +206,8 @@ uv run python -c "from study_preprocessor.builders.mscred import build_mscred_wi
 ##### CLI 확장
 - **Target vs Baseline 구분**: Target은 분석할 파일, Log Directory는 baseline 학습용 파일들
 - **새 명령어**:
-  - `study-preprocess analyze-samples`: 독립적인 로그 샘플 분석
-  - `study-preprocess report --with-samples`: 기존 리포트에 샘플 분석 포함
+  - `alog-detect analyze-samples`: 독립적인 로그 샘플 분석
+  - `alog-detect report --with-samples`: 기존 리포트에 샘플 분석 포함
 
 ##### 프로젝트 관리 개선
 - **`.gitignore` 강화**: 분석 결과 디렉토리, 모델 파일, Drain3 상태 파일 등 추가

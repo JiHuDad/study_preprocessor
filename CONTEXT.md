@@ -2,7 +2,7 @@
 
 ## 📋 프로젝트 개요
 
-**study-preprocessor**는 커널/시스템 로그의 전처리와 이상탐지를 위한 통합 파이프라인입니다. LSTM 기반 DeepLog와 시계열 이미지화 기반 MS-CRED 모델에 입력 가능한 형식으로 데이터를 변환하고, 다양한 이상탐지 방법을 제공합니다.
+**alog-detector**는 커널/시스템 로그의 전처리와 이상탐지를 위한 통합 파이프라인입니다. LSTM 기반 DeepLog와 시계열 이미지화 기반 MS-CRED 모델에 입력 가능한 형식으로 데이터를 변환하고, 다양한 이상탐지 방법을 제공합니다.
 
 ## 🎯 핵심 기능
 
@@ -34,8 +34,8 @@
 ## 🗂️ 프로젝트 구조
 
 ```
-study_preprocessor/
-├── study_preprocessor/          # 핵심 모듈
+anomaly_log_detector/
+├── anomaly_log_detector/          # 핵심 모듈
 │   ├── cli.py                  # CLI 엔트리포인트
 │   ├── preprocess.py           # 전처리 (마스킹 + Drain3)
 │   ├── detect.py               # 베이스라인 이상탐지
@@ -76,13 +76,13 @@ study_preprocessor/
 ### CLI 명령어
 ```bash
 # 기본 전처리
-study-preprocess parse --input file.log --out-dir processed/
+alog-detect parse --input file.log --out-dir processed/
 
 # DeepLog 입력 생성
-study-preprocess build-deeplog --parsed parsed.parquet --out-dir processed/
+alog-detect build-deeplog --parsed parsed.parquet --out-dir processed/
 
 # 이상탐지 실행
-study-preprocess detect --parsed parsed.parquet --out-dir processed/
+alog-detect detect --parsed parsed.parquet --out-dir processed/
 
 # 배치 분석
 ./run_enhanced_batch_analysis.sh /var/log/
@@ -115,16 +115,16 @@ study-preprocess detect --parsed parsed.parquet --out-dir processed/
 ### 1. 단일 파일 분석
 ```bash
 # 1. 전처리
-study-preprocess parse --input /path/to/app.log --out-dir data/processed
+alog-detect parse --input /path/to/app.log --out-dir data/processed
 
 # 2. 모델 입력 생성
-study-preprocess build-deeplog --parsed data/processed/parsed.parquet --out-dir data/processed
+alog-detect build-deeplog --parsed data/processed/parsed.parquet --out-dir data/processed
 
 # 3. 이상탐지
-study-preprocess detect --parsed data/processed/parsed.parquet --out-dir data/processed
+alog-detect detect --parsed data/processed/parsed.parquet --out-dir data/processed
 
 # 4. 리포트 생성
-study-preprocess report --processed-dir data/processed
+alog-detect report --processed-dir data/processed
 ```
 
 ### 2. 🆕 학습/추론 분리 워크플로우 (추천)
@@ -154,7 +154,7 @@ cat batch_result/ENHANCED_ANALYSIS_SUMMARY.md
 ### 4. 시간 기반 분석
 ```bash
 # 시간대별 패턴 학습 및 이상탐지
-study-preprocess analyze-temporal --data-dir data/processed
+alog-detect analyze-temporal --data-dir data/processed
 cat data/processed/temporal_analysis/temporal_report.md
 ```
 
@@ -224,19 +224,19 @@ cat data/processed/temporal_analysis/temporal_report.md
 ### 이상 로그 샘플 분석
 ```bash
 # 이상탐지 결과에서 실제 문제 로그들 추출
-study-preprocess analyze-samples --processed-dir data/processed --output-dir log_samples
+alog-detect analyze-samples --processed-dir data/processed --output-dir log_samples
 ```
 
 ### 합성 데이터 생성
 ```bash
 # 테스트용 합성 로그 생성
-study-preprocess gen-synth --out data/raw/synthetic.log --lines 10000 --anomaly-rate 0.03
+alog-detect gen-synth --out data/raw/synthetic.log --lines 10000 --anomaly-rate 0.03
 ```
 
 ### 평가 메트릭
 ```bash
 # Precision, Recall, F1 계산
-study-preprocess eval --processed-dir data/processed --labels data/raw/synthetic.log.labels.parquet
+alog-detect eval --processed-dir data/processed --labels data/raw/synthetic.log.labels.parquet
 ```
 
 ### 시각화

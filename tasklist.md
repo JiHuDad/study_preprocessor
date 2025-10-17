@@ -7,7 +7,7 @@
 - [x] Initialize Python project with uv and pyproject.toml
 - [x] Add dependencies (drain3, pandas, pyarrow, click, tqdm, orjson)
 - [x] Implement preprocessing module with Drain3 and masking
-- [x] Create CLI entrypoint `study-preprocess`
+- [x] Create CLI entrypoint `alog-detect`
 - [x] Add sample kernel log under `data/raw` and generate processed outputs
 
 ##### 핵심 기능 구현

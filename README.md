@@ -1,6 +1,6 @@
-### study-preprocessor 사용 가이드
+### Anomaly Log Detector 사용 가이드
 
-이 문서는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 방법을 단계별로 안내합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
+**Anomaly Log Detector**는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 프레임워크입니다. DeepLog, MS-CRED, 그리고 통계적 베이스라인 방법을 제공합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
 
 ## 🆕 **최신 업데이트 (2025-10-02)**
 
@@ -34,7 +34,7 @@ pip install -e .
 #### 2) 단일 .log 파일 전처리
 - 기본 실행:
 ```
-study-preprocess parse \
+alog-detect parse \
   --input /path/to/your.log \
   --out-dir /path/to/outdir \
   --drain-state .cache/drain3.json
@@ -48,7 +48,7 @@ study-preprocess parse \
   - `--no-mask-pid`, `--no-mask-device`, `--no-mask-num`
   - 예: 숫자/디바이스 접미사 마스킹을 끄고 실행
 ```
-study-preprocess parse \
+alog-detect parse \
   --input /path/to/your.log \
   --out-dir /path/to/outdir \
   --no-mask-device --no-mask-num
@@ -65,7 +65,7 @@ OUT=/path/to/processed
 STATE=.cache/drain3.json
 mkdir -p "$OUT"
 for f in /var/log/*.log; do
-  study-preprocess parse --input "$f" --out-dir "$OUT/$(basename "$f" .log)" --drain-state "$STATE"
+  alog-detect parse --input "$f" --out-dir "$OUT/$(basename "$f" .log)" --drain-state "$STATE"
 done
 ```
 - 결과 병합(선택):
@@ -91,13 +91,13 @@ PY
 #### 4) DeepLog/MSCRED 입력 생성
 - DeepLog 입력(사전/시퀀스):
 ```
-study-preprocess build-deeplog \
+alog-detect build-deeplog \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir
 ```
 - MS-CRED 입력(윈도우 카운트):
 ```
-study-preprocess build-mscred \
+alog-detect build-mscred \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir \
   --window-size 50 --stride 25
@@ -106,46 +106,46 @@ study-preprocess build-mscred \
 #### 5) 이상탐지 실행
 - 베이스라인(새 템플릿 비율 + 빈도 급변):
 ```
-study-preprocess detect \
+alog-detect detect \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir \
   --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
 ```
 - DeepLog 학습/추론:
 ```
-study-preprocess deeplog-train \
+alog-detect deeplog-train \
   --seq /path/to/outdir/sequences.parquet \
   --vocab /path/to/outdir/vocab.json \
   --out .cache/deeplog.pth --seq-len 50 --epochs 3
 
-study-preprocess deeplog-infer \
+alog-detect deeplog-infer \
   --seq /path/to/outdir/sequences.parquet \
   --model .cache/deeplog.pth --k 3
 ```
 - MS-CRED 학습/추론:
 ```
-study-preprocess mscred-train \
+alog-detect mscred-train \
   --window-counts /path/to/outdir/window_counts.parquet \
   --out .cache/mscred.pth --epochs 50
 
-study-preprocess mscred-infer \
+alog-detect mscred-infer \
   --window-counts /path/to/outdir/window_counts.parquet \
   --model .cache/mscred.pth --threshold 95.0
 ```
 - 리포트/요약 생성:
 ```
 # 기본 리포트
-study-preprocess report --processed-dir /path/to/outdir
+alog-detect report --processed-dir /path/to/outdir
 
 # 이상 로그 샘플 포함 리포트
-study-preprocess report --processed-dir /path/to/outdir --with-samples
+alog-detect report --processed-dir /path/to/outdir --with-samples
 ```
   - 포함: 베이스라인 이상 윈도우 비율, 상위 윈도우/템플릿, DeepLog 위반율
   - `--with-samples`: 실제 문제 로그 샘플과 분석 추가
 
 - 이상 로그 샘플 분석 (단독):
 ```
-study-preprocess analyze-samples --processed-dir /path/to/outdir
+alog-detect analyze-samples --processed-dir /path/to/outdir
 ```
   - 🔍 이상탐지 결과에서 실제 문제 로그들 추출
   - 📄 사람이 읽기 쉬운 분석 리포트 생성
@@ -154,16 +154,16 @@ study-preprocess analyze-samples --processed-dir /path/to/outdir
 #### 6) 합성 데이터로 E2E 검증(옵션)
 ```
 # 합성 로그 + 라벨 생성
-study-preprocess gen-synth --out data/raw/synth_long.log --lines 1000 --anomaly-rate 0.03
+alog-detect gen-synth --out data/raw/synth_long.log --lines 1000 --anomaly-rate 0.03
 
 # 전처리 → 빌더 → 탐지 → 학습/추론 → 리포트/평가
-study-preprocess parse --input data/raw/synth_long.log --out-dir data/processed/synth --drain-state .cache/drain3.json
-study-preprocess build-deeplog --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth
-study-preprocess detect --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
-study-preprocess deeplog-train --seq data/processed/synth/sequences.parquet --vocab data/processed/synth/vocab.json --out .cache/deeplog_synth.pth --seq-len 20 --epochs 2
-study-preprocess deeplog-infer --seq data/processed/synth/sequences.parquet --model .cache/deeplog_synth.pth --k 3
-study-preprocess report --processed-dir data/processed/synth
-study-preprocess eval --processed-dir data/processed/synth --labels data/raw/synth_long.log.labels.parquet --window-size 50 --seq-len 20
+alog-detect parse --input data/raw/synth_long.log --out-dir data/processed/synth --drain-state .cache/drain3.json
+alog-detect build-deeplog --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth
+alog-detect detect --parsed data/processed/synth/parsed.parquet --out-dir data/processed/synth --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.95
+alog-detect deeplog-train --seq data/processed/synth/sequences.parquet --vocab data/processed/synth/vocab.json --out .cache/deeplog_synth.pth --seq-len 20 --epochs 2
+alog-detect deeplog-infer --seq data/processed/synth/sequences.parquet --model .cache/deeplog_synth.pth --k 3
+alog-detect report --processed-dir data/processed/synth
+alog-detect eval --processed-dir data/processed/synth --labels data/raw/synth_long.log.labels.parquet --window-size 50 --seq-len 20
 ```
 
 #### 7) 문제 해결 팁
@@ -245,16 +245,16 @@ cat inference_*/log_samples_analysis/anomaly_analysis_report.md
 #### 🚀 MS-CRED 사용법
 ```bash
 # 1. MS-CRED 입력 생성
-study-preprocess build-mscred --parsed data/processed/parsed.parquet --out-dir data/processed
+alog-detect build-mscred --parsed data/processed/parsed.parquet --out-dir data/processed
 
 # 2. 모델 학습
-study-preprocess mscred-train --window-counts data/processed/window_counts.parquet --out models/mscred.pth --epochs 50
+alog-detect mscred-train --window-counts data/processed/window_counts.parquet --out models/mscred.pth --epochs 50
 
 # 3. 이상탐지 추론
-study-preprocess mscred-infer --window-counts data/processed/window_counts.parquet --model models/mscred.pth --threshold 95.0
+alog-detect mscred-infer --window-counts data/processed/window_counts.parquet --model models/mscred.pth --threshold 95.0
 
 # 4. 결과 분석
-study-preprocess analyze-mscred --data-dir data/processed
+alog-detect analyze-mscred --data-dir data/processed
 ```
 
 ## 🆕 새로운 분석 기능
@@ -386,7 +386,7 @@ logs/
 시간대별/요일별 패턴 학습으로 이상 탐지:
 
 ```bash
-study-preprocess analyze-temporal --data-dir data/processed
+alog-detect analyze-temporal --data-dir data/processed
 cat data/processed/temporal_analysis/temporal_report.md
 ```
 
@@ -394,7 +394,7 @@ cat data/processed/temporal_analysis/temporal_report.md
 여러 파일 간 패턴 차이로 이상 탐지:
 
 ```bash
-study-preprocess analyze-comparative \
+alog-detect analyze-comparative \
   --target server1/parsed.parquet \
   --baselines server2/parsed.parquet --baselines server3/parsed.parquet
 ```

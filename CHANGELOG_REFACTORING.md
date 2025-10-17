@@ -122,19 +122,19 @@ git status
 
 ### 이동된 파일들 (모듈화)
 
-#### 분석 도구들을 `study_preprocessor/analyzers/`로 이동
-- ✅ `temporal_anomaly_detector.py` → `study_preprocessor/analyzers/temporal.py` (322줄)
-- ✅ `comparative_anomaly_detector.py` → `study_preprocessor/analyzers/comparative.py` (470줄)
-- ✅ `log_sample_analyzer.py` → `study_preprocessor/analyzers/log_samples.py` (1,429줄)
-- ✅ `mscred_analyzer.py` → `study_preprocessor/analyzers/mscred_analysis.py` (523줄)
-- ✅ `baseline_validator.py` → `study_preprocessor/analyzers/baseline_validation.py` (403줄)
+#### 분석 도구들을 `anomaly_log_detector/analyzers/`로 이동
+- ✅ `temporal_anomaly_detector.py` → `anomaly_log_detector/analyzers/temporal.py` (322줄)
+- ✅ `comparative_anomaly_detector.py` → `anomaly_log_detector/analyzers/comparative.py` (470줄)
+- ✅ `log_sample_analyzer.py` → `anomaly_log_detector/analyzers/log_samples.py` (1,429줄)
+- ✅ `mscred_analyzer.py` → `anomaly_log_detector/analyzers/mscred_analysis.py` (523줄)
+- ✅ `baseline_validator.py` → `anomaly_log_detector/analyzers/baseline_validation.py` (403줄)
 
 **총 이동된 코드**: 3,147줄
 
 ### 생성된 파일들
 
 #### 새로운 모듈
-- ✅ `study_preprocessor/analyzers/__init__.py` - 모듈 초기화
+- ✅ `anomaly_log_detector/analyzers/__init__.py` - 모듈 초기화
 
 #### Wrapper 파일들 (호환성 유지)
 - ✅ `temporal_anomaly_detector.py` (27줄) - deprecation wrapper
@@ -147,12 +147,12 @@ git status
 
 ### 변경된 파일
 
-#### `study_preprocessor/cli.py`
+#### `anomaly_log_detector/cli.py`
 새로운 CLI 서브명령어 추가 (84줄 추가):
-- `study-preprocess analyze-temporal` - 시간 기반 이상 탐지
-- `study-preprocess analyze-comparative` - 비교 기반 이상 탐지
-- `study-preprocess analyze-mscred` - MS-CRED 전용 분석
-- `study-preprocess validate-baseline` - 베이스라인 품질 검증
+- `alog-detect analyze-temporal` - 시간 기반 이상 탐지
+- `alog-detect analyze-comparative` - 비교 기반 이상 탐지
+- `alog-detect analyze-mscred` - MS-CRED 전용 분석
+- `alog-detect validate-baseline` - 베이스라인 품질 검증
 
 (기존 `analyze-samples`는 이미 존재)
 
@@ -161,7 +161,7 @@ git status
 #### 구조 개선
 - ✨ **모듈화**: 분석 도구들이 일관된 구조로 정리됨
 - ✨ **CLI 통합**: 모든 분석 도구를 CLI 명령어로 사용 가능
-- ✨ **Import 경로**: 명확한 import 경로 (`study_preprocessor.analyzers.*`)
+- ✨ **Import 경로**: 명확한 import 경로 (`anomaly_log_detector.analyzers.*`)
 
 #### 호환성
 - ✅ **기존 스크립트**: Wrapper로 완전한 하위 호환성 유지
@@ -185,26 +185,26 @@ python baseline_validator.py file1.log file2.log
 
 #### 새로운 방식 (권장)
 ```bash
-study-preprocess analyze-temporal --data-dir data/processed
-study-preprocess analyze-comparative --target file.log --baselines b1.log --baselines b2.log
-study-preprocess analyze-samples --processed-dir data/processed
-study-preprocess analyze-mscred --data-dir data/processed
-study-preprocess validate-baseline file1.log file2.log
+alog-detect analyze-temporal --data-dir data/processed
+alog-detect analyze-comparative --target file.log --baselines b1.log --baselines b2.log
+alog-detect analyze-samples --processed-dir data/processed
+alog-detect analyze-mscred --data-dir data/processed
+alog-detect validate-baseline file1.log file2.log
 ```
 
 ### 검증 명령어
 ```bash
 # 모듈 구조 확인
-ls -la study_preprocessor/analyzers/
+ls -la anomaly_log_detector/analyzers/
 
 # CLI 명령어 확인
-study-preprocess --help
+alog-detect --help
 
 # 개별 명령어 확인
-study-preprocess analyze-temporal --help
-study-preprocess analyze-comparative --help
-study-preprocess analyze-mscred --help
-study-preprocess validate-baseline --help
+alog-detect analyze-temporal --help
+alog-detect analyze-comparative --help
+alog-detect analyze-mscred --help
+alog-detect validate-baseline --help
 
 # Wrapper 테스트 (deprecation 경고 출력 확인)
 python temporal_anomaly_detector.py --help
@@ -216,28 +216,28 @@ python temporal_anomaly_detector.py --help
 
 ### 변경 내용
 
-#### Shell 스크립트 업데이트 (python → study-preprocess)
+#### Shell 스크립트 업데이트 (python → alog-detect)
 
 **run_baseline_validation.sh:**
-- 변경: `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+- 변경: `python comparative_anomaly_detector.py` → `alog-detect analyze-comparative`
 
 **run_enhanced_batch_analysis.sh:**
-- 변경: `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
-- 변경: `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+- 변경: `python mscred_analyzer.py` → `alog-detect analyze-mscred`
+- 변경: `python log_sample_analyzer.py` → `alog-detect analyze-samples`
 
 **demo_mscred.sh:**
-- 변경: `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
-- 변경: `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+- 변경: `python mscred_analyzer.py` → `alog-detect analyze-mscred`
+- 변경: `python log_sample_analyzer.py` → `alog-detect analyze-samples`
 
 #### Python 코드 업데이트
 
 **enhanced_batch_analyzer.py (3곳 수정):**
-- 변경: `sys.executable, "log_sample_analyzer.py"` → `"study-preprocess", "analyze-samples"`
-- 변경: `sys.executable, "temporal_anomaly_detector.py"` → `"study-preprocess", "analyze-temporal"`
-- 변경: `sys.executable, "comparative_anomaly_detector.py"` → `"study-preprocess", "analyze-comparative"`
+- 변경: `sys.executable, "log_sample_analyzer.py"` → `"alog-detect", "analyze-samples"`
+- 변경: `sys.executable, "temporal_anomaly_detector.py"` → `"alog-detect", "analyze-temporal"`
+- 변경: `sys.executable, "comparative_anomaly_detector.py"` → `"alog-detect", "analyze-comparative"`
 - 수정: `--baselines` 인자를 리스트로 확장하는 방식으로 변경 (Click 다중 옵션 지원)
 
-**study_preprocessor/cli.py (2곳 수정):**
+**anomaly_log_detector/cli.py (2곳 수정):**
 - 변경: subprocess로 python 스크립트 호출 → 모듈 import 및 직접 호출
 - 개선: `report` 명령의 `--with-samples` 옵션에서 모듈 import 사용
 - 개선: `analyze-samples` 명령에서 모듈 import 사용
@@ -245,25 +245,25 @@ python temporal_anomaly_detector.py --help
 #### 문서 업데이트
 
 **README.md:**
-- `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
-- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
-- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+- `python mscred_analyzer.py` → `alog-detect analyze-mscred`
+- `python temporal_anomaly_detector.py` → `alog-detect analyze-temporal`
+- `python comparative_anomaly_detector.py` → `alog-detect analyze-comparative`
 
 **BATCH_ANALYSIS_GUIDE.md:**
-- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
-- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
+- `python temporal_anomaly_detector.py` → `alog-detect analyze-temporal`
+- `python comparative_anomaly_detector.py` → `alog-detect analyze-comparative`
 
 **CONTEXT.md:**
-- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
-- `python log_sample_analyzer.py` → `study-preprocess analyze-samples`
+- `python temporal_anomaly_detector.py` → `alog-detect analyze-temporal`
+- `python log_sample_analyzer.py` → `alog-detect analyze-samples`
 
 **TRAIN_INFERENCE_GUIDE.md:**
-- `python mscred_analyzer.py` → `study-preprocess analyze-mscred`
+- `python mscred_analyzer.py` → `alog-detect analyze-mscred`
 
 **RESULTS_GUIDE.md:**
-- `python temporal_anomaly_detector.py` → `study-preprocess analyze-temporal`
-- `python comparative_anomaly_detector.py` → `study-preprocess analyze-comparative`
-- `python baseline_validator.py` → `study-preprocess validate-baseline`
+- `python temporal_anomaly_detector.py` → `alog-detect analyze-temporal`
+- `python comparative_anomaly_detector.py` → `alog-detect analyze-comparative`
+- `python baseline_validator.py` → `alog-detect validate-baseline`
 
 **.cursor/rules/development-workflow.mdc:**
 - 모든 개발 워크플로우 예제를 CLI 명령어로 업데이트
@@ -271,7 +271,7 @@ python temporal_anomaly_detector.py --help
 ### 효과
 
 #### 일관성 개선
-- ✨ **명령어 통일**: 모든 스크립트와 문서가 `study-preprocess` CLI를 사용
+- ✨ **명령어 통일**: 모든 스크립트와 문서가 `alog-detect` CLI를 사용
 - ✨ **사용자 경험**: 일관된 인터페이스로 학습 곡선 감소
 - ✨ **유지보수성**: wrapper 대신 모듈 직접 사용으로 간접 호출 제거
 
@@ -287,7 +287,7 @@ python temporal_anomaly_detector.py --help
 - run_enhanced_batch_analysis.sh
 - demo_mscred.sh
 - enhanced_batch_analyzer.py
-- study_preprocessor/cli.py
+- anomaly_log_detector/cli.py
 
 **문서 파일 (6개):**
 - README.md
@@ -304,11 +304,11 @@ python temporal_anomaly_detector.py --help
 
 ```bash
 # CLI 명령어 작동 확인
-study-preprocess analyze-temporal --help
-study-preprocess analyze-comparative --help
-study-preprocess analyze-mscred --help
-study-preprocess analyze-samples --help
-study-preprocess validate-baseline --help
+alog-detect analyze-temporal --help
+alog-detect analyze-comparative --help
+alog-detect analyze-mscred --help
+alog-detect analyze-samples --help
+alog-detect validate-baseline --help
 
 # 스크립트에서 python 명령어 사용 확인 (CHANGELOG 제외하고 없어야 함)
 grep -r "python.*_analyzer\|python.*_detector\|python.*_validator" --include="*.sh" --include="*.py" --exclude="CHANGELOG*" .
@@ -343,7 +343,7 @@ python temporal_anomaly_detector.py --help
 
 **문제 2**: MS-CRED ONNX 변환 시 "cannot import name MSCRED" 오류
 - **원인**: 잘못된 클래스 이름 (MSCRED vs MSCREDModel)
-- **해결**: `from study_preprocessor.mscred_model import MSCREDModel`로 수정
+- **해결**: `from anomaly_log_detector.mscred_model import MSCREDModel`로 수정
 - **추가 수정**: state_dict 키 처리 (model_state_dict vs state_dict)
 
 **문제 3**: MS-CRED 텐서 차원 불일치 오류
@@ -364,7 +364,7 @@ python temporal_anomaly_detector.py --help
 
 ### 변경된 파일들
 
-#### `study_preprocessor/cli.py` (convert-onnx 명령어)
+#### `anomaly_log_detector/cli.py` (convert-onnx 명령어)
 ```python
 @click.option("--feature-dim", type=int, default=None,
               help="MS-CRED 피처 차원 (템플릿 개수, 미지정시 vocab에서 자동 감지)")
@@ -421,7 +421,7 @@ def convert_all_models(
 
 ```bash
 # 자동 감지 테스트 (7개 템플릿 → 10으로 조정됨)
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model models/deeplog.pth \
   --mscred-model models/mscred.pth \
   --vocab models/vocab.json \
@@ -429,14 +429,14 @@ study-preprocess convert-onnx \
   --validate
 
 # 100개 템플릿 테스트 (100 그대로 사용)
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model models/deeplog.pth \
   --mscred-model models/mscred.pth \
   --vocab large_vocab.json \
   --output-dir models/onnx
 
 # 수동 지정 테스트
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model models/deeplog.pth \
   --mscred-model models/mscred.pth \
   --vocab models/vocab.json \
@@ -506,7 +506,7 @@ output_dir/
 
 ```bash
 # C 추론 엔진 배포용 (권장)
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model models/deeplog.pth \
   --mscred-model models/mscred.pth \
   --vocab models/vocab.json \
@@ -514,7 +514,7 @@ study-preprocess convert-onnx \
   --portable
 
 # 현재 환경 최대 성능
-study-preprocess convert-onnx \
+alog-detect convert-onnx \
   --deeplog-model models/deeplog.pth \
   --mscred-model models/mscred.pth \
   --vocab models/vocab.json \
@@ -582,7 +582,7 @@ study-preprocess convert-onnx \
 
 ### 변경된 파일들
 
-#### `study_preprocessor/builders/deeplog.py`
+#### `anomaly_log_detector/builders/deeplog.py`
 **Lines 293-302**: template_index 매핑 추가
 ```python
 if "template_id" in parsed_df.columns and "template_index" not in parsed_df.columns:
@@ -618,7 +618,7 @@ summary = {
 }
 ```
 
-#### `study_preprocessor/analyzers/log_samples.py`
+#### `anomaly_log_detector/analyzers/log_samples.py`
 **Lines 110-186**: Enhanced 알림 우선 사용 로직
 ```python
 alerts_file = deeplog_infer_file.replace('deeplog_infer.parquet', 'deeplog_alerts.parquet')
@@ -715,12 +715,12 @@ else:
 ```
 
 **적용 파일:**
-- study_preprocessor/analyzers/log_samples.py
-- study_preprocessor/analyzers/enhanced_batch_analyzer.py (2곳)
+- anomaly_log_detector/analyzers/log_samples.py
+- anomaly_log_detector/analyzers/enhanced_batch_analyzer.py (2곳)
 - run_inference.sh
 - compare_models.sh
 - visualize_results.py (3곳)
-- study_preprocessor/eval.py
+- anomaly_log_detector/eval.py
 
 ### 효과
 

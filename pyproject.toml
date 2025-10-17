@@ -1,7 +1,7 @@
 [project]
-name = "study-preprocessor"
+name = "anomaly-log-detector"
 version = "0.1.0"
-description = "Kernel/system log preprocessing for DeepLog and MS-CRED"
+description = "Anomaly Log Detection Framework with DeepLog, MS-CRED, and statistical baseline methods"
 authors = [{ name = "Kaeul Kim" }]
 requires-python = ">=3.11"
 readme = "prd.md"
@@ -21,14 +21,14 @@ dependencies = [
 ]
 
 [project.scripts]
-study-preprocess = "study_preprocessor.cli:main"
+alog-detect = "anomaly_log_detector.cli:main"
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["study_preprocessor*"]
+include = ["anomaly_log_detector*"]
 exclude = ["data*", "config*", ".*", "tests*"]
 
  

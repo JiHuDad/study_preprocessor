@@ -183,7 +183,7 @@ python visualize_results.py --data-dir 출력디렉토리
 
 ```bash
 # 시간 패턴 기반 분석
-study-preprocess analyze-temporal --data-dir data/processed
+alog-detect analyze-temporal --data-dir data/processed
 
 # 결과 확인
 cat data/processed/temporal_analysis/temporal_report.md
@@ -200,7 +200,7 @@ cat data/processed/temporal_analysis/temporal_report.md
 
 ```bash
 # 파일 간 비교 분석
-study-preprocess analyze-comparative \
+alog-detect analyze-comparative \
   --target data/server1/parsed.parquet \
   --baselines data/server2/parsed.parquet --baselines data/server3/parsed.parquet
 
@@ -219,10 +219,10 @@ cat data/server1/comparative_analysis/comparative_report.md
 
 ```bash
 # 로그 샘플 분석 (독립 실행)
-study-preprocess analyze-samples --processed-dir data/processed
+alog-detect analyze-samples --processed-dir data/processed
 
 # 기존 리포트에 샘플 분석 포함
-study-preprocess report --processed-dir data/processed --with-samples
+alog-detect report --processed-dir data/processed --with-samples
 
 # 결과 확인
 cat data/processed/log_samples_analysis/anomaly_analysis_report.md
@@ -238,7 +238,7 @@ cat data/processed/log_samples_analysis/anomaly_analysis_report.md
 
 ```bash
 # 베이스라인 품질 검증
-study-preprocess validate-baseline /path/to/baseline/logs/ --output-dir validation_result
+alog-detect validate-baseline /path/to/baseline/logs/ --output-dir validation_result
 
 # 자동화 스크립트
 ./run_baseline_validation.sh /path/to/baseline/logs/
@@ -297,12 +297,12 @@ Line 827: 2025-09-20 11:10:30 hostname kernel[2166]: ERROR: Authentication faile
 ### CLI 도구
 ```bash
 # 🆕 로그 샘플 분석 (단독 실행)
-study-preprocess analyze-samples <processed_dir> --max-samples 20 --context-lines 3
+alog-detect analyze-samples <processed_dir> --max-samples 20 --context-lines 3
 
 # 🆕 리포트 생성 (로그 샘플 포함)
-study-preprocess report <processed_dir> --with-samples
+alog-detect report <processed_dir> --with-samples
 
 # 기본 CLI 도구
-.venv/bin/python -m study_preprocessor.cli detect --help
-.venv/bin/python -m study_preprocessor.cli eval --help
+.venv/bin/python -m anomaly_log_detector.cli detect --help
+.venv/bin/python -m anomaly_log_detector.cli eval --help
 ```

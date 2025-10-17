@@ -43,18 +43,18 @@ echo "📁 데모 데이터 생성: $DEMO_DIR"
 echo "1️⃣  합성 로그 데이터 생성 중..."
 
 # 정상 로그 (baseline용)
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$DEMO_DIR/logs/baseline1.log" \
   --lines 800 \
   --anomaly-rate 0.01
 
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$DEMO_DIR/logs/baseline2.log" \
   --lines 600 \
   --anomaly-rate 0.02
 
 # Target 로그 (이상이 많은 로그)
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$DEMO_DIR/logs/target_problematic.log" \
   --lines 1000 \
   --anomaly-rate 0.08

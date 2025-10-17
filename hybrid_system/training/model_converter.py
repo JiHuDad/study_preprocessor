@@ -55,12 +55,12 @@ class ModelConverter:
         # DeepLog 모델 클래스 import
         import sys
         from pathlib import Path
-        # study_preprocessor 패키지 경로 추가
+        # anomaly_log_detector 패키지 경로 추가
         root_dir = Path(__file__).parent.parent.parent
         if str(root_dir) not in sys.path:
             sys.path.insert(0, str(root_dir))
 
-        from study_preprocessor.builders.deeplog import DeepLogLSTM
+        from anomaly_log_detector.builders.deeplog import DeepLogLSTM
 
         # state dict 로드
         state = torch.load(model_path, map_location='cpu')
@@ -158,12 +158,12 @@ class ModelConverter:
         # MS-CRED 모델 클래스 import
         import sys
         from pathlib import Path
-        # study_preprocessor 패키지 경로 추가
+        # anomaly_log_detector 패키지 경로 추가
         root_dir = Path(__file__).parent.parent.parent
         if str(root_dir) not in sys.path:
             sys.path.insert(0, str(root_dir))
 
-        from study_preprocessor.mscred_model import MSCREDModel
+        from anomaly_log_detector.mscred_model import MSCREDModel
 
         # state dict 로드
         state = torch.load(model_path, map_location='cpu')

@@ -17,7 +17,7 @@ mkdir -p "$DEMO_DIR"
 
 # 1. 합성 로그 생성
 echo "1️⃣  합성 로그 생성 (이상 포함)..."
-study-preprocess gen-synth \
+alog-detect gen-synth \
   --out "$DEMO_DIR/demo.log" \
   --lines 2000 \
   --anomaly-rate 0.05
@@ -27,7 +27,7 @@ echo ""
 
 # 2. 전처리
 echo "2️⃣  로그 전처리 (Drain3 템플릿 마이닝)..."
-study-preprocess parse \
+alog-detect parse \
   --input "$DEMO_DIR/demo.log" \
   --out-dir "$DEMO_DIR/processed" \
   --drain-state "$DEMO_DIR/drain3_state.json"
@@ -37,7 +37,7 @@ echo ""
 
 # 3. DeepLog 입력 생성
 echo "3️⃣  DeepLog 입력 생성 (시퀀스 + vocab)..."
-study-preprocess build-deeplog \
+alog-detect build-deeplog \
   --parsed "$DEMO_DIR/processed/parsed.parquet" \
   --out-dir "$DEMO_DIR/processed"
 
@@ -46,7 +46,7 @@ echo ""
 
 # 4. DeepLog 모델 학습
 echo "4️⃣  DeepLog 모델 학습..."
-study-preprocess deeplog-train \
+alog-detect deeplog-train \
   --seq "$DEMO_DIR/processed/sequences.parquet" \
   --vocab "$DEMO_DIR/processed/vocab.json" \
   --out "$DEMO_DIR/deeplog_model.pth" \
@@ -58,7 +58,7 @@ echo ""
 
 # 5a. 기본 DeepLog 추론 (비교용)
 echo "5️⃣ a. 기본 DeepLog 추론 (기존 방식)..."
-study-preprocess deeplog-infer \
+alog-detect deeplog-infer \
   --seq "$DEMO_DIR/processed/sequences.parquet" \
   --model "$DEMO_DIR/deeplog_model.pth" \
   --k 3
@@ -68,7 +68,7 @@ echo ""
 
 # 5b. Enhanced DeepLog 추론 (Top-K)
 echo "5️⃣ b. Enhanced DeepLog 추론 (Top-K, K-of-N, Cooldown)..."
-study-preprocess deeplog-infer-enhanced \
+alog-detect deeplog-infer-enhanced \
   --seq "$DEMO_DIR/processed/sequences.parquet" \
   --parsed "$DEMO_DIR/processed/parsed.parquet" \
   --model "$DEMO_DIR/deeplog_model.pth" \
@@ -87,7 +87,7 @@ echo ""
 
 # 5c. Enhanced DeepLog 추론 (Top-P)
 echo "5️⃣ c. Enhanced DeepLog 추론 (Top-P)..."
-study-preprocess deeplog-infer-enhanced \
+alog-detect deeplog-infer-enhanced \
   --seq "$DEMO_DIR/processed/sequences.parquet" \
   --parsed "$DEMO_DIR/processed/parsed.parquet" \
   --model "$DEMO_DIR/deeplog_model.pth" \
@@ -219,7 +219,7 @@ echo "  ✨ 알림 시그니처 기반 중복 억제"
 echo ""
 
 echo "🎯 다음 단계:"
-echo "  - 실제 로그로 테스트: study-preprocess deeplog-infer-enhanced --help"
+echo "  - 실제 로그로 테스트: alog-detect deeplog-infer-enhanced --help"
 echo "  - 파라미터 튜닝: k-of-n-k, cooldown-seq 조정"
 echo "  - Top-P 실험: --top-p 0.8, 0.9, 0.95 비교"
 echo ""

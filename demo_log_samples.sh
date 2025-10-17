@@ -26,7 +26,7 @@ echo "1️⃣  합성 로그 생성 (이상 포함)"
 echo "──────────────────────────────────────"
 
 # 합성 로그 생성 (3% 이상률)
-study-preprocess gen-synth \
+alog-detect gen-synth \
     --out "$DEMO_DIR/demo.log" \
     --lines 1000 \
     --anomaly-rate 0.05
@@ -40,7 +40,7 @@ echo "2️⃣  로그 전처리"
 echo "──────────────────────────────────────"
 
 # 전처리 실행
-study-preprocess parse \
+alog-detect parse \
     --input "$DEMO_DIR/demo.log" \
     --out-dir "$PROCESSED_DIR" \
     --drain-state "$DEMO_DIR/drain.json"
@@ -52,7 +52,7 @@ echo "3️⃣  이상탐지 실행"
 echo "──────────────────────────────────────"
 
 # 베이스라인 이상탐지
-study-preprocess detect \
+alog-detect detect \
     --parsed "$PROCESSED_DIR/parsed.parquet" \
     --out-dir "$PROCESSED_DIR" \
     --window-size 50 \
@@ -61,14 +61,14 @@ study-preprocess detect \
 echo "✅ 베이스라인 이상탐지 완료"
 
 # DeepLog 입력 생성
-study-preprocess build-deeplog \
+alog-detect build-deeplog \
     --parsed "$PROCESSED_DIR/parsed.parquet" \
     --out-dir "$PROCESSED_DIR"
 
 echo "✅ DeepLog 입력 생성 완료"
 
 # DeepLog 학습 (빠른 데모용)
-study-preprocess deeplog-train \
+alog-detect deeplog-train \
     --seq "$PROCESSED_DIR/sequences.parquet" \
     --vocab "$PROCESSED_DIR/vocab.json" \
     --out "$DEMO_DIR/deeplog_demo.pth" \
@@ -78,7 +78,7 @@ study-preprocess deeplog-train \
 echo "✅ DeepLog 학습 완료 (간단 버전)"
 
 # DeepLog 추론
-study-preprocess deeplog-infer \
+alog-detect deeplog-infer \
     --seq "$PROCESSED_DIR/sequences.parquet" \
     --model "$DEMO_DIR/deeplog_demo.pth" \
     --k 3
@@ -90,7 +90,7 @@ echo "4️⃣  🌟 이상 로그 샘플 분석 🌟"
 echo "──────────────────────────────────────"
 
 # 로그 샘플 분석 실행
-study-preprocess analyze-samples \
+alog-detect analyze-samples \
     --processed-dir "$PROCESSED_DIR" \
     --max-samples 3 \
     --context-lines 2
@@ -141,10 +141,10 @@ echo "6️⃣  💡 추가 분석 명령어"
 echo "──────────────────────────────────────"
 
 echo "전체 리포트 (샘플 포함):"
-echo "  study-preprocess report --processed-dir $PROCESSED_DIR --with-samples"
+echo "  alog-detect report --processed-dir $PROCESSED_DIR --with-samples"
 echo ""
 echo "평가 (라벨 있음):"
-echo "  study-preprocess eval --processed-dir $PROCESSED_DIR --labels $DEMO_DIR/demo.log.labels.parquet"
+echo "  alog-detect eval --processed-dir $PROCESSED_DIR --labels $DEMO_DIR/demo.log.labels.parquet"
 echo ""
 echo "상세 분석 리포트 보기:"
 echo "  cat $SAMPLE_REPORT"

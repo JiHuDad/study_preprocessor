@@ -19,30 +19,30 @@
 #### 실행 커맨드(현재)
 ```
 # DeepLog/MSCRED 입력 생성
-uv run python -c "from study_preprocessor.builders.deeplog import build_deeplog_inputs as b; b('data/processed/parsed.parquet','data/processed')"
-uv run python -c "from study_preprocessor.builders.mscred import build_mscred_window_counts as b; b('data/processed/parsed.parquet','data/processed',window_size=50,stride=25)"
+uv run python -c "from anomaly_log_detector.builders.deeplog import build_deeplog_inputs as b; b('data/processed/parsed.parquet','data/processed')"
+uv run python -c "from anomaly_log_detector.builders.mscred import build_mscred_window_counts as b; b('data/processed/parsed.parquet','data/processed',window_size=50,stride=25)"
 
 # 베이스라인 이상탐지
-uv run study-preprocess detect \
+uv run alog-detect detect \
   --parsed data/processed/parsed.parquet \
   --out-dir data/processed \
   --window-size 50 --stride 25 --ewm-alpha 0.3 --q 0.8
 
 # DeepLog 학습/추론
-uv run study-preprocess build-deeplog --parsed data/processed/parsed.parquet --out-dir data/processed
-uv run study-preprocess deeplog-train --seq data/processed/sequences.parquet --vocab data/processed/vocab.json --out .cache/deeplog.pth --seq-len 5 --epochs 2
-uv run study-preprocess deeplog-infer --seq data/processed/sequences.parquet --model .cache/deeplog.pth --k 3
+uv run alog-detect build-deeplog --parsed data/processed/parsed.parquet --out-dir data/processed
+uv run alog-detect deeplog-train --seq data/processed/sequences.parquet --vocab data/processed/vocab.json --out .cache/deeplog.pth --seq-len 5 --epochs 2
+uv run alog-detect deeplog-infer --seq data/processed/sequences.parquet --model .cache/deeplog.pth --k 3
 
 # MS-CRED 입력 CLI
-uv run study-preprocess build-mscred --parsed data/processed/parsed.parquet --out-dir data/processed --window-size 50 --stride 25
+uv run alog-detect build-mscred --parsed data/processed/parsed.parquet --out-dir data/processed --window-size 50 --stride 25
 
 # 리포트 생성
-uv run study-preprocess report --processed-dir data/processed
+uv run alog-detect report --processed-dir data/processed
 ```
 
 #### 의존성/구성
 - uv, Python 3.11+, drain3/pandas/pyarrow/orjson/click/tqdm/regex, torch
-- 마스킹/Drain3 파라미터는 `study_preprocessor/preprocess.py`에서 조정
+- 마스킹/Drain3 파라미터는 `anomaly_log_detector/preprocess.py`에서 조정
 
 ---
 
