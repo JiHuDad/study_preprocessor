@@ -508,31 +508,33 @@ int log_line_to_template_id(const VocabDict* vocab, const char* log_line) {
     normalize_log_line(log_line, normalized, sizeof(normalized));
     
     // 가장 유사한 템플릿 찾기
-    int best_template_id = -1;
+    int best_index = -1;  // 배열 인덱스 (0-based)
     int best_similarity = -1;
-    
+
     for (size_t i = 0; i < vocab->vocab_size; i++) {
         if (vocab->templates[i]) {
             int similarity = string_similarity(normalized, vocab->templates[i]);
             if (similarity > best_similarity) {
                 best_similarity = similarity;
-                best_template_id = vocab->template_ids[i];
+                best_index = (int)i;  // 배열 인덱스 저장
             }
         }
     }
-    
+
     // 최소 유사도 임계값
     // Hybrid similarity returns 0-100
     // 50% = good match with some variations
     // This is much better than the old prefix matching which required exact character-by-character match
-    if (best_template_id >= 0) {
+    if (best_index >= 0) {
         if (best_similarity < 50) {
             // 유사도가 너무 낮음 (50% 미만)
             return -1;
         }
     }
 
-    return best_template_id;
+    // IMPORTANT: Return 0-based index (not template_id from JSON)
+    // ONNX model expects indices 0, 1, 2, ... vocab_size-1
+    return best_index;
 }
 
 // 어휘 사전 생성
