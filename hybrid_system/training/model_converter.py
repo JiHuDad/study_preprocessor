@@ -61,15 +61,21 @@ class ModelConverter:
                 df = pd.read_parquet(parsed_path)
 
                 if 'template_id' in df.columns and 'template' in df.columns:
+                    # CRITICAL: Sort by template_id to match training vocab order!
+                    # Training vocab is created with: {t: i for i, t in enumerate(sorted(unique_templates))}
+                    df_unique = df[['template_id', 'template']].drop_duplicates('template_id').copy()
+                    df_unique['template_id_int'] = df_unique['template_id'].astype(str).astype(int)
+                    df_unique = df_unique.sort_values('template_id_int')
+
                     template_map = {}
-                    for _, row in df[['template_id', 'template']].drop_duplicates('template_id').iterrows():
+                    for _, row in df_unique.iterrows():
                         tid = str(row['template_id'])
                         template_str = str(row['template'])
                         if not pd.isna(tid) and not pd.isna(template_str):
                             template_map[tid] = template_str
 
                     if template_map:
-                        logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료")
+                        logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료 (정렬된 순서)")
                         return template_map
             except Exception as e:
                 logger.warning(f"parsed.parquet 처리 실패: {e}")

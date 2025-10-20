@@ -662,20 +662,37 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
     
     // JSON 파싱 (간단한 구현)
     // 형식: {"template_id": "template_string", ...}
+
+    // CRITICAL: Must load ALL templates first, then sort by template_id
+    // to match training vocab order: {t: i for i, t in enumerate(sorted(unique_templates))}
+
+    // Temporary storage for unsorted templates
+    typedef struct {
+        int id;
+        char* template_str;
+    } TempTemplate;
+
+    TempTemplate* temp_templates = (TempTemplate*)calloc(MAX_VOCAB_SIZE, sizeof(TempTemplate));
+    if (!temp_templates) {
+        free(json_content);
+        vocab_dict_destroy(vocab);
+        return NULL;
+    }
+
+    size_t temp_count = 0;
     char* pos = json_content;
-    int template_id;
-    char* template_str;
-    
-    while ((pos = strchr(pos, '"')) != NULL) {
+
+    while ((pos = strchr(pos, '"')) != NULL && temp_count < MAX_VOCAB_SIZE) {
         pos++; // 따옴표 건너뛰기
-        
+
         // 키(template_id) 읽기
         char* key_start = pos;
         while (*pos && *pos != '"') pos++;
         if (!*pos) break;
-        
+
         size_t key_len = pos - key_start;
         char key[32];
+        int template_id;
         if (key_len < sizeof(key)) {
             strncpy(key, key_start, key_len);
             key[key_len] = '\0';
@@ -683,48 +700,64 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
         } else {
             continue;
         }
-        
+
         pos++; // 닫는 따옴표 건너뛰기
-        
+
         // ':' 찾기
         while (*pos && *pos != ':') pos++;
         if (!*pos) break;
         pos++;
-        
+
         // 값 찾기
         while (*pos && isspace(*pos)) pos++;
         if (*pos != '"') continue;
         pos++;
-        
+
         char* value_start = pos;
         while (*pos && *pos != '"') {
             if (*pos == '\\') pos++; // 이스케이프 처리
             pos++;
         }
         if (!*pos) break;
-        
+
         size_t value_len = pos - value_start;
-        template_str = (char*)malloc(value_len + 1);
+        char* template_str = (char*)malloc(value_len + 1);
         if (template_str) {
             strncpy(template_str, value_start, value_len);
             template_str[value_len] = '\0';
-            
-            // 어휘 사전에 추가
-            if (vocab->vocab_size < vocab->capacity) {
-                vocab->templates[vocab->vocab_size] = template_str;
-                vocab->template_ids[vocab->vocab_size] = template_id;
-                vocab->vocab_size++;
-            } else {
-                free(template_str);
-                break;
-            }
+
+            // 임시 배열에 저장
+            temp_templates[temp_count].id = template_id;
+            temp_templates[temp_count].template_str = template_str;
+            temp_count++;
         }
-        
+
         pos++;
     }
-    
+
     free(json_content);
-    
-    printf("Loaded vocabulary: %zu templates\n", vocab->vocab_size);
+
+    // CRITICAL: Sort by template_id (ascending) to match training order
+    for (size_t i = 0; i < temp_count - 1; i++) {
+        for (size_t j = i + 1; j < temp_count; j++) {
+            if (temp_templates[i].id > temp_templates[j].id) {
+                // Swap
+                TempTemplate tmp = temp_templates[i];
+                temp_templates[i] = temp_templates[j];
+                temp_templates[j] = tmp;
+            }
+        }
+    }
+
+    // Copy sorted templates to vocab
+    for (size_t i = 0; i < temp_count && i < vocab->capacity; i++) {
+        vocab->templates[i] = temp_templates[i].template_str;
+        vocab->template_ids[i] = temp_templates[i].id;
+        vocab->vocab_size++;
+    }
+
+    free(temp_templates);
+
+    printf("Loaded vocabulary: %zu templates (sorted by ID)\n", vocab->vocab_size);
     return vocab;
 }
