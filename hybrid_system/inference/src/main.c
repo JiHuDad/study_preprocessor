@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <ctype.h>
 
 // 전역 변수
 static InferenceEngine* g_engine = NULL;
@@ -16,6 +17,55 @@ void signal_handler(int sig) {
     g_running = false;
 }
 
+// meta.json에서 seq_len 읽기
+int read_seq_len_from_meta(const char* model_path) {
+    if (!model_path) return -1;
+
+    // model_path에서 .onnx를 .onnx.meta.json으로 변경
+    char meta_path[1024];
+    snprintf(meta_path, sizeof(meta_path), "%s.meta.json", model_path);
+
+    FILE* f = fopen(meta_path, "r");
+    if (!f) {
+        return -1;  // meta.json이 없으면 실패
+    }
+
+    // 파일 읽기
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char* content = (char*)malloc(fsize + 1);
+    if (!content) {
+        fclose(f);
+        return -1;
+    }
+
+    fread(content, 1, fsize, f);
+    fclose(f);
+    content[fsize] = '\0';
+
+    // 간단한 JSON 파싱: "seq_len": 숫자 찾기
+    int seq_len = -1;
+    char* seq_len_str = strstr(content, "\"seq_len\"");
+    if (seq_len_str) {
+        // "seq_len": 50 형태 찾기
+        char* colon = strchr(seq_len_str, ':');
+        if (colon) {
+            // 숫자 부분 찾기
+            while (*colon && !isdigit(*colon) && *colon != '-') {
+                colon++;
+            }
+            if (*colon) {
+                seq_len = atoi(colon);
+            }
+        }
+    }
+
+    free(content);
+    return seq_len;
+}
+
 // 도움말 출력
 void print_usage(const char* program_name) {
     printf("Usage: %s [OPTIONS]\n", program_name);
@@ -23,7 +73,7 @@ void print_usage(const char* program_name) {
     printf("  -d, --deeplog PATH     DeepLog ONNX model path\n");
     printf("  -m, --mscred PATH      MS-CRED ONNX model path (optional)\n");
     printf("  -v, --vocab PATH       Vocabulary JSON file path\n");
-    printf("  -s, --seq-len N        Sequence length (default: 50)\n");
+    printf("  -s, --seq-len N        Sequence length (default: auto-detect from meta.json, fallback: 50)\n");
     printf("  -k, --top-k N          Top-K value (default: 3)\n");
     printf("  -i, --input PATH       Input log file (default: stdin)\n");
     printf("  -o, --output PATH      Output results file (default: stdout)\n");
@@ -210,7 +260,7 @@ int main(int argc, char* argv[]) {
     const char* vocab_path = NULL;
     const char* input_path = NULL;
     const char* output_path = NULL;
-    int seq_len = 50;
+    int seq_len = -1;  // -1 means auto-detect
     int top_k = 3;
     bool test_mode = false;
     
@@ -248,11 +298,22 @@ int main(int argc, char* argv[]) {
         print_usage(argv[0]);
         return 1;
     }
-    
+
+    // seq_len 자동 감지 (사용자가 지정하지 않았으면)
+    if (seq_len == -1) {
+        seq_len = read_seq_len_from_meta(deeplog_path);
+        if (seq_len > 0) {
+            printf("Auto-detected seq_len=%d from %s.meta.json\n", seq_len, deeplog_path);
+        } else {
+            seq_len = 50;  // 기본값으로 폴백
+            fprintf(stderr, "Warning: Could not read seq_len from meta.json, using default: %d\n", seq_len);
+        }
+    }
+
     // 시그널 핸들러 설정
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-    
+
     printf("C Inference Engine Starting...\n");
     printf("DeepLog model: %s\n", deeplog_path);
     if (mscred_path) {
@@ -262,7 +323,7 @@ int main(int argc, char* argv[]) {
     printf("Sequence length: %d\n", seq_len);
     printf("Top-K: %d\n", top_k);
     printf("\n");
-    
+
     // 추론 엔진 생성
     g_engine = inference_engine_create(seq_len, top_k);
     if (!g_engine) {
