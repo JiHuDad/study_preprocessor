@@ -73,9 +73,9 @@ fi
 
 # 필수 파일 존재 확인
 required_files=(
-    "enhanced_batch_analyzer.py"
-    "temporal_anomaly_detector.py" 
-    "comparative_anomaly_detector.py"
+    "tools/enhanced_batch_analyzer.py"
+    "tools/temporal_anomaly_detector.py" 
+    "tools/comparative_anomaly_detector.py"
 )
 
 for file in "${required_files[@]}"; do
@@ -128,13 +128,13 @@ START_TIME=$(date +%s)
 
 # 향상된 배치 분석 실행
 if [ -n "$TARGET_FILE" ]; then
-    $PYTHON_CMD enhanced_batch_analyzer.py "$LOG_DIR" \
+    $PYTHON_CMD tools/enhanced_batch_analyzer.py "$LOG_DIR" \
         --target "$TARGET_FILE" \
         --max-depth "$MAX_DEPTH" \
         --max-files "$MAX_FILES" \
         --work-dir "$WORK_DIR"
 else
-    $PYTHON_CMD enhanced_batch_analyzer.py "$LOG_DIR" \
+    $PYTHON_CMD tools/enhanced_batch_analyzer.py "$LOG_DIR" \
         --max-depth "$MAX_DEPTH" \
         --max-files "$MAX_FILES" \
         --work-dir "$WORK_DIR"
@@ -267,11 +267,11 @@ if [ -d "$WORK_DIR" ]; then
         if [ -f "visualize_results.py" ]; then
             echo "  $PYTHON_CMD visualize_results.py --data-dir $target_processed_dir"
         fi
-        if [ -f "mscred_analyzer.py" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
-            echo "  $PYTHON_CMD mscred_analyzer.py --data-dir $target_processed_dir"
+        if [ -f "tools/mscred_analyzer.py" ] && [ -f "$target_processed_dir/mscred_infer.parquet" ]; then
+            echo "  $PYTHON_CMD tools/mscred_analyzer.py --data-dir $target_processed_dir"
         fi
-        if [ -f "log_sample_analyzer.py" ]; then
-            echo "  $PYTHON_CMD log_sample_analyzer.py $target_processed_dir"
+        if [ -f "tools/log_sample_analyzer.py" ]; then
+            echo "  $PYTHON_CMD tools/log_sample_analyzer.py $target_processed_dir"
         fi
         echo ""
         

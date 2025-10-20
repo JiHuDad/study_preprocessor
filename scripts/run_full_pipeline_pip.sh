@@ -240,17 +240,17 @@ else
 fi
 
 # MS-CRED 전용 분석 실행
-if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ] && [ -f "mscred_analyzer.py" ]; then
+if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ] && [ -f "tools/mscred_analyzer.py" ]; then
     echo "🔬 MS-CRED 전용 분석:"
     echo "============================================================"
-    $PYTHON_CMD mscred_analyzer.py --data-dir "$OUTPUT_DIR" --output-dir "$OUTPUT_DIR"
+    $PYTHON_CMD tools/mscred_analyzer.py --data-dir "$OUTPUT_DIR" --output-dir "$OUTPUT_DIR"
     echo ""
     
     if [ -f "$OUTPUT_DIR/mscred_analysis_report.md" ]; then
         echo "📊 MS-CRED 분석 리포트가 생성되었습니다: $OUTPUT_DIR/mscred_analysis_report.md"
     fi
 else
-    echo "⚠️  MS-CRED 결과가 없거나 mscred_analyzer.py 파일을 찾을 수 없어 MS-CRED 전용 분석을 건너뜁니다."
+    echo "⚠️  MS-CRED 결과가 없거나 tools/mscred_analyzer.py 파일을 찾을 수 없어 MS-CRED 전용 분석을 건너뜁니다."
 fi
 
 echo "🔍 자세한 분석을 위해 다음 파일들을 확인하세요:"
@@ -262,7 +262,7 @@ echo "  - 상세 분석: $PYTHON_CMD analyze_results.py --data-dir $OUTPUT_DIR"
 echo "  - 시각화: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR"
 echo "  - 간단 요약: $PYTHON_CMD visualize_results.py --data-dir $OUTPUT_DIR --summary"
 if [ -f "$OUTPUT_DIR/mscred_infer.parquet" ]; then
-    echo "  - MS-CRED 분석: $PYTHON_CMD mscred_analyzer.py --data-dir $OUTPUT_DIR"
+    echo "  - MS-CRED 분석: $PYTHON_CMD tools/mscred_analyzer.py --data-dir $OUTPUT_DIR"
 fi
 echo ""
 echo "💡 설치 및 사용 팁:"

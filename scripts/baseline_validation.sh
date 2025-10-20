@@ -53,8 +53,8 @@ if [ -z "$VIRTUAL_ENV" ]; then
 fi
 
 # 필수 파일 확인
-if [ ! -f "baseline_validator.py" ]; then
-    echo "❌ baseline_validator.py 파일이 없습니다"
+if [ ! -f "tools/baseline_validator.py" ]; then
+    echo "❌ tools/baseline_validator.py 파일이 없습니다"
     echo "현재 디렉토리가 anomaly_log_detector 프로젝트 루트인지 확인하세요."
     exit 1
 fi
@@ -66,7 +66,7 @@ echo "🔍 품질 검증 실행 중..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Baseline 검증 실행
-$PYTHON_CMD baseline_validator.py "${baseline_files[@]}" --output-dir "$output_dir"
+$PYTHON_CMD tools/baseline_validator.py "${baseline_files[@]}" --output-dir "$output_dir"
 
 # 종료 시간 및 소요 시간 계산
 END_TIME=$(date +%s)
