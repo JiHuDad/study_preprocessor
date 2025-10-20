@@ -11,21 +11,24 @@ LOG_DIR="$1"
 MODEL_DIR="${2:-models_$(date +%Y%m%d_%H%M%S)}"
 MAX_DEPTH="${3:-3}"
 MAX_FILES="${4:-50}"
+SEQ_LEN="${5:-50}"  # 시퀀스 길이 (기본: 50, 멀티스레드 환경에서는 10-20 권장)
 
 # 인수 확인
 if [ -z "$LOG_DIR" ]; then
-    echo "❌ 사용법: $0 <로그디렉토리> [모델저장디렉토리] [최대깊이] [최대파일수]"
+    echo "❌ 사용법: $0 <로그디렉토리> [모델저장디렉토리] [최대깊이] [최대파일수] [시퀀스길이]"
     echo ""
     echo "예시:"
     echo "  $0 /var/log/normal/"
-    echo "  $0 /var/log/normal/ my_models"  
+    echo "  $0 /var/log/normal/ my_models"
     echo "  $0 /var/log/normal/ my_models 5 100"
+    echo "  $0 /var/log/normal/ my_models 5 100 15  # 멀티스레드 환경"
     echo ""
     echo "📋 설명:"
     echo "  - 로그디렉토리: 정상 로그 파일들이 있는 폴더 (학습용)"
     echo "  - 모델저장디렉토리: 학습된 모델들을 저장할 폴더 (생략시 자동 생성)"
     echo "  - 최대깊이: 하위 디렉토리 스캔 깊이 (기본: 3)"
     echo "  - 최대파일수: 학습에 사용할 최대 파일 수 (기본: 50)"
+    echo "  - 시퀀스길이: DeepLog 시퀀스 길이 (기본: 50, 멀티스레드: 10-20 권장)"
     echo ""
     echo "💡 특징:"
     echo "  - 📁 하위 디렉토리 자동 재귀 스캔"
@@ -133,6 +136,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "📂 학습 로그 디렉토리: $LOG_DIR"
 echo "💾 모델 저장 디렉토리: $MODEL_DIR"
 echo "📊 스캔 깊이: $MAX_DEPTH, 최대 파일: $MAX_FILES개"
+echo "🔢 시퀀스 길이: $SEQ_LEN"
 echo "🐍 Python 실행: $PYTHON_CMD"
 echo ""
 echo "🔄 수행할 학습 단계:"
@@ -377,7 +381,7 @@ try:
             sequences_parquet=str(sequences_path),
             vocab_json=str(vocab_path),
             out_path=model_path,
-            seq_len=50,
+            seq_len=$SEQ_LEN,
             epochs=10,
             batch_size=64
         )
