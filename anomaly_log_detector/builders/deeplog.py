@@ -64,9 +64,17 @@ def train_deeplog(sequences_parquet: str | Path, vocab_json: str | Path, out_pat
 
     # 단일 시퀀스(전체) 기준 최소 구현
     X, Y = _make_sequences(df["template_index"], seq_len)
-    model = DeepLogLSTM(vocab_size=max(1, vocab_size), embed_dim=64, hidden_dim=128).to(device)
+    embed_dim = 64
+    hidden_dim = 128
+    model = DeepLogLSTM(vocab_size=max(1, vocab_size), embed_dim=embed_dim, hidden_dim=hidden_dim).to(device)
     if len(X) == 0:
-        torch.save({"vocab_size": vocab_size, "state_dict": model.state_dict(), "seq_len": seq_len}, out_path)
+        torch.save({
+            "vocab_size": vocab_size,
+            "state_dict": model.state_dict(),
+            "seq_len": seq_len,
+            "embed_dim": embed_dim,
+            "hidden_dim": hidden_dim
+        }, out_path)
         return Path(out_path)
 
     dataset = torch.utils.data.TensorDataset(X, Y)
@@ -85,7 +93,13 @@ def train_deeplog(sequences_parquet: str | Path, vocab_json: str | Path, out_pat
             loss.backward()
             opt.step()
 
-    torch.save({"vocab_size": vocab_size, "state_dict": model.state_dict(), "seq_len": seq_len}, out_path)
+    torch.save({
+        "vocab_size": vocab_size,
+        "state_dict": model.state_dict(),
+        "seq_len": seq_len,
+        "embed_dim": embed_dim,
+        "hidden_dim": hidden_dim
+    }, out_path)
     return Path(out_path)
 
 
