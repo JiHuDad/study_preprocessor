@@ -1,6 +1,143 @@
-# ONNX Export Dynamo Error 수정
+# ONNX 변환 관련 에러 수정
 
-## 문제 상황
+이 문서는 ONNX 변환 시 발생하는 두 가지 주요 문제와 해결책을 다룹니다:
+1. **Vocab 형식 에러**: template_id 대신 template string 사용
+2. **Dynamo Export 에러**: PyTorch 2.1+ 호환성 문제
+
+---
+
+## 문제 1: Vocab 형식 에러 (template_id vs template string)
+
+### 증상
+
+ONNX 변환 후 생성된 vocab.json이 다음과 같은 형식:
+
+```json
+{
+  "1": 0,
+  "2": 1,
+  "3": 2
+}
+```
+
+### 원인
+
+`build_deeplog_inputs()`가 **`template_col="template_id"`**를 기본값으로 사용:
+- `template_id`: Drain3가 부여한 ID (문자열 "1", "2", "3" 등)
+- `template`: 실제 템플릿 문자열 (예: "User <ID> logged in")
+
+C 추론 엔진은 **실제 템플릿 문자열**이 필요한데, template_id만 저장되어 있어 추론 불가.
+
+### 해결
+
+#### 1. [deeplog.py:15](../../anomaly_log_detector/builders/deeplog.py#L15) 수정
+
+기본값을 `template_col="template"`로 변경:
+
+```python
+def build_deeplog_inputs(
+    parsed_parquet: str | Path,
+    out_dir: str | Path,
+    template_col: str = "template"  # 변경: "template_id" → "template"
+) -> None:
+    # Build vocab mapping using actual template strings (NOT template_id)
+    # CRITICAL: Use "template" column (actual template string) for C engine compatibility
+    unique_templates = [t for t in df[template_col].dropna().astype(str).unique()]
+    vocab: Dict[str, int] = {t: i for i, t in enumerate(sorted(unique_templates))}
+```
+
+#### 2. [model_converter.py:72-80](../../hybrid_system/training/model_converter.py#L72-L80) 검증 로직 추가
+
+잘못된 vocab 형식을 조기에 발견:
+
+```python
+if isinstance(first_value, int):
+    # template_id 사용 여부 확인
+    if first_key.isdigit() and len(first_key) <= 5:
+        logger.error("❌ vocab이 template_id를 key로 사용하고 있습니다!")
+        raise ValueError(
+            "vocab.json이 template_id를 사용합니다. "
+            "build_deeplog_inputs(template_col='template')로 재생성하세요."
+        )
+```
+
+### 올바른 vocab 형식
+
+**Python 학습용** (입력):
+```json
+{
+  "User <ID> logged in": 0,
+  "System started successfully": 1,
+  "Error: <PATH> not found": 2
+}
+```
+
+**C 엔진용** (ONNX 변환 후):
+```json
+{
+  "0": "User <ID> logged in",
+  "1": "System started successfully",
+  "2": "Error: <PATH> not found"
+}
+```
+
+### 재생성 방법
+
+#### 방법 1: 전체 재생성 (권장)
+
+```bash
+# 1. DeepLog 입력 재생성 (template 컬럼 사용)
+alog-detect build-deeplog --parsed data/parsed.parquet --out-dir training_workspace/
+
+# 2. vocab.json 확인
+head training_workspace/vocab.json
+# 올바른 형식: {"actual template string": 0, ...}
+
+# 3. 모델 재학습 (vocab이 바뀌었으므로 필수!)
+alog-detect deeplog-train \
+  --seq training_workspace/sequences.parquet \
+  --vocab training_workspace/vocab.json \
+  --out training_workspace/deeplog.pth
+
+# 4. ONNX 변환
+alog-detect convert-onnx \
+  --deeplog-model training_workspace/deeplog.pth \
+  --vocab training_workspace/vocab.json \
+  --output-dir models/onnx
+```
+
+#### 방법 2: 기존 vocab 변환 (빠른 방법)
+
+기존 학습된 모델을 유지하고 vocab.json만 변환:
+
+```bash
+# 1. vocab.json 변환 (template_id -> template string)
+python scripts/fix_vocab_format.py \
+  --parsed data/parsed.parquet \
+  --old-vocab training_workspace/vocab.json \
+  --output training_workspace/vocab_fixed.json
+
+# 2. 백업 및 교체
+mv training_workspace/vocab.json training_workspace/vocab_old.json
+mv training_workspace/vocab_fixed.json training_workspace/vocab.json
+
+# 3. vocab.json 확인
+head training_workspace/vocab.json
+
+# 4. ONNX 변환
+alog-detect convert-onnx \
+  --deeplog-model training_workspace/deeplog.pth \
+  --vocab training_workspace/vocab.json \
+  --output-dir models/onnx
+```
+
+**⚠️ 주의**: 방법 2는 vocab 순서가 바뀔 수 있으므로 **모델 재학습 권장** (방법 1)
+
+---
+
+## 문제 2: ONNX Export Dynamo Error
+
+### 증상
 
 PyTorch 2.1+ 환경에서 ONNX 변환 시 다음과 같은 에러 발생:
 

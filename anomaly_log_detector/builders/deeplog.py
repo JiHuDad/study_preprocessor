@@ -12,12 +12,14 @@ import torch
 from torch import nn
 
 
-def build_deeplog_inputs(parsed_parquet: str | Path, out_dir: str | Path, template_col: str = "template_id") -> None:
+def build_deeplog_inputs(parsed_parquet: str | Path, out_dir: str | Path, template_col: str = "template") -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     df = pd.read_parquet(parsed_parquet)
 
-    # Build vocab mapping
+    # Build vocab mapping using actual template strings (NOT template_id)
+    # CRITICAL: Use "template" column (actual template string) for C engine compatibility
+    # If template_col is "template_id", this will create {"1": 0, "2": 1} which is wrong!
     unique_templates = [t for t in df[template_col].dropna().astype(str).unique()]
     vocab: Dict[str, int] = {t: i for i, t in enumerate(sorted(unique_templates))}
     (out / "vocab.json").write_text(json.dumps(vocab, indent=2))

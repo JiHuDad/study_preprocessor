@@ -43,12 +43,41 @@ class ModelConverter:
         Returns:
             C 엔진용 vocab ({"index": "template_string"} 형식)
         """
-        # 이미 템플릿 문자열 형식인지 확인 (역변환된 경우)
-        sample_value = next(iter(vocab.values())) if vocab else None
-        if sample_value and isinstance(sample_value, str) and len(sample_value) > 10:
-            # 이미 올바른 형식
-            logger.info("📋 vocab이 이미 템플릿 문자열 형식입니다")
+        # vocab 형식 확인
+        if not vocab:
+            logger.warning("⚠️  빈 vocab")
             return vocab
+
+        # 첫 번째 항목으로 형식 판단
+        first_key = next(iter(vocab.keys()))
+        first_value = next(iter(vocab.values()))
+
+        # Case 1: 이미 C 엔진용 형식 {"0": "template_string", ...}
+        if isinstance(first_value, str) and not first_key.isdigit():
+            # 잘못된 형식 경고 (key가 숫자가 아닌 경우)
+            logger.warning(f"⚠️  vocab 형식이 이상합니다: key='{first_key}', value='{first_value}'")
+            logger.warning("⚠️  예상 형식: {{\"template_string\": index}} 또는 {{\"index\": \"template_string\"}}")
+
+        if isinstance(first_value, str) and first_key.isdigit():
+            # 이미 C 엔진용 형식 {"0": "template string"}
+            logger.info("📋 vocab이 이미 C 엔진용 템플릿 문자열 형식입니다")
+            return vocab
+
+        # Case 2: Python 학습용 형식인지 확인
+        # 올바른 형식: {"template_string": 0, ...}
+        # 잘못된 형식: {"1": 0, "2": 1, ...} (template_id를 key로 사용)
+        if isinstance(first_value, int):
+            # 실제 템플릿 문자열인지 확인
+            # template_id는 보통 짧은 숫자 문자열이므로 길이로 구분
+            if first_key.isdigit() and len(first_key) <= 5:
+                logger.error("❌ vocab이 template_id를 key로 사용하고 있습니다!")
+                logger.error(f"   현재 형식: {{\"{first_key}\": {first_value}, ...}}")
+                logger.error("   올바른 형식: {{\"actual template string\": 0, ...}}")
+                logger.error("   해결: build_deeplog_inputs()에서 template_col='template' 사용")
+                raise ValueError(
+                    "vocab.json이 template_id를 사용합니다. "
+                    "build_deeplog_inputs(template_col='template')로 재생성하세요."
+                )
 
         # Python vocab 형식 확인: {template_string: index}
         # 변환: {index: template_string}
