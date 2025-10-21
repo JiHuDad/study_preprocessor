@@ -84,7 +84,7 @@ class ModelConverter:
         model_path: str,
         vocab_path: str,
         output_name: str = "deeplog.onnx",
-        seq_len: int = 50
+        seq_len: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         DeepLog 모델을 ONNX로 변환
@@ -93,7 +93,8 @@ class ModelConverter:
             model_path: PyTorch 모델 파일 경로
             vocab_path: 어휘 사전 파일 경로
             output_name: 출력 ONNX 파일명
-            seq_len: 시퀀스 길이
+            seq_len: 시퀀스 길이 (None이면 모델에 저장된 값 사용,
+                    ONNX는 dynamic_axes로 다양한 길이 지원)
 
         Returns:
             변환 결과 정보
@@ -119,18 +120,19 @@ class ModelConverter:
         # state dict 로드
         state = torch.load(model_path, map_location='cpu')
         model_vocab_size = int(state.get("vocab_size", vocab_size))
-        model_seq_len = int(state.get("seq_len", seq_len))
+        model_seq_len = int(state.get("seq_len", 50))  # 기본값 50
         model_embed_dim = int(state.get("embed_dim", 64))  # 기본값 64
         model_hidden_dim = int(state.get("hidden_dim", 128))  # 기본값 128
 
+        # seq_len 결정: 파라미터로 지정되지 않으면 모델에 저장된 값 사용
+        if seq_len is None:
+            seq_len = model_seq_len
+
         # 모델 생성 및 가중치 로드
-        logger.info(f"📊 모델 파라미터: vocab_size={model_vocab_size}, embed_dim={model_embed_dim}, hidden_dim={model_hidden_dim}")
+        logger.info(f"📊 모델 파라미터: vocab_size={model_vocab_size}, embed_dim={model_embed_dim}, hidden_dim={model_hidden_dim}, seq_len={seq_len}")
         model = DeepLogLSTM(vocab_size=model_vocab_size, embed_dim=model_embed_dim, hidden_dim=model_hidden_dim)
         model.load_state_dict(state["state_dict"])
         model.eval()
-
-        # seq_len 업데이트 (모델에 저장된 값 사용)
-        seq_len = model_seq_len
         
         # 더미 입력 생성 (배치 크기 1, 시퀀스 길이)
         dummy_input = torch.randint(0, vocab_size, (1, seq_len), dtype=torch.long)
@@ -168,12 +170,22 @@ class ModelConverter:
         metadata = {
             'model_type': 'deeplog',
             'vocab_size': vocab_size,
-            'seq_len': seq_len,
-            'input_shape': [1, seq_len],
+            'seq_len': seq_len,  # 학습 시 사용한 시퀀스 길이 (권장값)
+            'input_shape': [1, seq_len],  # 예시 입력 형태
             'output_shape': [1, vocab_size],
             'input_names': ['input_sequence'],
             'output_names': ['predictions'],
-            'opset_version': 11
+            'opset_version': 11,
+            'dynamic_axes': {
+                'input_sequence': {
+                    '0': 'batch_size',
+                    '1': 'sequence_length'  # 동적: 다양한 길이 지원
+                },
+                'predictions': {
+                    '0': 'batch_size'
+                }
+            },
+            'notes': 'ONNX model supports dynamic sequence lengths via dynamic_axes. seq_len is recommended value from training.'
         }
         
         metadata_path = self.output_dir / f"{output_name}.meta.json"
@@ -457,6 +469,7 @@ def convert_all_models(
     mscred_model: str,
     vocab_path: str,
     output_dir: str = "models/onnx",
+    seq_len: Optional[int] = None,
     feature_dim: Optional[int] = None,
     portable: bool = False
 ) -> Dict[str, Any]:
@@ -468,6 +481,7 @@ def convert_all_models(
         mscred_model: MS-CRED 모델 경로
         vocab_path: 어휘 사전 경로
         output_dir: 출력 디렉토리
+        seq_len: DeepLog 시퀀스 길이 (None이면 모델 저장값 사용)
         feature_dim: MS-CRED 피처 차원 (템플릿 개수, None이면 자동 감지)
         portable: True이면 범용 최적화 (모든 환경), False이면 최대 최적화 (현재 하드웨어)
 
@@ -481,7 +495,7 @@ def convert_all_models(
     if os.path.exists(deeplog_model):
         try:
             deeplog_result = converter.convert_deeplog_to_onnx(
-                deeplog_model, vocab_path
+                deeplog_model, vocab_path, seq_len=seq_len
             )
 
             # 검증 및 최적화

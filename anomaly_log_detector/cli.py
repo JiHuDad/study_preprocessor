@@ -470,9 +470,10 @@ def analyze_samples_cmd(processed_dir: Path, output_dir: Path, max_samples: int,
 @click.option("--vocab", type=click.Path(exists=True, dir_okay=False, path_type=Path), help="어휘 사전 경로")
 @click.option("--output-dir", type=click.Path(file_okay=False, path_type=Path), default="models/onnx", help="ONNX 출력 디렉토리")
 @click.option("--validate", is_flag=True, default=False, help="변환 후 검증 실행")
+@click.option("--seq-len", type=int, default=None, help="DeepLog 시퀀스 길이 (기본: 모델에 저장된 값 사용, ONNX는 dynamic_axes로 다양한 길이 지원)")
 @click.option("--feature-dim", type=int, default=None, help="MS-CRED 피처 차원 (템플릿 개수, 기본: 자동 감지)")
 @click.option("--portable", is_flag=True, default=False, help="범용 최적화 모드 (모든 환경에서 사용 가능, 하드웨어 특화 최적화 제외)")
-def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, output_dir: Path, validate: bool, feature_dim: Optional[int], portable: bool) -> None:
+def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, output_dir: Path, validate: bool, seq_len: Optional[int], feature_dim: Optional[int], portable: bool) -> None:
     """PyTorch 모델을 ONNX 포맷으로 변환."""
     try:
         # 하이브리드 시스템 모듈 동적 임포트
@@ -508,6 +509,7 @@ def convert_onnx_cmd(deeplog_model: Path, mscred_model: Path, vocab: Path, outpu
             str(mscred_model) if mscred_model else "",
             str(vocab) if vocab else "",
             str(output_dir),
+            seq_len=seq_len,
             feature_dim=feature_dim,
             portable=portable
         )
