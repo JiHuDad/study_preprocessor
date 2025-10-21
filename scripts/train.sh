@@ -153,7 +153,7 @@ START_TIME=$(date +%s)
 # 1단계: 로그 파일 스캔
 echo "1️⃣  로그 파일 스캔 중..."
 log_files=()
-log_patterns=("*.log" "*.txt" "*.out" "*.log.*" "*.syslog" "*.messages")
+log_patterns=("*.log" "*.txt" "*.out" "*.log.*" "*.syslog" "*.messages" "*.log*")
 
 for pattern in "${log_patterns[@]}"; do
     while IFS= read -r -d '' file; do
