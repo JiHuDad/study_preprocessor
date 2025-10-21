@@ -148,22 +148,40 @@ class ModelConverter:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
             warnings.filterwarnings("ignore", category=DeprecationWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
 
-            torch.onnx.export(
-                model,
-                dummy_input,
-                str(onnx_path),
-                export_params=True,
-                opset_version=11,  # 호환성을 위해 안정적인 버전 사용
-                do_constant_folding=True,
-                input_names=['input_sequence'],
-                output_names=['predictions'],
-                dynamic_axes={
+            # PyTorch 2.0+ 호환성: dynamo 방식 명시적 비활성화
+            export_options = {
+                'export_params': True,
+                'opset_version': 11,  # 호환성을 위해 안정적인 버전 사용
+                'do_constant_folding': True,
+                'input_names': ['input_sequence'],
+                'output_names': ['predictions'],
+                'dynamic_axes': {
                     'input_sequence': {0: 'batch_size', 1: 'sequence_length'},
                     'predictions': {0: 'batch_size'}
                 },
-                verbose=False
-            )
+                'verbose': False
+            }
+
+            # PyTorch 2.1+에서 dynamo 방식 강제 비활성화
+            try:
+                # dynamo=False를 시도 (PyTorch 2.1+)
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    str(onnx_path),
+                    dynamo=False,  # 명시적으로 레거시 TorchScript 방식 사용
+                    **export_options
+                )
+            except TypeError:
+                # PyTorch 2.0 이하는 dynamo 파라미터 없음
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    str(onnx_path),
+                    **export_options
+                )
         logger.info("✅ ONNX export 성공")
         
         # 메타데이터 저장
@@ -338,22 +356,40 @@ class ModelConverter:
         import warnings
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=UserWarning)
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            warnings.filterwarnings("ignore", category=FutureWarning)
 
-            torch.onnx.export(
-                model,
-                dummy_input,
-                str(onnx_path),
-                export_params=True,
-                opset_version=11,
-                do_constant_folding=True,
-                input_names=['input_features'],
-                output_names=['reconstructed'],
-                dynamic_axes={
+            # PyTorch 2.0+ 호환성: dynamo 방식 명시적 비활성화
+            export_options = {
+                'export_params': True,
+                'opset_version': 11,
+                'do_constant_folding': True,
+                'input_names': ['input_features'],
+                'output_names': ['reconstructed'],
+                'dynamic_axes': {
                     'input_features': {0: 'batch_size'},
                     'reconstructed': {0: 'batch_size'}
                 },
-                verbose=False
-            )
+                'verbose': False
+            }
+
+            # PyTorch 2.1+에서 dynamo 방식 강제 비활성화
+            try:
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    str(onnx_path),
+                    dynamo=False,  # 명시적으로 레거시 TorchScript 방식 사용
+                    **export_options
+                )
+            except TypeError:
+                # PyTorch 2.0 이하는 dynamo 파라미터 없음
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    str(onnx_path),
+                    **export_options
+                )
         
         # 메타데이터 저장
         metadata = {
