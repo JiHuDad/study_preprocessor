@@ -474,6 +474,14 @@ echo "6️⃣  학습 메타데이터 저장 중..."
 # 선택된 파일 목록을 임시 파일로 저장
 printf "%s\n" "${selected_files[@]}" | sed "s|$LOG_DIR/||g" | head -20 > "$WORK_DIR/file_list.txt"
 
+# 환경 변수로 전달
+export TRAIN_WORK_DIR="$WORK_DIR"
+export TRAIN_LOG_DIR="$LOG_DIR"
+export TRAIN_MODEL_DIR="$MODEL_DIR"
+export TRAIN_MAX_DEPTH="$MAX_DEPTH"
+export TRAIN_MAX_FILES="$MAX_FILES"
+export TRAIN_TOTAL_FILES="${#selected_files[@]}"
+
 # 학습 정보 메타데이터 생성
 $PYTHON_CMD <<'PYEOF'
 import json
@@ -481,9 +489,18 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+# 환경 변수에서 읽기
+work_dir = os.environ.get('TRAIN_WORK_DIR', '.')
+log_dir = os.environ.get('TRAIN_LOG_DIR', '')
+model_dir = os.environ.get('TRAIN_MODEL_DIR', '.')
+max_depth = int(os.environ.get('TRAIN_MAX_DEPTH', '3'))
+max_files = int(os.environ.get('TRAIN_MAX_FILES', '50'))
+total_files = int(os.environ.get('TRAIN_TOTAL_FILES', '0'))
+
 # 파일 목록 읽기
 try:
-    with open('${WORK_DIR}/file_list.txt', 'r') as f:
+    file_list_path = os.path.join(work_dir, 'file_list.txt')
+    with open(file_list_path, 'r') as f:
         file_list = [line.strip() for line in f if line.strip()]
 except:
     file_list = []
@@ -491,22 +508,23 @@ except:
 metadata = {
     'training_info': {
         'timestamp': datetime.now().isoformat(),
-        'log_directory': '${LOG_DIR}',
-        'total_files': ${#selected_files[@]},
-        'max_depth': ${MAX_DEPTH},
-        'max_files': ${MAX_FILES}
+        'log_directory': log_dir,
+        'total_files': total_files,
+        'max_depth': max_depth,
+        'max_files': max_files
     },
     'models': {
-        'deeplog': os.path.exists('${MODEL_DIR}/deeplog.pth'),
-        'mscred': os.path.exists('${MODEL_DIR}/mscred.pth'),
-        'baseline_stats': os.path.exists('${MODEL_DIR}/baseline_stats.json'),
-        'drain3_state': os.path.exists('${MODEL_DIR}/drain3_state.json'),
-        'vocab': os.path.exists('${MODEL_DIR}/vocab.json')
+        'deeplog': os.path.exists(os.path.join(model_dir, 'deeplog.pth')),
+        'mscred': os.path.exists(os.path.join(model_dir, 'mscred.pth')),
+        'baseline_stats': os.path.exists(os.path.join(model_dir, 'baseline_stats.json')),
+        'drain3_state': os.path.exists(os.path.join(model_dir, 'drain3_state.json')),
+        'vocab': os.path.exists(os.path.join(model_dir, 'vocab.json'))
     },
     'files': file_list
 }
 
-with open('${MODEL_DIR}/metadata.json', 'w') as f:
+metadata_path = os.path.join(model_dir, 'metadata.json')
+with open(metadata_path, 'w') as f:
     json.dump(metadata, f, indent=2, ensure_ascii=False)
 
 print('✅ 메타데이터 저장 완료')
