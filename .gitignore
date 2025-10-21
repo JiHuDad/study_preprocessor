@@ -48,6 +48,12 @@ validation_*/
 cli_test_*/
 direct_test_*/
 *_test_output/
+hybrid_system/inference/onnxruntime-*
+hybrid_system/inference/models/
+hybrid_system/inference/obj/
+hybrid_system/inference/bin/
+.cursor/
+docs/development/CLAUDE.md
 
 # Log files (except examples)
 *.log

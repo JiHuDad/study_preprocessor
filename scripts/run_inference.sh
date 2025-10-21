@@ -484,8 +484,8 @@ echo ""
 
 # 5단계: 시간 기반 이상탐지
 echo "5️⃣  시간 기반 이상탐지 중..."
-if [ -f "temporal_anomaly_detector.py" ]; then
-    $PYTHON_CMD temporal_anomaly_detector.py --data-dir "$RESULT_DIR" --output-dir "$RESULT_DIR/temporal_analysis"
+if [ -f "tools/temporal_anomaly_detector.py" ]; then
+    $PYTHON_CMD tools/temporal_anomaly_detector.py --data-dir "$RESULT_DIR" --output-dir "$RESULT_DIR/temporal_analysis"
     
     if [ -f "$RESULT_DIR/temporal_analysis/temporal_anomalies.json" ]; then
         temporal_count=$(python3 -c "import json; data=json.load(open('$RESULT_DIR/temporal_analysis/temporal_anomalies.json')); print(len(data))" 2>/dev/null || echo "N/A")
@@ -494,14 +494,14 @@ if [ -f "temporal_anomaly_detector.py" ]; then
         echo "⚠️  시간 기반 분석 실행 실패"
     fi
 else
-    echo "⚠️  temporal_anomaly_detector.py가 없어 건너뜁니다."
+    echo "⚠️  tools/temporal_anomaly_detector.py가 없어 건너뜁니다."
 fi
 echo ""
 
 # 6단계: 이상 로그 샘플 추출 및 분석
 echo "6️⃣  이상 로그 샘플 추출 및 분석 중..."
-if [ -f "log_sample_analyzer.py" ]; then
-    $PYTHON_CMD log_sample_analyzer.py "$RESULT_DIR" --output-dir "$RESULT_DIR/log_samples_analysis"
+if [ -f "tools/log_sample_analyzer.py" ]; then
+    $PYTHON_CMD tools/log_sample_analyzer.py "$RESULT_DIR" --output-dir "$RESULT_DIR/log_samples_analysis"
     
     if [ -f "$RESULT_DIR/log_samples_analysis/anomaly_analysis_report.md" ]; then
         # 샘플 통계 추출
@@ -530,7 +530,7 @@ else:
         echo "⚠️  로그 샘플 분석 실행 실패"
     fi
 else
-    echo "⚠️  log_sample_analyzer.py가 없어 건너뜁니다."
+    echo "⚠️  tools/log_sample_analyzer.py가 없어 건너뜁니다."
 fi
 echo ""
 
@@ -807,8 +807,8 @@ fi
 if [ -f "visualize_results.py" ]; then
     echo "  📈 시각화: $PYTHON_CMD visualize_results.py --data-dir $RESULT_DIR"
 fi
-if [ -f "mscred_analyzer.py" ] && [ -f "$RESULT_DIR/mscred_infer.parquet" ]; then
-    echo "  🔬 MS-CRED 분석: $PYTHON_CMD mscred_analyzer.py --data-dir $RESULT_DIR"
+if [ -f "tools/mscred_analyzer.py" ] && [ -f "$RESULT_DIR/mscred_infer.parquet" ]; then
+    echo "  🔬 MS-CRED 분석: $PYTHON_CMD tools/mscred_analyzer.py --data-dir $RESULT_DIR"
 fi
 
 echo ""

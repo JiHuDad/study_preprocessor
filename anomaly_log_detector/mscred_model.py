@@ -172,40 +172,63 @@ class MSCREDTrainer:
             self.optimizer, mode='min', factor=0.5, patience=5
         )
         
-    def prepare_data(self, window_counts_df: pd.DataFrame) -> torch.Tensor:
-        """윈도우 카운트 데이터를 텐서로 변환"""
+    def prepare_data(self, window_counts_df: pd.DataFrame, target_num_templates: Optional[int] = None) -> Tuple[torch.Tensor, int]:
+        """윈도우 카운트 데이터를 텐서로 변환
+
+        Args:
+            window_counts_df: 윈도우 카운트 데이터프레임
+            target_num_templates: 목표 템플릿 개수 (추론 시 학습 모델과 맞추기 위해)
+
+        Returns:
+            (텐서 데이터, 실제 템플릿 개수)
+        """
         # start_index 컬럼 제거하고 템플릿 카운트만 추출
         template_cols = [col for col in window_counts_df.columns if col.startswith('t')]
         data = window_counts_df[template_cols].fillna(0).values
-        
+        actual_num_templates = data.shape[1]
+
+        # 목표 템플릿 개수가 지정된 경우 크기 조정
+        if target_num_templates is not None and actual_num_templates != target_num_templates:
+            if actual_num_templates < target_num_templates:
+                # 패딩: 부족한 템플릿은 0으로 채움
+                padding = np.zeros((data.shape[0], target_num_templates - actual_num_templates))
+                data = np.hstack([data, padding])
+                print(f"📊 템플릿 개수 패딩: {actual_num_templates} → {target_num_templates}")
+            else:
+                # Truncate: 초과 템플릿은 잘라냄
+                data = data[:, :target_num_templates]
+                print(f"📊 템플릿 개수 축소: {actual_num_templates} → {target_num_templates}")
+            actual_num_templates = target_num_templates
+
         # 정규화
         data = (data - data.mean(axis=0)) / (data.std(axis=0) + 1e-8)
-        
+
         # 2D 매트릭스를 이미지 형태로 변환 (time_steps, num_templates)
         # 시퀀스 길이 설정 (예: 20개 윈도우씩)
         seq_len = 20
         sequences = []
-        
+
         for i in range(len(data) - seq_len + 1):
             seq = data[i:i+seq_len]  # (seq_len, num_templates)
             sequences.append(seq)
-        
+
         if not sequences:
             # 데이터가 부족한 경우 패딩
             padded_data = np.pad(data, ((0, seq_len - len(data)), (0, 0)), mode='constant')
             sequences = [padded_data]
-        
+
         # (batch, 1, time_steps, num_templates) 형태로 변환
         sequences = np.array(sequences)
-        return torch.FloatTensor(sequences).unsqueeze(1)
+        return torch.FloatTensor(sequences).unsqueeze(1), actual_num_templates
     
-    def train(self, window_counts_path: str | Path, epochs: int = 50, 
+    def train(self, window_counts_path: str | Path, epochs: int = 50,
               validation_split: float = 0.2) -> Dict:
         """모델 학습"""
-        
+
         # 데이터 로드
         df = pd.read_parquet(window_counts_path)
-        data_tensor = self.prepare_data(df).to(self.device)
+        data_tensor, num_templates = self.prepare_data(df)
+        data_tensor = data_tensor.to(self.device)
         
         # 학습/검증 분할
         n_train = int(len(data_tensor) * (1 - validation_split))
@@ -261,16 +284,19 @@ class MSCREDTrainer:
             'train_losses': train_losses,
             'val_losses': val_losses,
             'final_train_loss': train_losses[-1],
-            'final_val_loss': val_losses[-1]
+            'final_val_loss': val_losses[-1],
+            'num_templates': num_templates
         }
     
-    def save_model(self, path: str | Path):
-        """모델 저장"""
+    def save_model(self, path: str | Path, num_templates: int):
+        """모델 저장 (템플릿 개수 메타데이터 포함)"""
         torch.save({
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'num_templates': num_templates,  # 학습 시 템플릿 개수 저장
         }, path)
         print(f"✅ 모델 저장 완료: {path}")
+        print(f"📊 저장된 템플릿 개수: {num_templates}")
     
     def load_model(self, path: str | Path):
         """모델 로드"""
@@ -282,24 +308,35 @@ class MSCREDTrainer:
 
 class MSCREDInference:
     """MS-CRED 추론"""
-    
+
     def __init__(self, model_path: str | Path, device: str = 'cpu'):
         self.device = device
         self.model = MSCREDModel().to(device)
-        
+
         # 모델 로드
         checkpoint = torch.load(model_path, map_location=device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.eval()
+
+        # 학습 시 사용된 템플릿 개수 로드
+        self.num_templates = checkpoint.get('num_templates', None)
+        if self.num_templates is not None:
+            print(f"📊 학습 시 템플릿 개수: {self.num_templates}")
+        else:
+            print("⚠️  경고: 모델에 템플릿 개수 메타데이터가 없습니다. 차원 불일치 문제가 발생할 수 있습니다.")
         
-    def detect_anomalies(self, window_counts_path: str | Path, 
+    def detect_anomalies(self, window_counts_path: str | Path,
                         threshold_percentile: float = 95.0) -> pd.DataFrame:
         """이상 탐지 수행"""
-        
+
         # 데이터 준비
         trainer = MSCREDTrainer(self.model, self.device)
         df = pd.read_parquet(window_counts_path)
-        data_tensor = trainer.prepare_data(df).to(self.device)
+        data_tensor, actual_num_templates = trainer.prepare_data(df, target_num_templates=self.num_templates)
+        data_tensor = data_tensor.to(self.device)
+
+        if self.num_templates is not None and actual_num_templates != self.num_templates:
+            print(f"⚠️  템플릿 개수가 학습 시와 다릅니다. 자동으로 조정되었습니다.")
         
         print(f"📊 추론 데이터 형태: {data_tensor.shape}")
         
@@ -346,21 +383,22 @@ class MSCREDInference:
         return results_df
 
 
-def train_mscred(window_counts_path: str | Path, model_output_path: str | Path, 
+def train_mscred(window_counts_path: str | Path, model_output_path: str | Path,
                 epochs: int = 50) -> Dict:
     """MS-CRED 모델 학습 함수"""
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"🔧 사용 디바이스: {device}")
-    
+
     model = MSCREDModel()
     trainer = MSCREDTrainer(model, device)
-    
+
     # 학습 실행
     training_stats = trainer.train(window_counts_path, epochs)
-    
-    # 모델 저장
-    trainer.save_model(model_output_path)
-    
+
+    # 모델 저장 (템플릿 개수 메타데이터 포함)
+    num_templates = training_stats['num_templates']
+    trainer.save_model(model_output_path, num_templates)
+
     return training_stats
 
 

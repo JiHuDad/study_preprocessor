@@ -661,10 +661,16 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
     }
     
     // JSON 파싱 (간단한 구현)
-    // 형식: {"template_id": "template_string", ...}
-
-    // CRITICAL: Must load ALL templates first, then sort by template_id
-    // to match training vocab order: {t: i for i, t in enumerate(sorted(unique_templates))}
+    // 형식: {"index": "template_string", ...}
+    //
+    // CRITICAL: vocab.json format from Python training:
+    // {"0": "template_string_0", "1": "template_string_1", ...}
+    // where indices 0,1,2... are in SORTED TEMPLATE STRING order
+    //
+    // Python training creates vocab with:
+    //   {t: i for i, t in enumerate(sorted(unique_templates))}
+    // model_converter.py converts to C format:
+    //   {str(i): t for t, i in python_vocab.items()}
 
     // Temporary storage for unsorted templates
     typedef struct {
@@ -737,7 +743,8 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
 
     free(json_content);
 
-    // CRITICAL: Sort by template_id (ascending) to match training order
+    // Sort by JSON key (vocab index) in ascending order
+    // This matches Python's sorted template string order
     for (size_t i = 0; i < temp_count - 1; i++) {
         for (size_t j = i + 1; j < temp_count; j++) {
             if (temp_templates[i].id > temp_templates[j].id) {

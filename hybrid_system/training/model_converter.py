@@ -29,85 +29,54 @@ class ModelConverter:
         """
         vocab.json을 C 엔진용 형식으로 변환
 
-        Python 학습용: {"template_id": index} 형식
-        C 엔진용: {"template_id": "template_string"} 형식
+        Python 학습용: {"template_string": index} 형식 (sorted template string order)
+        C 엔진용: {"index": "template_string"} 형식 (same sorted order)
+
+        CRITICAL: Python vocab is created with:
+            {t: i for i, t in enumerate(sorted(unique_templates))}
+        So vocab indices are in SORTED TEMPLATE STRING order, NOT template_id order!
 
         Args:
-            vocab: 원본 vocab (인덱스 형식일 수 있음)
-            vocab_path: vocab.json 파일 경로 (parsed.parquet 찾기 위해 사용)
+            vocab: 원본 vocab ({"template_string": index} 형식)
+            vocab_path: vocab.json 파일 경로 (참고용)
 
         Returns:
-            C 엔진용 vocab (템플릿 문자열 포함)
+            C 엔진용 vocab ({"index": "template_string"} 형식)
         """
-        # 이미 템플릿 문자열 형식인지 확인
+        # 이미 템플릿 문자열 형식인지 확인 (역변환된 경우)
         sample_value = next(iter(vocab.values())) if vocab else None
         if sample_value and isinstance(sample_value, str) and len(sample_value) > 10:
             # 이미 올바른 형식
             logger.info("📋 vocab이 이미 템플릿 문자열 형식입니다")
             return vocab
 
-        # 인덱스 형식이므로 변환 필요
+        # Python vocab 형식 확인: {template_string: index}
+        # 변환: {index: template_string}
         logger.info("🔄 vocab을 C 엔진용 템플릿 문자열 형식으로 변환 중...")
 
-        # vocab.json과 같은 디렉토리에서 parsed.parquet 또는 preview.json 찾기
-        vocab_dir = Path(vocab_path).parent
+        # CRITICAL: Python vocab의 인덱스 순서를 그대로 유지!
+        # Python: {template: idx} where idx는 sorted(template) 순서
+        # C: {str(idx): template} 동일한 순서
+        template_map = {}
+        for template_str, vocab_idx in vocab.items():
+            template_map[str(vocab_idx)] = template_str
 
-        # Option 1: parsed.parquet에서 추출
-        parsed_path = vocab_dir / "parsed.parquet"
-        if parsed_path.exists():
-            try:
-                import pandas as pd
-                logger.info(f"📂 parsed.parquet에서 템플릿 추출: {parsed_path}")
-                df = pd.read_parquet(parsed_path)
+        if template_map:
+            logger.info(f"✅ {len(template_map)}개 템플릿 변환 완료")
+            logger.info(f"📊 Python vocab 순서 유지 (sorted template string order)")
 
-                if 'template_id' in df.columns and 'template' in df.columns:
-                    # CRITICAL: Sort by template_id to match training vocab order!
-                    # Training vocab is created with: {t: i for i, t in enumerate(sorted(unique_templates))}
-                    df_unique = df[['template_id', 'template']].drop_duplicates('template_id').copy()
-                    df_unique['template_id_int'] = df_unique['template_id'].astype(str).astype(int)
-                    df_unique = df_unique.sort_values('template_id_int')
+            # 검증: 인덱스가 연속적인지 확인
+            indices = sorted([int(k) for k in template_map.keys()])
+            expected_indices = list(range(len(indices)))
+            if indices != expected_indices:
+                logger.warning(f"⚠️  vocab 인덱스가 연속적이지 않습니다!")
+                logger.warning(f"   기대: {expected_indices[:5]}...")
+                logger.warning(f"   실제: {indices[:5]}...")
 
-                    template_map = {}
-                    for _, row in df_unique.iterrows():
-                        tid = str(row['template_id'])
-                        template_str = str(row['template'])
-                        if not pd.isna(tid) and not pd.isna(template_str):
-                            template_map[tid] = template_str
+            return template_map
 
-                    if template_map:
-                        logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료 (정렬된 순서)")
-                        return template_map
-            except Exception as e:
-                logger.warning(f"parsed.parquet 처리 실패: {e}")
-
-        # Option 2: preview.json에서 추출
-        preview_path = vocab_dir / "preview.json"
-        if preview_path.exists():
-            try:
-                logger.info(f"📂 preview.json에서 템플릿 추출: {preview_path}")
-                with open(preview_path, 'r') as f:
-                    preview = json.load(f)
-
-                template_map = {}
-                for item in preview:
-                    tid = str(item.get('template_id', ''))
-                    template = item.get('template', '')
-                    if tid and template:
-                        template_map[tid] = template
-
-                if template_map:
-                    logger.info(f"✅ {len(template_map)}개 템플릿 추출 완료")
-                    return template_map
-            except Exception as e:
-                logger.warning(f"preview.json 처리 실패: {e}")
-
-        # 변환 실패 - 원본 vocab 반환하고 경고
-        logger.warning("⚠️  템플릿 문자열을 추출할 수 없습니다.")
-        logger.warning(f"⚠️  {vocab_dir}에 parsed.parquet 또는 preview.json이 필요합니다.")
-        logger.warning("⚠️  C 엔진 사용을 위해 다음 스크립트를 실행하세요:")
-        logger.warning(f"    python hybrid_system/training/export_vocab_with_templates.py \\")
-        logger.warning(f"        {vocab_dir}/parsed.parquet \\")
-        logger.warning(f"        {self.output_dir}/vocab.json")
+        # 변환 실패
+        logger.warning("⚠️  vocab 변환 실패")
         return vocab
         
     def convert_deeplog_to_onnx(
