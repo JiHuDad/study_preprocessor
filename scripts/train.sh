@@ -471,38 +471,46 @@ echo ""
 # 6단계: 메타데이터 저장
 echo "6️⃣  학습 메타데이터 저장 중..."
 
+# 선택된 파일 목록을 임시 파일로 저장
+printf "%s\n" "${selected_files[@]}" | sed "s|$LOG_DIR/||g" | head -20 > "$WORK_DIR/file_list.txt"
+
 # 학습 정보 메타데이터 생성
-$PYTHON_CMD -c "
+$PYTHON_CMD <<'PYEOF'
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 
+# 파일 목록 읽기
+try:
+    with open('${WORK_DIR}/file_list.txt', 'r') as f:
+        file_list = [line.strip() for line in f if line.strip()]
+except:
+    file_list = []
+
 metadata = {
     'training_info': {
         'timestamp': datetime.now().isoformat(),
-        'log_directory': '$LOG_DIR',
+        'log_directory': '${LOG_DIR}',
         'total_files': ${#selected_files[@]},
-        'max_depth': $MAX_DEPTH,
-        'max_files': $MAX_FILES
+        'max_depth': ${MAX_DEPTH},
+        'max_files': ${MAX_FILES}
     },
     'models': {
-        'deeplog': os.path.exists('$MODEL_DIR/deeplog.pth'),
-        'mscred': os.path.exists('$MODEL_DIR/mscred.pth'),
-        'baseline_stats': os.path.exists('$MODEL_DIR/baseline_stats.json'),
-        'drain3_state': os.path.exists('$MODEL_DIR/drain3_state.json'),
-        'vocab': os.path.exists('$MODEL_DIR/vocab.json')
+        'deeplog': os.path.exists('${MODEL_DIR}/deeplog.pth'),
+        'mscred': os.path.exists('${MODEL_DIR}/mscred.pth'),
+        'baseline_stats': os.path.exists('${MODEL_DIR}/baseline_stats.json'),
+        'drain3_state': os.path.exists('${MODEL_DIR}/drain3_state.json'),
+        'vocab': os.path.exists('${MODEL_DIR}/vocab.json')
     },
-    'files': [
-        '$(printf "%s\n" "${selected_files[@]}" | sed "s|$LOG_DIR/||g" | head -20)'
-    ]
+    'files': file_list
 }
 
-with open('$MODEL_DIR/metadata.json', 'w') as f:
+with open('${MODEL_DIR}/metadata.json', 'w') as f:
     json.dump(metadata, f, indent=2, ensure_ascii=False)
 
 print('✅ 메타데이터 저장 완료')
-"
+PYEOF
 
 # 종료 시간 및 소요 시간 계산
 END_TIME=$(date +%s)
