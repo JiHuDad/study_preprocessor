@@ -1,88 +1,89 @@
-#!/usr/bin/env python3
-"""
-시간 기반 이상 탐지 도구
-- 시간대별/요일별 프로파일 학습
-- 과거 동일 시간대와 현재 패턴 비교
-"""
-import pandas as pd
-import numpy as np
-import json
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
-import argparse
-from collections import defaultdict
+#!/usr/bin/env python3  # 실행 스크립트 셔뱅
+"""시간 기반 이상 탐지 도구 요약
 
-class TemporalAnomalyDetector:
-    def __init__(self):
-        self.hourly_profiles = {}
-        self.daily_profiles = {}
-        self.template_baseline = {}
+- 목적: 과거 시간대/요일 패턴을 학습하고 현재 로그와 비교하여 이상 탐지
+- 방법: 시간대별 볼륨 편차, 템플릿 분포 변화(신규/누락 템플릿) 검출
+- 출력: temporal_profiles.json, temporal_anomalies.json, temporal_report.md
+"""  # 모듈 요약 설명
+import pandas as pd  # 데이터프레임 처리
+import numpy as np  # 수치 계산
+import json  # JSON 입출력
+from pathlib import Path  # 경로 처리
+from datetime import datetime, timedelta  # 시간 처리
+from typing import Dict, List, Optional  # 타입 힌트
+import argparse  # CLI 인자 파서
+from collections import defaultdict  # (미사용) 기본 dict
+
+class TemporalAnomalyDetector:  # 시간 기반 이상탐지기
+    def __init__(self):  # 초기화
+        self.hourly_profiles = {}  # 시간대별 프로파일 저장소
+        self.daily_profiles = {}  # 요일별 프로파일 저장소
+        self.template_baseline = {}  # 템플릿 기준치 (예비)
     
-    def build_temporal_profiles(self, parsed_df: pd.DataFrame) -> Dict:
-        """시간대별/요일별 정상 프로파일을 구축합니다."""
+    def build_temporal_profiles(self, parsed_df: pd.DataFrame) -> Dict:  # 시간/요일 프로파일 구축
+        """시간대별/요일별 정상 프로파일을 구축합니다."""  # API 설명
         
-        # timestamp를 datetime으로 변환
+        # timestamp를 datetime으로 변환  # 파생 컬럼 생성
         parsed_df['datetime'] = pd.to_datetime(parsed_df['timestamp'])
         parsed_df['hour'] = parsed_df['datetime'].dt.hour
         parsed_df['weekday'] = parsed_df['datetime'].dt.weekday  # 0=Monday
         parsed_df['date'] = parsed_df['datetime'].dt.date
         
         profiles = {
-            'hourly': {},
-            'daily': {},
+            'hourly': {},  # 시간대별 프로파일
+            'daily': {},  # 요일별 프로파일
             'baseline_period': {
-                'start': parsed_df['datetime'].min(),
-                'end': parsed_df['datetime'].max(),
-                'total_days': (parsed_df['datetime'].max() - parsed_df['datetime'].min()).days + 1
+                'start': parsed_df['datetime'].min(),  # 기준 시작
+                'end': parsed_df['datetime'].max(),  # 기준 종료
+                'total_days': (parsed_df['datetime'].max() - parsed_df['datetime'].min()).days + 1  # 총 일수
             }
         }
         
         # 시간대별 프로파일 (0-23시)
-        for hour in range(24):
+        for hour in range(24):  # 각 시간대 순회
             hour_data = parsed_df[parsed_df['hour'] == hour]
             if len(hour_data) > 0:
-                template_dist = hour_data['template_id'].value_counts(normalize=True).to_dict()
+                template_dist = hour_data['template_id'].value_counts(normalize=True).to_dict()  # 템플릿 분포
                 profiles['hourly'][hour] = {
-                    'volume_mean': len(hour_data) / profiles['baseline_period']['total_days'],
-                    'volume_std': len(hour_data) * 0.1,  # 임시 추정치
-                    'template_distribution': template_dist,
-                    'top_templates': list(hour_data['template_id'].value_counts().head(5).index),
-                    'unique_templates': len(hour_data['template_id'].unique())
+                    'volume_mean': len(hour_data) / profiles['baseline_period']['total_days'],  # 일 평균 볼륨
+                    'volume_std': len(hour_data) * 0.1,  # 임시 표준편차 추정치
+                    'template_distribution': template_dist,  # 분포
+                    'top_templates': list(hour_data['template_id'].value_counts().head(5).index),  # 상위 템플릿
+                    'unique_templates': len(hour_data['template_id'].unique())  # 고유 템플릿 수
                 }
         
         # 요일별 프로파일 (0=월요일)
-        for weekday in range(7):
+        for weekday in range(7):  # 월~일 순회
             day_data = parsed_df[parsed_df['weekday'] == weekday]
             if len(day_data) > 0:
-                template_dist = day_data['template_id'].value_counts(normalize=True).to_dict()
+                template_dist = day_data['template_id'].value_counts(normalize=True).to_dict()  # 템플릿 분포
                 profiles['daily'][weekday] = {
-                    'volume_mean': len(day_data) / (profiles['baseline_period']['total_days'] // 7 + 1),
-                    'template_distribution': template_dist,
-                    'top_templates': list(day_data['template_id'].value_counts().head(10).index),
-                    'unique_templates': len(day_data['template_id'].unique())
+                    'volume_mean': len(day_data) / (profiles['baseline_period']['total_days'] // 7 + 1),  # 요일 평균 볼륨
+                    'template_distribution': template_dist,  # 분포
+                    'top_templates': list(day_data['template_id'].value_counts().head(10).index),  # 상위 템플릿
+                    'unique_templates': len(day_data['template_id'].unique())  # 고유 템플릿 수
                 }
         
-        return profiles
+        return profiles  # 프로파일 반환
     
     def detect_temporal_anomalies(self, parsed_df: pd.DataFrame, profiles: Dict, 
-                                time_window_hours: int = 1) -> List[Dict]:
-        """시간대별 프로파일과 비교하여 이상을 탐지합니다."""
+                                time_window_hours: int = 1) -> List[Dict]:  # 시간대 비교 이상 탐지
+        """시간대별 프로파일과 비교하여 이상을 탐지합니다."""  # API 설명
         
-        parsed_df['datetime'] = pd.to_datetime(parsed_df['timestamp'])
+        parsed_df['datetime'] = pd.to_datetime(parsed_df['timestamp'])  # 파생 컬럼 재생성
         parsed_df['hour'] = parsed_df['datetime'].dt.hour
         parsed_df['weekday'] = parsed_df['datetime'].dt.weekday
         
-        anomalies = []
+        anomalies = []  # 이상 목록
         
         # 시간별로 그룹화하여 분석
-        for hour in sorted(parsed_df['hour'].unique()):
+        for hour in sorted(parsed_df['hour'].unique()):  # 관측된 시간대 순회
             hour_data = parsed_df[parsed_df['hour'] == hour]
             
             if hour not in profiles['hourly']:
                 # 프로파일이 없는 시간대는 모두 이상으로 표시
                 anomalies.append({
-                    'type': 'temporal_unseen_hour',
+                    'type': 'temporal_unseen_hour',  # 미학습 시간대
                     'hour': hour,
                     'severity': 'high',
                     'description': f'{hour}시는 과거 데이터에 없는 시간대입니다',
@@ -91,15 +92,15 @@ class TemporalAnomalyDetector:
                 })
                 continue
             
-            expected_profile = profiles['hourly'][hour]
-            actual_volume = len(hour_data)
-            expected_volume = expected_profile['volume_mean']
+            expected_profile = profiles['hourly'][hour]  # 기대 프로파일
+            actual_volume = len(hour_data)  # 실제 볼륨
+            expected_volume = expected_profile['volume_mean']  # 기대 볼륨
             
-            # 볼륨 이상 검사
+            # 볼륨 이상 검사  # 상대 편차 계산
             volume_deviation = abs(actual_volume - expected_volume) / max(expected_volume, 1)
             if volume_deviation > 0.5:  # 50% 이상 차이
                 anomalies.append({
-                    'type': 'temporal_volume_anomaly',
+                    'type': 'temporal_volume_anomaly',  # 볼륨 이상
                     'hour': hour,
                     'severity': 'high' if volume_deviation > 1.0 else 'medium',
                     'description': f'{hour}시 로그 볼륨이 예상과 {volume_deviation:.1%} 차이',
@@ -108,7 +109,7 @@ class TemporalAnomalyDetector:
                     'deviation': volume_deviation
                 })
             
-            # 템플릿 분포 이상 검사
+            # 템플릿 분포 이상 검사  # 신규/누락 템플릿 확인
             if len(hour_data) > 0:
                 actual_templates = set(hour_data['template_id'].unique())
                 expected_templates = set(expected_profile['top_templates'])
@@ -117,7 +118,7 @@ class TemporalAnomalyDetector:
                 new_templates = actual_templates - expected_templates
                 if new_templates and len(new_templates) > len(expected_templates) * 0.2:
                     anomalies.append({
-                        'type': 'temporal_new_templates',
+                        'type': 'temporal_new_templates',  # 신규 템플릿 증가
                         'hour': hour,
                         'severity': 'medium',
                         'description': f'{hour}시에 {len(new_templates)}개의 새로운 템플릿 발견',
@@ -130,7 +131,7 @@ class TemporalAnomalyDetector:
                 missing_templates = expected_templates - actual_templates
                 if missing_templates:
                     anomalies.append({
-                        'type': 'temporal_missing_templates',
+                        'type': 'temporal_missing_templates',  # 주요 템플릿 누락
                         'hour': hour,
                         'severity': 'medium',
                         'description': f'{hour}시에 평소 주요 템플릿 {len(missing_templates)}개 누락',
@@ -138,11 +139,11 @@ class TemporalAnomalyDetector:
                         'missing_count': len(missing_templates)
                     })
         
-        return anomalies
+        return anomalies  # 이상 목록 반환
     
     def generate_temporal_report(self, profiles: Dict, anomalies: List[Dict], 
-                               output_path: str) -> str:
-        """시간 기반 이상 탐지 리포트를 생성합니다."""
+                               output_path: str) -> str:  # 리포트 생성
+        """시간 기반 이상 탐지 리포트를 생성합니다."""  # API 설명
         
         report = f"""# 시간 기반 이상 탐지 리포트
 
@@ -156,10 +157,10 @@ class TemporalAnomalyDetector:
 
 """
         
-        if not anomalies:
+        if not anomalies:  # 이상 없음
             report += "✅ 시간 기반 이상 현상이 발견되지 않았습니다.\n\n"
         else:
-            # 심각도별 분류
+            # 심각도별 분류  # high/medium 그룹
             high_severity = [a for a in anomalies if a['severity'] == 'high']
             medium_severity = [a for a in anomalies if a['severity'] == 'medium']
             
@@ -175,40 +176,40 @@ class TemporalAnomalyDetector:
                     report += f"- **{anomaly['type']}** ({anomaly['hour']}시): {anomaly['description']}\n"
                 report += "\n"
         
-        # 시간대별 요약
+        # 시간대별 요약  # 각 시간대 핵심 정보
         report += "## 📈 시간대별 활동 패턴\n\n"
         if 'hourly' in profiles:
             for hour in sorted(profiles['hourly'].keys()):
                 profile = profiles['hourly'][hour]
                 report += f"- **{hour:02d}시**: 평균 {profile['volume_mean']:.1f}개 로그, 주요 템플릿 {profile['unique_templates']}개\n"
         
-        # 파일로 저장
+        # 파일로 저장  # 마크다운 리포트 저장
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(report)
         
-        return report
+        return report  # 리포트 문자열 반환
 
-def analyze_temporal_patterns(data_dir: str, output_dir: str = None):
-    """시간 패턴 기반 이상 탐지를 실행합니다."""
+def analyze_temporal_patterns(data_dir: str, output_dir: str = None):  # 시간 기반 탐지 실행
+    """시간 패턴 기반 이상 탐지를 실행합니다."""  # API 설명
     
-    data_path = Path(data_dir)
+    data_path = Path(data_dir)  # 데이터 폴더
     if output_dir is None:
-        output_dir = data_path / "temporal_analysis"
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+        output_dir = data_path / "temporal_analysis"  # 기본 출력 폴더
+    output_path = Path(output_dir)  # Path 화
+    output_path.mkdir(parents=True, exist_ok=True)  # 폴더 생성
     
-    print("🕐 시간 기반 이상 탐지 시작...")
+    print("🕐 시간 기반 이상 탐지 시작...")  # 시작 로그
     
     # 데이터 로드
-    parsed_df = pd.read_parquet(data_path / "parsed.parquet")
+    parsed_df = pd.read_parquet(data_path / "parsed.parquet")  # 파싱 로그 로드
     print(f"📊 로드된 로그: {len(parsed_df)}개")
     
     # 탐지기 초기화
-    detector = TemporalAnomalyDetector()
+    detector = TemporalAnomalyDetector()  # 인스턴스 생성
     
     # 프로파일 구축
     print("📈 시간대별 프로파일 구축 중...")
-    profiles = detector.build_temporal_profiles(parsed_df)
+    profiles = detector.build_temporal_profiles(parsed_df)  # 프로파일 생성
     
     # 프로파일 저장
     with open(output_path / "temporal_profiles.json", 'w') as f:
@@ -220,9 +221,9 @@ def analyze_temporal_patterns(data_dir: str, output_dir: str = None):
     
     # 이상 탐지
     print("🔍 시간 기반 이상 탐지 중...")
-    anomalies = detector.detect_temporal_anomalies(parsed_df, profiles)
+    anomalies = detector.detect_temporal_anomalies(parsed_df, profiles)  # 이상 탐지
     
-    # 이상 탐지 결과 저장 (numpy types을 Python native types으로 변환)
+    # 이상 탐지 결과 저장 (numpy types을 Python native types으로 변환)  # 직렬화 보정
     def convert_numpy_types(obj):
         if isinstance(obj, np.integer):
             return int(obj)
@@ -250,23 +251,23 @@ def analyze_temporal_patterns(data_dir: str, output_dir: str = None):
     print(f"✅ 완료! 결과는 {output_path}에 저장되었습니다.")
     print(f"🚨 발견된 이상: {len(anomalies)}개")
     
-    # 간단한 요약 출력
+    # 간단한 요약 출력  # 심각도 카운트
     if anomalies:
         high_count = len([a for a in anomalies if a['severity'] == 'high'])
         medium_count = len([a for a in anomalies if a['severity'] == 'medium'])
         print(f"   - 심각: {high_count}개, 주의: {medium_count}개")
     
-    return anomalies, profiles
+    return anomalies, profiles  # 결과 반환
 
-def main():
-    parser = argparse.ArgumentParser(description="시간 패턴 기반 로그 이상 탐지")
+def main():  # CLI 엔트리 포인트
+    parser = argparse.ArgumentParser(description="시간 패턴 기반 로그 이상 탐지")  # 인자 파서
     parser.add_argument("--data-dir", required=True, 
-                       help="분석할 데이터 디렉토리 (parsed.parquet 포함)")
+                       help="분석할 데이터 디렉토리 (parsed.parquet 포함)")  # 데이터 폴더
     parser.add_argument("--output-dir", 
-                       help="결과 출력 디렉토리 (기본: data-dir/temporal_analysis)")
+                       help="결과 출력 디렉토리 (기본: data-dir/temporal_analysis)")  # 출력 폴더
     
-    args = parser.parse_args()
-    analyze_temporal_patterns(args.data_dir, args.output_dir)
+    args = parser.parse_args()  # 파싱
+    analyze_temporal_patterns(args.data_dir, args.output_dir)  # 실행
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # 직접 실행 시
+    main()  # 메인 호출
