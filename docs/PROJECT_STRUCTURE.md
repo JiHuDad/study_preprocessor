@@ -77,13 +77,21 @@ anomaly-log-detector/                    # 프로젝트 루트
 │       └── generate_test_logs.py
 │
 ├── hybrid_system/                        # 🔄 ONNX 변환 & C 추론
-│   ├── README.md
-│   ├── training/                        # ONNX 변환
-│   │   ├── model_converter.py
-│   │   ├── batch_trainer.py
-│   │   └── auto_converter.py
+│   ├── training/                        # ONNX 변환 및 학습 자동화
+│   │   ├── model_converter.py          # PyTorch → ONNX 변환
+│   │   ├── batch_trainer.py             # 배치 학습 파이프라인
+│   │   ├── auto_converter.py           # 자동 변환 및 배포 관리
+│   │   └── export_vocab_with_templates.py  # 수동 vocab 변환 (참고용)
 │   └── inference/                       # C 추론 엔진
-│       └── README.md
+│       ├── README.md                    # 상세 사용 가이드
+│       ├── src/                         # C 소스 코드
+│       │   ├── main.c                   # 메인 엔트리포인트
+│       │   ├── onnx_engine.c            # ONNX 엔진 구현
+│       │   ├── log_parser.c             # 로그 파서
+│       │   └── anomaly_detector.c      # 이상탐지 로직
+│       ├── include/                     # 헤더 파일
+│       ├── bin/                         # 빌드 결과물
+│       └── models/                      # ONNX 모델 저장소
 │
 ├── tools/                                # 🛠️ 유틸리티 (deprecated)
 │   ├── baseline_validator.py            # → alog-detect validate-baseline
@@ -124,6 +132,19 @@ anomaly-log-detector/                    # 프로젝트 루트
 ### hybrid_system/
 ONNX 변환 및 C 기반 고성능 추론 엔진.
 
+**training/**: Python 학습 모델을 ONNX로 변환하고 배포 준비
+- `model_converter.py`: PyTorch 모델 → ONNX 변환 (vocab 자동 변환 포함)
+- `batch_trainer.py`: 전체 학습 파이프라인 자동화 (7단계)
+- `auto_converter.py`: 파일 시스템 감시를 통한 자동 변환 및 배포 관리
+  - `watch` 모드: 새 모델 생성 시 자동 변환
+  - `convert` 모드: 기존 모델 일괄 변환
+  - `pipeline` 모드: 학습 → 변환 → 배포 전체 자동화
+
+**inference/**: C로 구현된 고성능 추론 엔진
+- ONNX Runtime을 사용한 실시간 이상탐지
+- 스트림 기반 로그 처리
+- 자세한 사용법은 [hybrid_system/inference/README.md](../../hybrid_system/inference/README.md) 참조
+
 ### tools/
 CLI로 통합된 유틸리티 스크립트들 (하위 호환성 유지).
 
@@ -134,6 +155,11 @@ CLI로 통합된 유틸리티 스크립트들 (하위 호환성 유지).
 3. **학습/추론**: [docs/guides/TRAIN_INFERENCE_GUIDE.md](docs/guides/TRAIN_INFERENCE_GUIDE.md) 참조
 
 ## 변경 이력
+
+- **2025-01-XX**: 문서 구조 업데이트
+  - hybrid_system/training/ 파일 목록 보완
+  - hybrid_system/inference/ 구조 상세화
+  - PROJECT_ANALYSIS_REPORT.md 추가
 
 - **2025-10-17**: Phase 1 재구조화 완료
   - config/ 디렉토리 생성

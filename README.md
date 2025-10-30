@@ -403,3 +403,82 @@ alog-detect analyze-comparative \
 - **기존 윈도우 방식**: 단일 파일 내 시간순 패턴 변화
 - **시간 기반 탐지**: 과거 동일 시간대와 현재 비교  
 - **파일별 비교**: 여러 시스템/서비스 간 상대적 차이
+
+## 🔄 Hybrid System (ONNX 변환 & C 추론)
+
+고성능 C 추론 엔진을 위한 ONNX 변환 및 자동화 도구입니다.
+
+### 📋 주요 기능
+
+- **자동 모델 변환**: PyTorch 모델을 ONNX로 자동 변환
+- **파일 시스템 감시**: 새 모델 생성 시 자동 변환 (watch 모드)
+- **배치 학습 파이프라인**: 학습부터 배포까지 전체 자동화
+- **C 추론 엔진**: 고성능 실시간 이상탐지
+
+### 🚀 빠른 시작
+
+#### 1. 자동 모델 변환 및 배포
+
+```bash
+# 감시 모드: 새 모델 생성 시 자동 변환
+python -m hybrid_system.training.auto_converter --mode watch
+
+# 일괄 변환: 기존 모델들 변환
+python -m hybrid_system.training.auto_converter --mode convert
+
+# 전체 파이프라인: 학습 → 변환 → 배포
+python -m hybrid_system.training.auto_converter \
+    --mode pipeline \
+    --log-file data/raw/log.log
+```
+
+#### 2. 배치 학습 파이프라인
+
+```bash
+# 전체 학습 파이프라인 자동 실행
+python -m hybrid_system.training.batch_trainer \
+    data/raw/log.log \
+    --output-dir data/processed/batch_$(date +%Y%m%d_%H%M%S)
+```
+
+#### 3. ONNX 변환 (수동)
+
+```bash
+# DeepLog 모델 변환
+python -m hybrid_system.training.model_converter \
+    --deeplog-model models/deeplog.pth \
+    --vocab data/processed/vocab.json \
+    --output-dir hybrid_system/inference/models
+```
+
+**출력 파일**:
+- ✅ `deeplog.onnx` - ONNX 모델
+- ✅ `deeplog_optimized.onnx` - 최적화된 ONNX 모델  
+- ✅ `vocab.json` - **자동으로 C 엔진용 형식으로 변환됨!**
+- ✅ `deeplog.onnx.meta.json` - 모델 메타데이터
+
+#### 4. C 추론 엔진 사용
+
+자세한 내용: [hybrid_system/inference/README.md](hybrid_system/inference/README.md)
+
+```bash
+# ONNX Runtime 설치
+./scripts/install_onnxruntime.sh
+
+# Inference Engine 빌드
+cd hybrid_system/inference
+make clean && make
+
+# 실행
+./bin/inference_engine \
+    -d models/deeplog.onnx \
+    -v models/vocab.json \
+    -i /var/log/syslog \
+    -o results.json
+```
+
+### 📚 상세 가이드
+
+- **ONNX 변환**: [docs/guides/ONNX_CONVERSION_GUIDE.md](docs/guides/ONNX_CONVERSION_GUIDE.md)
+- **C 추론 엔진**: [hybrid_system/inference/README.md](hybrid_system/inference/README.md)
+- **자동 변환**: `python -m hybrid_system.training.auto_converter --help`
