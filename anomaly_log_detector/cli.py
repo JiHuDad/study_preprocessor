@@ -298,8 +298,13 @@ def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: f
 
 def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) -> str:
     """개선된 읽기 쉬운 리포트를 생성합니다."""
+    print(f"[DEBUG] _generate_enhanced_report 시작", flush=True)
+    print(f"[DEBUG]   processed_dir={processed_dir}", flush=True)
+    print(f"[DEBUG]   with_samples={with_samples}", flush=True)
+
     import pandas as pd
     from datetime import datetime
+    print(f"[DEBUG] pandas, datetime import 완료", flush=True)
 
     # 리포트 헤더
     report = f"""# 📊 로그 이상 탐지 분석 리포트
@@ -310,6 +315,7 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
 ---
 
 """
+    print(f"[DEBUG] 리포트 헤더 생성 완료", flush=True)
 
     # 데이터 로드
     parsed_path = processed_dir / "parsed.parquet"
@@ -319,6 +325,13 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
     deeplog_path = processed_dir / "deeplog_infer.parquet"
     mscred_path = processed_dir / "mscred_infer.parquet"
     vocab_path = processed_dir / "vocab.json"
+
+    print(f"[DEBUG] 파일 경로 설정:", flush=True)
+    print(f"[DEBUG]   parsed_path={parsed_path} (exists={parsed_path.exists()})", flush=True)
+    print(f"[DEBUG]   base_path={base_path} (exists={base_path.exists()})", flush=True)
+    print(f"[DEBUG]   deeplog_path={deeplog_path} (exists={deeplog_path.exists()})", flush=True)
+    print(f"[DEBUG]   mscred_path={mscred_path} (exists={mscred_path.exists()})", flush=True)
+    print(f"[DEBUG]   vocab_path={vocab_path} (exists={vocab_path.exists()})", flush=True)
 
     has_data = False
 
@@ -585,17 +598,28 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
 @click.option("--with-samples/--no-samples", default=True, help="이상 로그 샘플 분석 포함 (기본: 포함)")  # 샘플 분석 옵션
 def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 실행
     """산출물 요약 리포트 생성 (개선된 읽기 쉬운 형식)."""  # 설명
+    print(f"[DEBUG] report_cmd 함수 시작", flush=True)
+    print(f"[DEBUG] processed_dir = {processed_dir}", flush=True)
+    print(f"[DEBUG] with_samples = {with_samples}", flush=True)
+
     import pandas as pd  # 지역 임포트
+    print(f"[DEBUG] pandas import 완료", flush=True)
+
     processed_dir.mkdir(parents=True, exist_ok=True)  # 폴더 생성
+    print(f"[DEBUG] 디렉토리 생성 완료: {processed_dir}", flush=True)
 
     click.echo("📊 리포트 생성 중...")
+    print(f"[DEBUG] click.echo 호출 완료", flush=True)
 
     # 로그 샘플 분석 먼저 실행 (with_samples=True인 경우)
     if with_samples:
+        print(f"[DEBUG] with_samples=True, 로그 샘플 분석 시작", flush=True)
         click.echo("🔍 이상 로그 샘플 분석 중...")
         try:
+            print(f"[DEBUG] log_samples 모듈 import 시도", flush=True)
             from .analyzers.log_samples import main as log_samples_main
             import sys
+            print(f"[DEBUG] log_samples import 완료", flush=True)
 
             # Save current sys.argv
             old_argv = sys.argv
@@ -604,24 +628,44 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 �
                 str(processed_dir),
                 "--output-dir", str(processed_dir / "log_samples_analysis")
             ]
+            print(f"[DEBUG] sys.argv 설정 완료: {sys.argv}", flush=True)
 
             try:  # 분석 실행 보호
+                print(f"[DEBUG] log_samples_main() 호출", flush=True)
                 log_samples_main()
+                print(f"[DEBUG] log_samples_main() 완료", flush=True)
                 click.echo("✅ 로그 샘플 분석 완료")
             finally:
                 sys.argv = old_argv
+                print(f"[DEBUG] sys.argv 복원 완료", flush=True)
         except Exception as e:
+            print(f"[DEBUG] 로그 샘플 분석 중 예외 발생: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             click.echo(f"⚠️ 로그 샘플 분석 중 오류: {e}", err=True)
+    else:
+        print(f"[DEBUG] with_samples=False, 로그 샘플 분석 스킵", flush=True)
 
     # 개선된 리포트 생성
-    report_content = _generate_enhanced_report(processed_dir, with_samples)
+    print(f"[DEBUG] _generate_enhanced_report() 호출 시작", flush=True)
+    try:
+        report_content = _generate_enhanced_report(processed_dir, with_samples)
+        print(f"[DEBUG] _generate_enhanced_report() 완료, 길이={len(report_content)}", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] _generate_enhanced_report() 중 예외: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        raise
 
     # 리포트 저장
+    print(f"[DEBUG] 리포트 파일 쓰기 시작", flush=True)
     out_md = processed_dir / "report.md"
     out_md.write_text(report_content)
+    print(f"[DEBUG] 리포트 파일 쓰기 완료: {out_md}", flush=True)
 
     click.echo(f"\n✅ 리포트 생성 완료!")
     click.echo(f"📄 주요 리포트: {out_md}")
+    print(f"[DEBUG] report_cmd 함수 종료", flush=True)
 
     if with_samples:  # 샘플 분석 경로 출력
         sample_report = processed_dir / "log_samples_analysis" / "anomaly_analysis_report.md"
