@@ -711,12 +711,19 @@ print('✅ 종합 리포트 생성 완료')
 # 향상된 리포트 생성 (예측 vs 실제 비교 포함)
 echo ""
 echo "📊 향상된 리포트 생성 중..."
-$PYTHON_CMD -m anomaly_log_detector.cli report --processed-dir "$RESULT_DIR" --with-samples 2>/dev/null
 
-if [ -f "$RESULT_DIR/report.md" ]; then
+# 에러를 캡처하여 표시
+REPORT_ERROR=$($PYTHON_CMD -m anomaly_log_detector.cli report --processed-dir "$RESULT_DIR" --with-samples 2>&1)
+REPORT_EXIT_CODE=$?
+
+if [ $REPORT_EXIT_CODE -eq 0 ] && [ -f "$RESULT_DIR/report.md" ]; then
     echo "✅ 향상된 리포트 생성 완료: $RESULT_DIR/report.md"
 else
     echo "⚠️  향상된 리포트 생성 실패 (기본 리포트는 사용 가능)"
+    echo "   오류 내용:"
+    echo "$REPORT_ERROR" | head -20
+    echo ""
+    echo "   디버그 명령어: $PYTHON_CMD -m anomaly_log_detector.cli report --processed-dir \"$RESULT_DIR\" --with-samples"
 fi
 
 # 종료 시간 및 소요 시간 계산
