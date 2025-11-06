@@ -54,8 +54,27 @@ def _fmt_syslog(ts: datetime, host: str, proc: str, msg: str) -> str:
     return f"{ts_str} {host} {proc}: [  {random.randint(0,99999)}.{random.randint(0,999999):06d}] {msg}"  # Syslog 형식 문자열 반환: 타임스탬프, 호스트, 프로세스, 커널 시간, 메시지
 
 
-def _format_template(tpl: str, template_type: str = "normal") -> str:
-    """템플릿의 플레이스홀더를 랜덤 값으로 채우는 헬퍼 함수."""
+def _format_template(tpl: str) -> str:
+    """템플릿의 플레이스홀더를 랜덤 값으로 채우는 헬퍼 함수.
+
+    주의: 이 함수는 템플릿 타입(normal, anomaly, error 등)에 관계없이
+    동일한 랜덤 값을 생성합니다. 템플릿 자체가 이미 타입을 구분하므로
+    (BASE_TEMPLATES, ERROR_TEMPLATES, ATTACK_TEMPLATES 등)
+    이 함수에서 타입별 차별화는 필요하지 않습니다.
+
+    수정 이력:
+    - 이전에 template_type 파라미터가 있었으나 함수 내에서 전혀 사용되지 않았음
+    - Dead parameter로 인한 혼란 방지를 위해 파라미터 제거
+    - 호출처: generate_synthetic_log(), generate_training_data(),
+             generate_inference_normal(), generate_inference_anomaly()
+
+    Args:
+        tpl: 플레이스홀더를 포함한 템플릿 문자열
+             예: "usb 1-1: new high-speed USB device number {n} using ehci-pci"
+
+    Returns:
+        플레이스홀더가 랜덤 값으로 치환된 문자열
+    """
     values = {
         "n": random.randint(1, 9),
         "c": random.randint(0, 3),
@@ -107,10 +126,10 @@ def generate_synthetic_log(
             if is_anom:  # 이상 로그인 경우
                 # pick anomaly: unseen or burst of errors  # 이상 선택: 보이지 않는 패턴 또는 오류 급증
                 tpl = random.choice(ANOMALY_TEMPLATES)  # 이상 템플릿 중 하나를 랜덤 선택
-                msg = _format_template(tpl, "anomaly")
+                msg = _format_template(tpl)
             else:  # 정상 로그인 경우
                 tpl = random.choice(BASE_TEMPLATES)  # 정상 템플릿 중 하나를 랜덤 선택
-                msg = _format_template(tpl, "normal")
+                msg = _format_template(tpl)
             line = _fmt_syslog(ts, host, proc, msg)  # Syslog 형식으로 로그 라인 포맷팅
             f.write(line + "\n")  # 파일에 로그 라인 쓰기
             labels.append((i, 1 if is_anom else 0))  # 레이블 저장 (라인 번호, 이상 여부: 1=이상, 0=정상)
@@ -155,7 +174,7 @@ def generate_training_data(
             ts = now + timedelta(seconds=i)
             # 정상 템플릿만 사용
             tpl = random.choice(BASE_TEMPLATES)
-            msg = _format_template(tpl, "normal")
+            msg = _format_template(tpl)
             line = _fmt_syslog(ts, host, proc, msg)
             f.write(line + "\n")
             labels.append((i, 0))  # 모두 정상(0)
@@ -200,7 +219,7 @@ def generate_inference_normal(
         for i in range(num_lines):
             ts = now + timedelta(seconds=i)
             tpl = random.choice(BASE_TEMPLATES)
-            msg = _format_template(tpl, "normal")
+            msg = _format_template(tpl)
             line = _fmt_syslog(ts, host, proc, msg)
             f.write(line + "\n")
             labels.append((i, 0))
@@ -275,7 +294,7 @@ def generate_inference_anomaly(
 
             # Burst 처리
             if burst_active and burst_count < burst_total:
-                msg = _format_template(burst_template, "burst")
+                msg = _format_template(burst_template)
                 is_anom = True
                 anom_type = "burst"
                 burst_count += 1
@@ -292,7 +311,7 @@ def generate_inference_anomaly(
                         burst_template = random.choice(BASE_TEMPLATES)  # 정상 템플릿을 급증시킴
                         burst_total = random.randint(10, 30)  # 10-30개 연속
                         burst_count = 0
-                        msg = _format_template(burst_template, "burst")
+                        msg = _format_template(burst_template)
                         anom_type = "burst"
                     else:
                         # 다른 이상 타입 선택
@@ -301,16 +320,16 @@ def generate_inference_anomaly(
                             anom_type = random.choice(available_types)
                             templates = anomaly_template_map.get(anom_type, ANOMALY_TEMPLATES)
                             tpl = random.choice(templates)
-                            msg = _format_template(tpl, anom_type)
+                            msg = _format_template(tpl)
                         else:
                             # Fallback
                             tpl = random.choice(ANOMALY_TEMPLATES)
-                            msg = _format_template(tpl, "anomaly")
+                            msg = _format_template(tpl)
                             anom_type = "unseen"
                 else:
                     # 정상 로그
                     tpl = random.choice(BASE_TEMPLATES)
-                    msg = _format_template(tpl, "normal")
+                    msg = _format_template(tpl)
 
             line = _fmt_syslog(ts, host, proc, msg)
             f.write(line + "\n")
