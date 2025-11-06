@@ -26,7 +26,12 @@ from .builders.deeplog import (  # DeepLog 파이프라인 함수들
     infer_deeplog_enhanced, EnhancedInferenceConfig
 )
 from .builders.mscred import build_mscred_window_counts  # MS-CRED 입력 생성
-from .synth import generate_synthetic_log  # 합성 로그 생성기
+from .synth import (  # 합성 로그 생성기들
+    generate_synthetic_log,
+    generate_training_data,
+    generate_inference_normal,
+    generate_inference_anomaly,
+)
 from .eval import evaluate_baseline, evaluate_deeplog  # 평가 유틸
 
 
@@ -581,9 +586,99 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 �
 @click.option("--lines", "num_lines", type=int, default=5000)  # 라인 수
 @click.option("--anomaly-rate", type=float, default=0.02)  # 이상 비율
 def gen_synth_cmd(out_path: Path, num_lines: int, anomaly_rate: float) -> None:  # 생성 실행
-    """합성 장기 로그 생성."""  # 설명
+    """합성 장기 로그 생성 (정상+이상 혼합)."""  # 설명
     p = generate_synthetic_log(str(out_path), num_lines=num_lines, anomaly_rate=anomaly_rate)  # 생성 호출
-    click.echo(f"Generated synthetic log: {p}")  # 결과 출력
+    click.echo(f"✅ Generated synthetic log: {p}")  # 결과 출력
+    click.echo(f"📊 Labels: {p}.labels.parquet")
+
+
+@main.command("gen-training-data")  # 학습용 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=10000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--host", default="train-host", help="호스트명")  # 호스트명
+def gen_training_data_cmd(out_path: Path, num_lines: int, host: str) -> None:  # 학습 데이터 생성 실행
+    """학습용 정상 로그 데이터 생성 (100% 정상 로그)."""  # 설명
+    click.echo("📚 학습용 정상 로그 데이터 생성 중...")
+    p = generate_training_data(str(out_path), num_lines=num_lines, host=host)  # 생성 호출
+    click.echo(f"✅ Generated training data: {p}")
+    click.echo(f"   📊 Lines: {num_lines} (모두 정상)")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"\n💡 Tip: 이 데이터로 모델을 학습하세요:")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/train")
+    click.echo(f"   alog-detect build-deeplog --parsed data/processed/train/parsed.parquet --out-dir data/processed/train")
+    click.echo(f"   alog-detect deeplog-train --seq data/processed/train/sequences.parquet --vocab data/processed/train/vocab.json --out models/deeplog.pth")
+
+
+@main.command("gen-inference-normal")  # 추론용 정상 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=1000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--host", default="test-host", help="호스트명")  # 호스트명
+def gen_inference_normal_cmd(out_path: Path, num_lines: int, host: str) -> None:  # 추론용 정상 데이터 생성
+    """추론용 정상 로그 데이터 생성 (False Positive 테스트용, 100% 정상)."""  # 설명
+    click.echo("✅ 추론용 정상 로그 데이터 생성 중...")
+    p = generate_inference_normal(str(out_path), num_lines=num_lines, host=host)  # 생성 호출
+    click.echo(f"✅ Generated inference normal data: {p}")
+    click.echo(f"   📊 Lines: {num_lines} (모두 정상)")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"\n💡 Tip: 모델이 이 데이터를 정상으로 인식해야 합니다 (False Positive 테스트):")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/test_normal")
+    click.echo(f"   alog-detect deeplog-infer --seq data/processed/test_normal/sequences.parquet --model models/deeplog.pth --k 3")
+
+
+@main.command("gen-inference-anomaly")  # 추론용 비정상 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=1000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--anomaly-rate", type=float, default=0.15, help="이상 로그 비율 (기본: 15%)")  # 이상 비율
+@click.option("--anomaly-types", multiple=True, type=click.Choice(["unseen", "error", "attack", "crash", "burst"]),
+              help="포함할 이상 타입 (여러 개 선택 가능, 기본: 모두)")  # 이상 타입
+@click.option("--host", default="test-host", help="호스트명")  # 호스트명
+def gen_inference_anomaly_cmd(out_path: Path, num_lines: int, anomaly_rate: float,
+                             anomaly_types: tuple[str, ...], host: str) -> None:  # 추론용 비정상 데이터 생성
+    """추론용 비정상 로그 데이터 생성 (True Positive 테스트용).
+
+    이상 타입:
+    - unseen: 학습 시 보지 못한 새로운 템플릿
+    - error: 에러 메시지 (ERROR, CRITICAL, FATAL)
+    - attack: 보안 공격 시뮬레이션 (SSH brute force, SYN flood)
+    - crash: 시스템 크래시 (서비스 실패, kernel panic)
+    - burst: 특정 템플릿 급증 (10-30개 연속)
+    """  # 설명
+    click.echo("🚨 추론용 비정상 로그 데이터 생성 중...")
+
+    # anomaly_types가 비어있으면 None (모두 포함)
+    types_list = list(anomaly_types) if anomaly_types else None
+
+    p = generate_inference_anomaly(
+        str(out_path),
+        num_lines=num_lines,
+        anomaly_rate=anomaly_rate,
+        anomaly_types=types_list,
+        host=host
+    )  # 생성 호출
+
+    click.echo(f"✅ Generated inference anomaly data: {p}")
+    click.echo(f"   📊 Lines: {num_lines}")
+    click.echo(f"   🚨 Target anomaly rate: {anomaly_rate:.1%}")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"   📈 Metadata: {p}.meta.json")
+
+    # 메타데이터 읽어서 실제 통계 표시
+    import json
+    meta_path = Path(str(p) + ".meta.json")
+    if meta_path.exists():
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        click.echo(f"\n📊 생성 통계:")
+        click.echo(f"   실제 이상률: {meta['anomaly_rate_actual']:.1%} ({meta['anomaly_count']}/{meta['total_lines']}개)")
+        if meta.get('anomaly_type_distribution'):
+            click.echo(f"   이상 타입별 분포:")
+            for anom_type, count in meta['anomaly_type_distribution'].items():
+                click.echo(f"      - {anom_type}: {count}개")
+
+    click.echo(f"\n💡 Tip: 모델이 이 데이터에서 이상을 탐지해야 합니다 (True Positive 테스트):")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/test_anomaly")
+    click.echo(f"   alog-detect deeplog-infer --seq data/processed/test_anomaly/sequences.parquet --model models/deeplog.pth --k 3")
+    click.echo(f"   alog-detect eval --processed-dir data/processed/test_anomaly --labels {p}.labels.parquet")
 
 
 @main.command("eval")  # 평가 명령
