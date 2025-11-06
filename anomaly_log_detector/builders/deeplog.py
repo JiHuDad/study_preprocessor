@@ -407,23 +407,30 @@ def infer_deeplog_enhanced(
             except Exception:  # 예외 발생 시
                 pass  # 무시
 
-    # 노벨티 판정을 위한 vocab 로드  # 노벨티 판정을 위한 vocab 로드
+    # vocab 로드 (노벨티 판정 + 템플릿 문자열 매핑용)  # vocab 로드
     known_templates = set()  # 알려진 템플릿 집합 초기화
-    if config.novelty_enabled and config.vocab_path:  # 노벨티 탐지가 활성화되어 있고 vocab 경로가 있으면
+    vocab_map = None  # 인덱스 -> 템플릿 문자열 역매핑 (리포트용)
+    if config.vocab_path:  # vocab 경로가 설정되어 있으면
         try:  # 예외 처리
             with open(config.vocab_path, 'r') as f:  # vocab 파일 열기
                 vocab = json.load(f)  # JSON 파일에서 어휘 사전 로드
-                known_templates = set(vocab.keys())  # vocab의 키(템플릿 문자열)를 집합으로 변환
+                if config.novelty_enabled:  # 노벨티 탐지가 활성화되어 있으면
+                    known_templates = set(vocab.keys())  # vocab의 키(템플릿 문자열)를 집합으로 변환
+                # 역매핑 생성: {index: "template_string"}
+                vocab_map = {int(idx): template for template, idx in vocab.items()}
         except Exception:  # 예외 발생 시
             pass  # 무시
 
     # 시퀀스 생성  # 시퀀스 생성
     X, Y = _make_sequences(seq_df["template_index"], seq_len)  # 입력/출력 시퀀스 생성
     if len(X) == 0:  # 시퀀스가 비어있으면
-        empty_detailed = pd.DataFrame(columns=[  # 빈 상세 결과 DataFrame 생성
-            "idx", "timestamp", "entity", "target", "is_novel",  # 컬럼: 인덱스, 타임스탬프, 엔티티, 타깃, 노벨티 여부
-            "prediction_ok", "k_of_n_triggered", "session_id"  # 컬럼: 예측 성공, K-of-N 트리거, 세션 ID
-        ])
+        detailed_columns = [  # 상세 결과 컬럼 리스트
+            "idx", "timestamp", "entity", "target", "is_novel",  # 기본 컬럼
+            "prediction_ok", "k_of_n_triggered", "session_id"  # 세션 관련 컬럼
+        ]
+        if vocab_map:  # vocab_map이 있으면 템플릿 문자열 컬럼 추가
+            detailed_columns.extend(["target_template", "predicted_templates"])
+        empty_detailed = pd.DataFrame(columns=detailed_columns)  # 빈 상세 결과 DataFrame 생성
         empty_alerts = pd.DataFrame(columns=[  # 빈 알림 DataFrame 생성
             "alert_id", "timestamp", "entity", "alert_type", "template_id", "details"  # 컬럼: 알림 ID, 타임스탬프, 엔티티, 알림 유형, 템플릿 ID, 상세 정보
         ])
@@ -434,7 +441,10 @@ def infer_deeplog_enhanced(
     last_logits = logits[:, -1, :]  # (batch, vocab_size)  # 시퀀스의 마지막 위치의 로짓만 추출
     probs = torch.softmax(last_logits, dim=1)  # 소프트맥스로 확률 계산
 
-    # Top-K 또는 Top-P 판정  # Top-K 또는 Top-P 판정
+    # Top-K 또는 Top-P 판정 + Top-K 예측 인덱스 저장 (리포트용)  # Top-K 또는 Top-P 판정
+    k = config.top_k or 3  # Top-K 값 설정 (없으면 3, 리포트 표시용)
+    topk_indices = torch.topk(last_logits, k=min(k, vocab_size), dim=1).indices  # Top-K 인덱스 추출 (항상 계산)
+
     if config.top_p is not None:  # Top-P가 설정되어 있으면
         # Top-P (nucleus sampling) 방식  # Top-P (nucleus sampling) 방식
         sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=1)  # 확률을 내림차순으로 정렬
@@ -458,9 +468,11 @@ def infer_deeplog_enhanced(
         predictions_ok = torch.tensor(predictions_ok)  # 텐서로 변환
     else:  # Top-P가 설정되어 있지 않으면
         # Top-K 방식 (기존)  # Top-K 방식 (기존)
-        k = config.top_k or 3  # Top-K 값 설정 (없으면 3)
-        topk_indices = torch.topk(last_logits, k=min(k, vocab_size), dim=1).indices  # Top-K 인덱스 추출
         predictions_ok = (topk_indices == Y.unsqueeze(1)).any(dim=1)  # 타깃이 Top-K에 포함되는지 확인
+
+    # Top-K 인덱스를 numpy로 변환 (결과 저장용)
+    topk_indices_np = topk_indices.cpu().numpy()  # (batch, k)
+    Y_np = Y.cpu().numpy()  # 타깃 인덱스 numpy 배열
 
     # 엔티티 및 타임스탬프 매핑  # 엔티티 및 타임스탬프 매핑
     # seq_df와 parsed_df를 line_no 기준으로 조인  # seq_df와 parsed_df를 line_no 기준으로 조인
@@ -575,7 +587,7 @@ def infer_deeplog_enhanced(
                 })
 
         # 상세 결과 기록  # 상세 결과 기록
-        results.append({  # 결과 리스트에 추가
+        result_row = {  # 결과 행 딕셔너리
             "idx": idx,  # 인덱스
             "timestamp": current_time,  # 타임스탬프
             "entity": entity_val,  # 엔티티
@@ -586,7 +598,22 @@ def infer_deeplog_enhanced(
             "session_id": session.session_id,  # 세션 ID
             "alerted_seq_fail": should_alert_seq,  # 시퀀스 실패 알림 여부
             "alerted_novelty": should_alert_nov  # 노벨티 알림 여부
-        })
+        }
+
+        # vocab_map이 있으면 템플릿 문자열 추가 (리포트용)
+        if vocab_map:
+            # 실제 발생한 템플릿 문자열
+            result_row["target_template"] = vocab_map.get(int(target_idx), f"<Unknown:{target_idx}>")
+
+            # Top-K 예측 템플릿 문자열들 ("|"로 구분)
+            pred_templates = []
+            for j in range(min(k, topk_indices_np.shape[1])):
+                pred_idx = int(topk_indices_np[idx, j])
+                pred_template = vocab_map.get(pred_idx, f"<Unknown:{pred_idx}>")
+                pred_templates.append(pred_template)
+            result_row["predicted_templates"] = " | ".join(pred_templates)
+
+        results.append(result_row)  # 결과 리스트에 추가
 
     # DataFrame 생성  # DataFrame 생성
     detailed_df = pd.DataFrame(results)  # 상세 결과 DataFrame 생성
