@@ -313,7 +313,9 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
 
     # 데이터 로드
     parsed_path = processed_dir / "parsed.parquet"
-    base_path = processed_dir / "baseline_scores.parquet"
+    # baseline_scores_enhanced.parquet 우선, 없으면 baseline_scores.parquet
+    base_path_enhanced = processed_dir / "baseline_scores_enhanced.parquet"
+    base_path = base_path_enhanced if base_path_enhanced.exists() else processed_dir / "baseline_scores.parquet"
     deeplog_path = processed_dir / "deeplog_infer.parquet"
     mscred_path = processed_dir / "mscred_infer.parquet"
     vocab_path = processed_dir / "vocab.json"
@@ -344,7 +346,13 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
         d = pd.read_parquet(deeplog_path)
         if len(d) > 0:
             has_data = True
-            deeplog_viol = 1.0 - float(d["in_topk"].mean())
+            # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+            if "prediction_ok" in d.columns:
+                deeplog_viol = 1.0 - float(d["prediction_ok"].mean())
+            elif "in_topk" in d.columns:
+                deeplog_viol = 1.0 - float(d["in_topk"].mean())
+            else:
+                deeplog_viol = 0.0  # 컬럼이 없으면 기본값
             severity = "🟢 낮음" if deeplog_viol < 0.20 else ("🟡 중간" if deeplog_viol < 0.50 else "🔴 높음")
             status = "예측 가능" if deeplog_viol < 0.20 else ("패턴 복잡" if deeplog_viol < 0.50 else "예측 어려움")
             report += f"| DeepLog (딥러닝) | {deeplog_viol:.1%} | {severity} | {status} |\n"
@@ -454,7 +462,13 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
         d = pd.read_parquet(deeplog_path)
         if len(d) > 0:
             report += "---\n\n## 🧠 DeepLog 이상 탐지 (딥러닝 LSTM)\n\n"
-            violations = d[d["in_topk"] == False]
+            # Enhanced 버전: prediction_ok 사용, 기존 버전: in_topk 사용
+            if "prediction_ok" in d.columns:
+                violations = d[d["prediction_ok"] == False]
+            elif "in_topk" in d.columns:
+                violations = d[d["in_topk"] == False]
+            else:
+                violations = pd.DataFrame()  # 빈 DataFrame
             report += f"**예측 실패율**: {deeplog_viol:.1%} (전체 {len(d)}개 중 {len(violations)}개 실패)\n\n"
 
             interpretation = ""
