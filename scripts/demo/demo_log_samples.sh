@@ -81,6 +81,7 @@ echo "✅ DeepLog 학습 완료 (간단 버전)"
 alog-detect deeplog-infer \
     --seq "$PROCESSED_DIR/sequences.parquet" \
     --model "$DEMO_DIR/deeplog_demo.pth" \
+    --vocab "$PROCESSED_DIR/vocab.json" \
     --k 3
 
 echo "✅ DeepLog 추론 완료"

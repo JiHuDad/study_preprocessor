@@ -26,7 +26,12 @@ from .builders.deeplog import (  # DeepLog 파이프라인 함수들
     infer_deeplog_enhanced, EnhancedInferenceConfig
 )
 from .builders.mscred import build_mscred_window_counts  # MS-CRED 입력 생성
-from .synth import generate_synthetic_log  # 합성 로그 생성기
+from .synth import (  # 합성 로그 생성기들
+    generate_synthetic_log,
+    generate_training_data,
+    generate_inference_normal,
+    generate_inference_anomaly,
+)
 from .eval import evaluate_baseline, evaluate_deeplog  # 평가 유틸
 
 
@@ -112,10 +117,11 @@ def deeplog_train_cmd(sequences_parquet: Path, vocab_json: Path, model_out: Path
 @main.command("deeplog-infer")  # DeepLog 추론(top-k)
 @click.option("--seq", "sequences_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # sequences.parquet
 @click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # 모델 경로
+@click.option("--vocab", "vocab_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None, help="vocab.json 경로 (예측/실제 템플릿 표시용)")  # vocab 경로
 @click.option("--k", type=int, default=3)  # Top-K
-def deeplog_infer_cmd(sequences_parquet: Path, model_path: Path, k: int) -> None:  # 추론 실행
+def deeplog_infer_cmd(sequences_parquet: Path, model_path: Path, vocab_path: Path | None, k: int) -> None:  # 추론 실행
     """DeepLog 추론 (기본 top-k 방식)."""  # 설명
-    df = infer_deeplog_topk(str(sequences_parquet), str(model_path), k=k)  # 추론 수행
+    df = infer_deeplog_topk(str(sequences_parquet), str(model_path), vocab_path=str(vocab_path) if vocab_path else None, k=k)  # 추론 수행
     out = Path(sequences_parquet).with_name("deeplog_infer.parquet")  # 출력 경로
     df.to_parquet(out, index=False)  # 저장
     rate = 1.0 - float(df["in_topk"].mean()) if len(df) > 0 else 0.0  # 위반율 계산
@@ -290,62 +296,287 @@ def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: f
     click.echo(f"Anomaly rate: {anomaly_rate:.3f} ({results_df['is_anomaly'].sum()}/{len(results_df)})")  # 요약
 
 
-@main.command("report")  # 리포트 생성
-@click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)  # 산출물 디렉토리
-@click.option("--with-samples", is_flag=True, default=False, help="이상 로그 샘플 분석 포함")  # 샘플 분석 옵션
-def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 실행
-    """산출물 요약 리포트 생성."""  # 설명
-    import pandas as pd  # 지역 임포트
-    processed_dir.mkdir(parents=True, exist_ok=True)  # 폴더 생성
-    report_lines = []  # 리포트 라인 누적
-    # Baseline  # 베이스라인 요약
+def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) -> str:
+    """개선된 읽기 쉬운 리포트를 생성합니다."""
+    import pandas as pd
+    from datetime import datetime
+
+    # 리포트 헤더
+    report = f"""# 📊 로그 이상 탐지 분석 리포트
+
+**생성 시간**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+**분석 대상**: `{processed_dir}`
+
+---
+
+"""
+
+    # 데이터 로드
+    parsed_path = processed_dir / "parsed.parquet"
     base_path = processed_dir / "baseline_scores.parquet"
+    deeplog_path = processed_dir / "deeplog_infer.parquet"
+    mscred_path = processed_dir / "mscred_infer.parquet"
+    vocab_path = processed_dir / "vocab.json"
+
+    has_data = False
+
+    # 종합 요약 섹션
+    report += "## 📋 종합 요약\n\n"
+    report += "| 탐지 방법 | 이상률 | 심각도 | 상태 |\n"
+    report += "|---------|--------|--------|------|\n"
+
+    baseline_rate = None
+    deeplog_viol = None
+    mscred_rate = None
+
+    # Baseline 데이터
     if base_path.exists():
         s = pd.read_parquet(base_path)
         if len(s) > 0:
-            rate = float((s["is_anomaly"] == True).mean())
-            top = s.sort_values("score", ascending=False).head(5)
-            report_lines.append(f"Baseline anomaly windows: {rate:.3f}")
-            report_lines.append("Top windows (start_line, score): " + ", ".join([f"{int(r.window_start_line)}:{float(r.score):.3f}" for _, r in top.iterrows()]))
-    # DeepLog  # DeepLog 요약
-    infer_path = processed_dir / "deeplog_infer.parquet"
-    if infer_path.exists():
-        d = pd.read_parquet(infer_path)
+            has_data = True
+            baseline_rate = float((s["is_anomaly"] == True).mean())
+            severity = "🟢 낮음" if baseline_rate < 0.05 else ("🟡 중간" if baseline_rate < 0.20 else "🔴 높음")
+            status = "정상 범위" if baseline_rate < 0.05 else ("일부 이상 발견" if baseline_rate < 0.20 else "다수 이상 발견")
+            report += f"| Baseline (통계) | {baseline_rate:.1%} | {severity} | {status} |\n"
+
+    # DeepLog 데이터
+    if deeplog_path.exists():
+        d = pd.read_parquet(deeplog_path)
         if len(d) > 0:
-            viol = 1.0 - float(d["in_topk"].mean())
-            report_lines.append(f"DeepLog violation rate: {viol:.3f}")
-    
-    # MS-CRED  # MS-CRED 요약
-    mscred_path = processed_dir / "mscred_infer.parquet"
+            has_data = True
+            deeplog_viol = 1.0 - float(d["in_topk"].mean())
+            severity = "🟢 낮음" if deeplog_viol < 0.20 else ("🟡 중간" if deeplog_viol < 0.50 else "🔴 높음")
+            status = "예측 가능" if deeplog_viol < 0.20 else ("패턴 복잡" if deeplog_viol < 0.50 else "예측 어려움")
+            report += f"| DeepLog (딥러닝) | {deeplog_viol:.1%} | {severity} | {status} |\n"
+
+    # MS-CRED 데이터
     if mscred_path.exists():
         m = pd.read_parquet(mscred_path)
         if len(m) > 0:
-            anomaly_rate = float(m["is_anomaly"].mean())
-            top_errors = m.nlargest(5, 'reconstruction_error')
-            report_lines.append(f"MS-CRED anomaly rate: {anomaly_rate:.3f}")
-            report_lines.append("Top reconstruction errors (window_idx, error): " + 
-                              ", ".join([f"{int(r.window_idx)}:{float(r.reconstruction_error):.4f}" for _, r in top_errors.iterrows()]))
-    # Top templates/messages if parsed exists and baseline flagged windows exist  # 플래그된 윈도우 내 상위 템플릿
-    parsed = processed_dir / "parsed.parquet"
-    base = processed_dir / "baseline_scores.parquet"
-    if parsed.exists() and base.exists():
-        import pandas as pd
-        dfp = pd.read_parquet(parsed)
-        s = pd.read_parquet(base)
-        flagged = s[s["is_anomaly"] == True].copy()
-        if len(flagged) > 0 and "template_id" in dfp.columns:
-            # For each flagged window, find dominant template_id
-            lines = []
-            for _, row in flagged.head(5).iterrows():
-                start = int(row["window_start_line"]) if "window_start_line" in row else 0
-                win = dfp[(dfp["line_no"] >= start) & (dfp["line_no"] < start + 50)]
-                top = (
-                    win["template_id"].astype(str).value_counts().head(3).to_dict()
-                )
-                lines.append(f"window@{start} top_templates={top}")
-            report_lines.extend(lines)
-    
-    # 로그 샘플 분석 추가  # 선택적 상세 분석 실행
+            has_data = True
+            mscred_rate = float(m["is_anomaly"].mean())
+            severity = "🟢 낮음" if mscred_rate < 0.05 else ("🟡 중간" if mscred_rate < 0.20 else "🔴 높음")
+            status = "정상 범위" if mscred_rate < 0.05 else ("일부 이상" if mscred_rate < 0.20 else "다수 이상")
+            report += f"| MS-CRED (멀티스케일) | {mscred_rate:.1%} | {severity} | {status} |\n"
+
+    if not has_data:
+        return "# 📊 로그 이상 탐지 분석 리포트\n\n**결과 없음**: 분석할 데이터가 없습니다.\n"
+
+    # 주요 발견사항
+    report += "\n### ⚠️ 주요 발견사항\n\n"
+    findings = []
+
+    if deeplog_viol and deeplog_viol > 0.50:
+        findings.append(f"- **DeepLog 위반율이 {deeplog_viol:.1%}로 매우 높음** → 로그 패턴이 불규칙하거나 학습 데이터 부족")
+    if baseline_rate and baseline_rate > 0.20:
+        findings.append(f"- **Baseline에서 {baseline_rate:.1%}의 윈도우에서 이상 탐지** → 다수 구간에 새로운 패턴 발견")
+    elif baseline_rate and baseline_rate > 0.05:
+        findings.append(f"- **Baseline에서 {baseline_rate:.1%}의 윈도우에서 이상 탐지** → 일부 구간에 새로운 패턴 발견")
+    if mscred_rate and mscred_rate > 0.20:
+        findings.append(f"- **MS-CRED에서 {mscred_rate:.1%}의 이상 탐지** → 로그 패턴 구조가 비정상적")
+
+    if not findings:
+        findings.append("- ✅ 모든 탐지 방법에서 정상 범위 내의 결과")
+
+    report += "\n".join(findings) + "\n\n---\n\n"
+
+    # Baseline 상세 분석
+    if base_path.exists():
+        s = pd.read_parquet(base_path)
+        if len(s) > 0:
+            report += "## 🔍 Baseline 이상 탐지 (통계 기반)\n\n"
+            anomalous = s[s["is_anomaly"] == True]
+            report += f"**이상 윈도우**: 전체의 {baseline_rate:.1%} ({len(s)}개 중 {len(anomalous)}개)\n\n"
+
+            if len(anomalous) > 0:
+                report += "### 상위 이상 윈도우\n\n"
+                report += "| 시작 라인 | 이상 점수 | 새 템플릿 비율 | 빈도 Z-score |\n"
+                report += "|---------|---------|--------------|-------------|\n"
+
+                top_windows = s.sort_values("score", ascending=False).head(5)
+                for _, row in top_windows.iterrows():
+                    start = int(row["window_start_line"])
+                    score = float(row["score"])
+                    unseen = float(row.get("unseen_rate", 0))
+                    freq_z = float(row.get("freq_z", 0))
+                    report += f"| {start} | {score:.3f} | {unseen:.1%} | {freq_z:.2f} |\n"
+
+                # 실제 로그 샘플 추가
+                if parsed_path.exists():
+                    dfp = pd.read_parquet(parsed_path)
+
+                    # vocab 로드하여 템플릿 ID -> 템플릿 텍스트 매핑
+                    template_map = {}
+                    if vocab_path.exists():
+                        import json
+                        with open(vocab_path, 'r') as f:
+                            vocab = json.load(f)
+                        # vocab은 template_id -> index 매핑이므로, template를 dfp에서 추출
+                        for tid in dfp['template_id'].unique():
+                            template_rows = dfp[dfp['template_id'] == tid]
+                            if len(template_rows) > 0 and 'template' in template_rows.columns:
+                                template_map[tid] = str(template_rows.iloc[0]['template'])
+
+                    report += "\n### 📝 상위 윈도우 상세 분석\n\n"
+                    for _, row in top_windows.head(3).iterrows():  # 상위 3개만
+                        start = int(row["window_start_line"])
+                        score = float(row["score"])
+                        unseen = float(row.get("unseen_rate", 0))
+
+                        report += f"#### 윈도우 #{start}~ (점수: {score:.3f})\n\n"
+
+                        win_logs = dfp[(dfp["line_no"] >= start) & (dfp["line_no"] < start + 50)]
+                        if len(win_logs) > 0:
+                            # 주요 템플릿 분석
+                            top_templates = win_logs["template_id"].value_counts().head(3)
+                            report += "**주요 템플릿들**:\n"
+                            for tid, count in top_templates.items():
+                                template_text = template_map.get(tid, f"Template ID: {tid}")
+                                report += f"- `{template_text}` - {count}회 출현\n"
+
+                            # 실제 로그 샘플 (에러 우선)
+                            error_logs = win_logs[win_logs['raw'].str.contains(
+                                r'error|Error|ERROR|fail|Fail|FAIL|exception|Exception|warning|Warning|critical|Critical',
+                                case=False, na=False, regex=True
+                            )]
+
+                            sample_logs = error_logs.head(3) if len(error_logs) > 0 else win_logs.head(3)
+
+                            report += "\n**실제 로그 샘플**:\n```\n"
+                            for _, log in sample_logs.iterrows():
+                                timestamp = log.get('timestamp', 'N/A')
+                                raw = log.get('raw', 'N/A')
+                                report += f"[{timestamp}] {raw}\n"
+                            report += "```\n\n"
+
+    # DeepLog 상세 분석
+    if deeplog_path.exists():
+        d = pd.read_parquet(deeplog_path)
+        if len(d) > 0:
+            report += "---\n\n## 🧠 DeepLog 이상 탐지 (딥러닝 LSTM)\n\n"
+            violations = d[d["in_topk"] == False]
+            report += f"**예측 실패율**: {deeplog_viol:.1%} (전체 {len(d)}개 중 {len(violations)}개 실패)\n\n"
+
+            interpretation = ""
+            if deeplog_viol < 0.20:
+                interpretation = "✅ **양호**: 로그 패턴이 일관되고 예측 가능합니다."
+            elif deeplog_viol < 0.50:
+                interpretation = "⚠️ **주의**: 로그 패턴이 다소 복잡하거나 학습 데이터가 부족할 수 있습니다."
+            else:
+                interpretation = "🔴 **경고**: 로그 패턴이 매우 불규칙하거나 비정상적입니다. 정상 로그로 모델 재학습을 권장합니다."
+
+            report += f"**해석**: {interpretation}\n\n"
+
+            # 예측 실패 샘플 표시 (예측값 vs 실제값)
+            if len(violations) > 0 and with_samples:
+                report += "### 🔍 예측 실패 상위 샘플\n\n"
+                report += "모델이 예측하지 못한 패턴들입니다. 각 샘플은 모델의 예측값과 실제 발생한 값을 보여줍니다.\n\n"
+
+                # vocab이 있는지 확인 (템플릿 문자열 표시용)
+                has_template_info = "target_template" in d.columns and "predicted_templates" in d.columns
+
+                if has_template_info:
+                    # 템플릿 문자열 정보가 있는 경우
+                    sample_count = 0
+                    for idx, row in violations.head(5).iterrows():
+                        sample_count += 1
+                        report += f"#### 샘플 {sample_count}\n\n"
+                        report += "| 항목 | 내용 |\n"
+                        report += "|------|------|\n"
+                        report += f"| **실제 발생** | `{row.get('target_template', 'N/A')}` |\n"
+                        report += f"| **모델 예측 (Top-K)** | `{row.get('predicted_templates', 'N/A')}` |\n"
+                        report += f"| **분석** | 모델이 예측한 패턴과 다른 로그가 발생하여 이상으로 탐지되었습니다. |\n\n"
+                else:
+                    # 인덱스 정보만 있는 경우
+                    report += "| 샘플 | 실제 템플릿 인덱스 | 예측 Top-1 | 예측 Top-2 | 예측 Top-3 |\n"
+                    report += "|------|-------------------|-----------|-----------|------------|\n"
+
+                    for idx, row in violations.head(5).iterrows():
+                        target = row.get('target', 'N/A')
+                        pred1 = row.get('predicted_top1', '-')
+                        pred2 = row.get('predicted_top2', '-')
+                        pred3 = row.get('predicted_top3', '-')
+                        report += f"| #{idx} | {target} | {pred1} | {pred2} | {pred3} |\n"
+
+                    report += "\n**참고**: vocab.json을 사용하여 추론하면 실제 템플릿 문자열을 볼 수 있습니다.\n\n"
+                    report += "```bash\n"
+                    report += "alog-detect deeplog-infer --seq sequences.parquet --model model.pth --vocab vocab.json\n"
+                    report += "```\n\n"
+
+    # MS-CRED 상세 분석
+    if mscred_path.exists():
+        m = pd.read_parquet(mscred_path)
+        if len(m) > 0:
+            report += "---\n\n## 🔬 MS-CRED 이상 탐지 (멀티스케일 오토인코더)\n\n"
+            anomalous = m[m["is_anomaly"] == True]
+            report += f"**이상 윈도우**: 전체의 {mscred_rate:.1%} ({len(m)}개 중 {len(anomalous)}개)\n\n"
+
+            if len(anomalous) > 0:
+                report += "### 상위 재구성 오류\n\n"
+                report += "| 윈도우 인덱스 | 재구성 오류 | 임계값 | 오류/임계값 비율 |\n"
+                report += "|------------|-----------|--------|---------------|\n"
+
+                top_errors = m.nlargest(5, 'reconstruction_error')
+                for _, row in top_errors.iterrows():
+                    idx = int(row["window_idx"])
+                    error = float(row["reconstruction_error"])
+                    threshold = float(row.get("threshold", 0))
+                    ratio = error / threshold if threshold > 0 else 0
+                    report += f"| {idx} | {error:.4f} | {threshold:.4f} | {ratio:.2f}x |\n"
+                report += "\n"
+
+    # 권장사항
+    report += "---\n\n## 💡 권장사항\n\n"
+    report += "### 🔴 즉시 조치 필요\n\n"
+
+    recommendations = []
+    if baseline_rate and baseline_rate > 0.05:
+        recommendations.append("- **이상 윈도우 구간 확인**: Baseline에서 발견된 이상 구간의 로그를 상세 분석하세요")
+    if deeplog_viol and deeplog_viol > 0.50:
+        recommendations.append("- **DeepLog 모델 재학습**: 정상 로그 패턴으로 모델을 재학습하여 정확도를 개선하세요")
+    if mscred_rate and mscred_rate > 0.20:
+        recommendations.append("- **로그 패턴 구조 분석**: MS-CRED에서 발견된 구조적 이상을 분석하세요")
+
+    if not recommendations:
+        recommendations.append("- ✅ 현재 시스템 상태가 양호합니다. 정기적인 모니터링을 계속하세요")
+
+    report += "\n".join(recommendations) + "\n\n"
+
+    report += "### 🟡 추가 분석 권장\n\n"
+    report += "- **시간대별 분석**: `alog-detect analyze-temporal --data-dir <dir>` 실행\n"
+    report += "- **상세 로그 샘플 확인**: `alog-detect analyze-samples --processed-dir <dir>` 실행\n"
+    report += "- **비교 분석**: 여러 시스템 간 로그 패턴 비교\n\n"
+
+    if with_samples:
+        report += "---\n\n"
+        report += "## 📄 상세 분석 리포트\n\n"
+        sample_report = processed_dir / "log_samples_analysis" / "anomaly_analysis_report.md"
+        if sample_report.exists():
+            report += f"✅ 실제 이상 로그 샘플 분석이 완료되었습니다.\n\n"
+            report += f"**상세 리포트**: `{sample_report}`\n\n"
+        else:
+            report += "⏳ 상세 로그 샘플 분석이 진행 중입니다...\n\n"
+    else:
+        report += "---\n\n"
+        report += "💡 **Tip**: `--with-samples` 옵션을 사용하면 실제 이상 로그 샘플과 상세 분석을 확인할 수 있습니다.\n\n"
+
+    report += "---\n\n"
+    report += f"**참고**: 이 리포트는 자동 생성되었습니다. 생성 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+
+    return report
+
+
+@main.command("report")  # 리포트 생성
+@click.option("--processed-dir", type=click.Path(file_okay=False, path_type=Path), required=True)  # 산출물 디렉토리
+@click.option("--with-samples/--no-samples", default=True, help="이상 로그 샘플 분석 포함 (기본: 포함)")  # 샘플 분석 옵션
+def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 실행
+    """산출물 요약 리포트 생성 (개선된 읽기 쉬운 형식)."""  # 설명
+    import pandas as pd  # 지역 임포트
+    processed_dir.mkdir(parents=True, exist_ok=True)  # 폴더 생성
+
+    click.echo("📊 리포트 생성 중...")
+
+    # 로그 샘플 분석 먼저 실행 (with_samples=True인 경우)
     if with_samples:
         click.echo("🔍 이상 로그 샘플 분석 중...")
         try:
@@ -362,27 +593,29 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 �
 
             try:  # 분석 실행 보호
                 log_samples_main()
-                report_lines.append("Log sample analysis completed successfully")
-                report_lines.append(f"Detailed analysis: {processed_dir / 'log_samples_analysis' / 'anomaly_analysis_report.md'}")
+                click.echo("✅ 로그 샘플 분석 완료")
             finally:
                 sys.argv = old_argv
         except Exception as e:
-            report_lines.append(f"Log sample analysis error: {e}")
-    
-    # Save  # 리포트 파일 저장
+            click.echo(f"⚠️ 로그 샘플 분석 중 오류: {e}", err=True)
+
+    # 개선된 리포트 생성
+    report_content = _generate_enhanced_report(processed_dir, with_samples)
+
+    # 리포트 저장
     out_md = processed_dir / "report.md"
-    if not report_lines:
-        report_lines = ["No artifacts found to report."]
-    out_md.write_text("\n".join(["### Detection Report"] + [f"- {line}" for line in report_lines]))
-    click.echo(f"Saved report: {out_md}")
-    
+    out_md.write_text(report_content)
+
+    click.echo(f"\n✅ 리포트 생성 완료!")
+    click.echo(f"📄 주요 리포트: {out_md}")
+
     if with_samples:  # 샘플 분석 경로 출력
         sample_report = processed_dir / "log_samples_analysis" / "anomaly_analysis_report.md"
         if sample_report.exists():
-            click.echo(f"📄 Human-readable log analysis: {sample_report}")
+            click.echo(f"📋 상세 로그 샘플 분석: {sample_report}")
         sample_data = processed_dir / "log_samples_analysis" / "anomaly_samples.json"
         if sample_data.exists():
-            click.echo(f"📊 Detailed sample data: {sample_data}")
+            click.echo(f"📊 샘플 데이터: {sample_data}")
 
 
 @main.command("gen-synth")  # 합성 로그 생성
@@ -390,9 +623,99 @@ def report_cmd(processed_dir: Path, with_samples: bool) -> None:  # 리포트 �
 @click.option("--lines", "num_lines", type=int, default=5000)  # 라인 수
 @click.option("--anomaly-rate", type=float, default=0.02)  # 이상 비율
 def gen_synth_cmd(out_path: Path, num_lines: int, anomaly_rate: float) -> None:  # 생성 실행
-    """합성 장기 로그 생성."""  # 설명
+    """합성 장기 로그 생성 (정상+이상 혼합)."""  # 설명
     p = generate_synthetic_log(str(out_path), num_lines=num_lines, anomaly_rate=anomaly_rate)  # 생성 호출
-    click.echo(f"Generated synthetic log: {p}")  # 결과 출력
+    click.echo(f"✅ Generated synthetic log: {p}")  # 결과 출력
+    click.echo(f"📊 Labels: {p}.labels.parquet")
+
+
+@main.command("gen-training-data")  # 학습용 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=10000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--host", default="train-host", help="호스트명")  # 호스트명
+def gen_training_data_cmd(out_path: Path, num_lines: int, host: str) -> None:  # 학습 데이터 생성 실행
+    """학습용 정상 로그 데이터 생성 (100% 정상 로그)."""  # 설명
+    click.echo("📚 학습용 정상 로그 데이터 생성 중...")
+    p = generate_training_data(str(out_path), num_lines=num_lines, host=host)  # 생성 호출
+    click.echo(f"✅ Generated training data: {p}")
+    click.echo(f"   📊 Lines: {num_lines} (모두 정상)")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"\n💡 Tip: 이 데이터로 모델을 학습하세요:")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/train")
+    click.echo(f"   alog-detect build-deeplog --parsed data/processed/train/parsed.parquet --out-dir data/processed/train")
+    click.echo(f"   alog-detect deeplog-train --seq data/processed/train/sequences.parquet --vocab data/processed/train/vocab.json --out models/deeplog.pth")
+
+
+@main.command("gen-inference-normal")  # 추론용 정상 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=1000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--host", default="test-host", help="호스트명")  # 호스트명
+def gen_inference_normal_cmd(out_path: Path, num_lines: int, host: str) -> None:  # 추론용 정상 데이터 생성
+    """추론용 정상 로그 데이터 생성 (False Positive 테스트용, 100% 정상)."""  # 설명
+    click.echo("✅ 추론용 정상 로그 데이터 생성 중...")
+    p = generate_inference_normal(str(out_path), num_lines=num_lines, host=host)  # 생성 호출
+    click.echo(f"✅ Generated inference normal data: {p}")
+    click.echo(f"   📊 Lines: {num_lines} (모두 정상)")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"\n💡 Tip: 모델이 이 데이터를 정상으로 인식해야 합니다 (False Positive 테스트):")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/test_normal")
+    click.echo(f"   alog-detect deeplog-infer --seq data/processed/test_normal/sequences.parquet --model models/deeplog.pth --k 3")
+
+
+@main.command("gen-inference-anomaly")  # 추론용 비정상 데이터 생성
+@click.option("--out", "out_path", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 출력 경로
+@click.option("--lines", "num_lines", type=int, default=1000, help="생성할 로그 라인 수")  # 라인 수
+@click.option("--anomaly-rate", type=float, default=0.15, help="이상 로그 비율 (기본: 15%)")  # 이상 비율
+@click.option("--anomaly-types", multiple=True, type=click.Choice(["unseen", "error", "attack", "crash", "burst"]),
+              help="포함할 이상 타입 (여러 개 선택 가능, 기본: 모두)")  # 이상 타입
+@click.option("--host", default="test-host", help="호스트명")  # 호스트명
+def gen_inference_anomaly_cmd(out_path: Path, num_lines: int, anomaly_rate: float,
+                             anomaly_types: tuple[str, ...], host: str) -> None:  # 추론용 비정상 데이터 생성
+    """추론용 비정상 로그 데이터 생성 (True Positive 테스트용).
+
+    이상 타입:
+    - unseen: 학습 시 보지 못한 새로운 템플릿
+    - error: 에러 메시지 (ERROR, CRITICAL, FATAL)
+    - attack: 보안 공격 시뮬레이션 (SSH brute force, SYN flood)
+    - crash: 시스템 크래시 (서비스 실패, kernel panic)
+    - burst: 특정 템플릿 급증 (10-30개 연속)
+    """  # 설명
+    click.echo("🚨 추론용 비정상 로그 데이터 생성 중...")
+
+    # anomaly_types가 비어있으면 None (모두 포함)
+    types_list = list(anomaly_types) if anomaly_types else None
+
+    p = generate_inference_anomaly(
+        str(out_path),
+        num_lines=num_lines,
+        anomaly_rate=anomaly_rate,
+        anomaly_types=types_list,
+        host=host
+    )  # 생성 호출
+
+    click.echo(f"✅ Generated inference anomaly data: {p}")
+    click.echo(f"   📊 Lines: {num_lines}")
+    click.echo(f"   🚨 Target anomaly rate: {anomaly_rate:.1%}")
+    click.echo(f"   📋 Labels: {p}.labels.parquet")
+    click.echo(f"   📈 Metadata: {p}.meta.json")
+
+    # 메타데이터 읽어서 실제 통계 표시
+    import json
+    meta_path = Path(str(p) + ".meta.json")
+    if meta_path.exists():
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        click.echo(f"\n📊 생성 통계:")
+        click.echo(f"   실제 이상률: {meta['anomaly_rate_actual']:.1%} ({meta['anomaly_count']}/{meta['total_lines']}개)")
+        if meta.get('anomaly_type_distribution'):
+            click.echo(f"   이상 타입별 분포:")
+            for anom_type, count in meta['anomaly_type_distribution'].items():
+                click.echo(f"      - {anom_type}: {count}개")
+
+    click.echo(f"\n💡 Tip: 모델이 이 데이터에서 이상을 탐지해야 합니다 (True Positive 테스트):")
+    click.echo(f"   alog-detect parse --input {p} --out-dir data/processed/test_anomaly")
+    click.echo(f"   alog-detect deeplog-infer --seq data/processed/test_anomaly/sequences.parquet --model models/deeplog.pth --k 3")
+    click.echo(f"   alog-detect eval --processed-dir data/processed/test_anomaly --labels {p}.labels.parquet")
 
 
 @main.command("eval")  # 평가 명령

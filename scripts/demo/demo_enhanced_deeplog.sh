@@ -61,6 +61,7 @@ echo "5️⃣ a. 기본 DeepLog 추론 (기존 방식)..."
 alog-detect deeplog-infer \
   --seq "$DEMO_DIR/processed/sequences.parquet" \
   --model "$DEMO_DIR/deeplog_model.pth" \
+  --vocab "$DEMO_DIR/processed/vocab.json" \
   --k 3
 
 echo "✅ 기본 추론 완료"

@@ -151,6 +151,7 @@ echo "6️⃣  DeepLog 이상탐지 추론 중..."
 alog-detect deeplog-infer \
   --seq "$OUTPUT_DIR/sequences.parquet" \
   --model "$MODEL_PATH" \
+  --vocab "$OUTPUT_DIR/vocab.json" \
   --k 3
 
 echo "✅ DeepLog 추론 완료: deeplog_infer.parquet"
