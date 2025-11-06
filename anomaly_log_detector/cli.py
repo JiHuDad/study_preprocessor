@@ -117,10 +117,11 @@ def deeplog_train_cmd(sequences_parquet: Path, vocab_json: Path, model_out: Path
 @main.command("deeplog-infer")  # DeepLog 추론(top-k)
 @click.option("--seq", "sequences_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # sequences.parquet
 @click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # 모델 경로
+@click.option("--vocab", "vocab_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None, help="vocab.json 경로 (예측/실제 템플릿 표시용)")  # vocab 경로
 @click.option("--k", type=int, default=3)  # Top-K
-def deeplog_infer_cmd(sequences_parquet: Path, model_path: Path, k: int) -> None:  # 추론 실행
+def deeplog_infer_cmd(sequences_parquet: Path, model_path: Path, vocab_path: Path | None, k: int) -> None:  # 추론 실행
     """DeepLog 추론 (기본 top-k 방식)."""  # 설명
-    df = infer_deeplog_topk(str(sequences_parquet), str(model_path), k=k)  # 추론 수행
+    df = infer_deeplog_topk(str(sequences_parquet), str(model_path), vocab_path=str(vocab_path) if vocab_path else None, k=k)  # 추론 수행
     out = Path(sequences_parquet).with_name("deeplog_infer.parquet")  # 출력 경로
     df.to_parquet(out, index=False)  # 저장
     rate = 1.0 - float(df["in_topk"].mean()) if len(df) > 0 else 0.0  # 위반율 계산
@@ -465,6 +466,42 @@ def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) ->
                 interpretation = "🔴 **경고**: 로그 패턴이 매우 불규칙하거나 비정상적입니다. 정상 로그로 모델 재학습을 권장합니다."
 
             report += f"**해석**: {interpretation}\n\n"
+
+            # 예측 실패 샘플 표시 (예측값 vs 실제값)
+            if len(violations) > 0 and with_samples:
+                report += "### 🔍 예측 실패 상위 샘플\n\n"
+                report += "모델이 예측하지 못한 패턴들입니다. 각 샘플은 모델의 예측값과 실제 발생한 값을 보여줍니다.\n\n"
+
+                # vocab이 있는지 확인 (템플릿 문자열 표시용)
+                has_template_info = "target_template" in d.columns and "predicted_templates" in d.columns
+
+                if has_template_info:
+                    # 템플릿 문자열 정보가 있는 경우
+                    sample_count = 0
+                    for idx, row in violations.head(5).iterrows():
+                        sample_count += 1
+                        report += f"#### 샘플 {sample_count}\n\n"
+                        report += "| 항목 | 내용 |\n"
+                        report += "|------|------|\n"
+                        report += f"| **실제 발생** | `{row.get('target_template', 'N/A')}` |\n"
+                        report += f"| **모델 예측 (Top-K)** | `{row.get('predicted_templates', 'N/A')}` |\n"
+                        report += f"| **분석** | 모델이 예측한 패턴과 다른 로그가 발생하여 이상으로 탐지되었습니다. |\n\n"
+                else:
+                    # 인덱스 정보만 있는 경우
+                    report += "| 샘플 | 실제 템플릿 인덱스 | 예측 Top-1 | 예측 Top-2 | 예측 Top-3 |\n"
+                    report += "|------|-------------------|-----------|-----------|------------|\n"
+
+                    for idx, row in violations.head(5).iterrows():
+                        target = row.get('target', 'N/A')
+                        pred1 = row.get('predicted_top1', '-')
+                        pred2 = row.get('predicted_top2', '-')
+                        pred3 = row.get('predicted_top3', '-')
+                        report += f"| #{idx} | {target} | {pred1} | {pred2} | {pred3} |\n"
+
+                    report += "\n**참고**: vocab.json을 사용하여 추론하면 실제 템플릿 문자열을 볼 수 있습니다.\n\n"
+                    report += "```bash\n"
+                    report += "alog-detect deeplog-infer --seq sequences.parquet --model model.pth --vocab vocab.json\n"
+                    report += "```\n\n"
 
     # MS-CRED 상세 분석
     if mscred_path.exists():

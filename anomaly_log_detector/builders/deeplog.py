@@ -136,16 +136,17 @@ def train_deeplog(sequences_parquet: str | Path, vocab_json: str | Path, out_pat
 
 
 @torch.no_grad()  # 기울기 계산 비활성화 (추론 시 사용)
-def infer_deeplog_topk(sequences_parquet: str | Path, model_path: str | Path, k: int = 3) -> pd.DataFrame:
+def infer_deeplog_topk(sequences_parquet: str | Path, model_path: str | Path, vocab_path: str | Path | None = None, k: int = 3) -> pd.DataFrame:
     """기존 단순 top-k inference (하위 호환성 유지).
-    
+
     Args:
         sequences_parquet: 시퀀스 데이터 Parquet 파일 경로
         model_path: 학습된 모델 파일 경로
+        vocab_path: vocab.json 파일 경로 (선택사항 - 예측/실제 템플릿 문자열 포함 시 필요)
         k: Top-K 값 (기본값: 3)
-        
+
     Returns:
-        추론 결과 DataFrame (idx, target, in_topk)
+        추론 결과 DataFrame (idx, target, in_topk, predicted_top1~topK, target_template, predicted_templates)
     """
     device = torch.device("cpu")  # 계산 장치 설정 (CPU 사용)
     state = torch.load(model_path, map_location=device)  # 모델 상태 로드
@@ -155,15 +156,65 @@ def infer_deeplog_topk(sequences_parquet: str | Path, model_path: str | Path, k:
     model.load_state_dict(state["state_dict"])  # 모델 상태 로드
     model.eval()  # 모델을 평가 모드로 설정
 
+    # vocab 로드 (템플릿 문자열 매핑용)
+    vocab_map = None  # 인덱스 -> 템플릿 문자열 매핑
+    if vocab_path and Path(vocab_path).exists():
+        with open(vocab_path, 'r') as f:
+            vocab = json.load(f)  # {"template_string": index}
+            # 역매핑: {index: "template_string"}
+            vocab_map = {int(idx): template for template, idx in vocab.items()}
+
     df = pd.read_parquet(sequences_parquet)  # 시퀀스 데이터 읽기
     X, Y = _make_sequences(df["template_index"], seq_len)  # 입력/출력 시퀀스 생성
     if len(X) == 0:  # 시퀀스가 비어있으면
-        return pd.DataFrame(columns=["idx", "target", "in_topk"])  # 빈 DataFrame 반환
+        base_cols = ["idx", "target", "in_topk"]
+        pred_cols = [f"predicted_top{i+1}" for i in range(k)]
+        if vocab_map:
+            base_cols.extend(["target_template", "predicted_templates"])
+        return pd.DataFrame(columns=base_cols + pred_cols)  # 빈 DataFrame 반환
+
     logits = model(X)  # 모델에 입력하여 로짓 출력
     last_logits = logits[:, -1, :]  # 시퀀스의 마지막 위치의 로짓만 추출
-    topk = torch.topk(last_logits, k=k, dim=1).indices  # Top-K 인덱스 추출
+    topk = torch.topk(last_logits, k=min(k, vocab_size), dim=1).indices  # Top-K 인덱스 추출
     in_topk = (topk == Y.unsqueeze(1)).any(dim=1).cpu().numpy()  # 타깃이 Top-K에 포함되는지 확인
-    return pd.DataFrame({"idx": range(len(in_topk)), "target": Y.cpu().numpy(), "in_topk": in_topk})  # 결과 DataFrame 반환
+
+    # 결과 DataFrame 구성
+    result_data = {
+        "idx": range(len(in_topk)),
+        "target": Y.cpu().numpy(),
+        "in_topk": in_topk
+    }
+
+    # Top-K 예측값 인덱스 추가
+    topk_np = topk.cpu().numpy()
+    for i in range(k):
+        if i < topk_np.shape[1]:
+            result_data[f"predicted_top{i+1}"] = topk_np[:, i]
+        else:
+            result_data[f"predicted_top{i+1}"] = [-1] * len(in_topk)
+
+    # vocab이 있으면 템플릿 문자열도 추가
+    if vocab_map:
+        target_templates = []
+        predicted_templates_list = []
+
+        for i in range(len(Y)):
+            target_idx = int(Y[i].item())
+            target_template = vocab_map.get(target_idx, f"<Unknown:{target_idx}>")
+            target_templates.append(target_template)
+
+            # Top-K 예측 템플릿들
+            pred_templates = []
+            for j in range(min(k, topk_np.shape[1])):
+                pred_idx = int(topk_np[i, j])
+                pred_template = vocab_map.get(pred_idx, f"<Unknown:{pred_idx}>")
+                pred_templates.append(pred_template)
+            predicted_templates_list.append(" | ".join(pred_templates))
+
+        result_data["target_template"] = target_templates
+        result_data["predicted_templates"] = predicted_templates_list
+
+    return pd.DataFrame(result_data)  # 결과 DataFrame 반환
 
 
 # ============================================================================  # 구분선

@@ -136,6 +136,7 @@ alog-detect build-deeplog \
 alog-detect deeplog-infer \
     --seq data/processed/test_normal/sequences.parquet \
     --model models/deeplog.pth \
+    --vocab data/processed/test_normal/vocab.json \
     --k 3
 
 # Baseline 탐지
@@ -186,6 +187,7 @@ alog-detect build-deeplog \
 alog-detect deeplog-infer \
     --seq data/processed/test_anomaly/sequences.parquet \
     --model models/deeplog.pth \
+    --vocab data/processed/test_anomaly/vocab.json \
     --k 3
 
 # Baseline 탐지
