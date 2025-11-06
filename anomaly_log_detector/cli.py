@@ -1065,3 +1065,7 @@ def validate_baseline_cmd(baseline_files: tuple, output_dir: Path) -> None:
         sys.argv = old_argv
 
 
+if __name__ == "__main__":
+    main()
+
+
