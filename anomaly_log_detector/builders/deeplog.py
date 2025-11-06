@@ -12,24 +12,45 @@ import torch  # PyTorch 딥러닝 프레임워크
 from torch import nn  # 신경망 레이어 모듈
 
 
-def build_deeplog_inputs(parsed_parquet: str | Path, out_dir: str | Path, template_col: str = "template") -> None:
+def build_deeplog_inputs(
+    parsed_parquet: str | Path,
+    out_dir: str | Path,
+    template_col: str = "template",
+    vocab_path: str | Path | None = None
+) -> None:
     """DeepLog 학습을 위한 입력 데이터 생성 함수 (vocab.json, sequences.parquet).
-    
+
     Args:
         parsed_parquet: 파싱된 로그 데이터 Parquet 파일 경로
         out_dir: 출력 디렉토리 경로
         template_col: 템플릿 컬럼명 (기본값: "template", 실제 템플릿 문자열 사용)
+        vocab_path: 기존 vocab.json 경로 (선택사항)
+                   - 제공되면: 기존 vocab 사용 (추론 시 사용)
+                   - None: 새로운 vocab 생성 (학습 시 사용)
+
+    Important:
+        추론 시에는 반드시 학습 시 생성된 vocab.json을 전달해야 합니다.
+        그렇지 않으면 템플릿 인덱스가 달라져 예측이 완전히 잘못됩니다!
     """
     out = Path(out_dir)  # 경로 문자열을 Path 객체로 변환
     out.mkdir(parents=True, exist_ok=True)  # 출력 디렉토리가 없으면 생성
     df = pd.read_parquet(parsed_parquet)  # 파싱된 로그 데이터 읽기
 
-    # Build vocab mapping using actual template strings (NOT template_id)  # 실제 템플릿 문자열을 사용하여 어휘 매핑 생성 (template_id가 아님)
-    # CRITICAL: Use "template" column (actual template string) for C engine compatibility  # 중요: C 엔진 호환성을 위해 "template" 컬럼(실제 템플릿 문자열) 사용
-    # If template_col is "template_id", this will create {"1": 0, "2": 1} which is wrong!  # template_col이 "template_id"이면 {"1": 0, "2": 1}처럼 잘못된 형식이 생성됨!
-    unique_templates = [t for t in df[template_col].dropna().astype(str).unique()]  # 고유한 템플릿 문자열 추출 (NaN 제외)
-    vocab: Dict[str, int] = {t: i for i, t in enumerate(sorted(unique_templates))}  # 템플릿 문자열을 정렬 후 인덱스와 매핑 (템플릿 문자열 -> 인덱스)
-    (out / "vocab.json").write_text(json.dumps(vocab, indent=2))  # vocab.json 파일로 저장
+    # Vocab 로드 또는 생성
+    if vocab_path and Path(vocab_path).exists():
+        # 기존 vocab 사용 (추론 시)
+        with open(vocab_path, 'r') as f:
+            vocab: Dict[str, int] = json.load(f)
+        print(f"✅ 기존 vocab 사용: {vocab_path} (크기: {len(vocab)})")
+    else:
+        # 새로운 vocab 생성 (학습 시)
+        # Build vocab mapping using actual template strings (NOT template_id)  # 실제 템플릿 문자열을 사용하여 어휘 매핑 생성 (template_id가 아님)
+        # CRITICAL: Use "template" column (actual template string) for C engine compatibility  # 중요: C 엔진 호환성을 위해 "template" 컬럼(실제 템플릿 문자열) 사용
+        # If template_col is "template_id", this will create {"1": 0, "2": 1} which is wrong!  # template_col이 "template_id"이면 {"1": 0, "2": 1}처럼 잘못된 형식이 생성됨!
+        unique_templates = [t for t in df[template_col].dropna().astype(str).unique()]  # 고유한 템플릿 문자열 추출 (NaN 제외)
+        vocab = {t: i for i, t in enumerate(sorted(unique_templates))}  # 템플릿 문자열을 정렬 후 인덱스와 매핑 (템플릿 문자열 -> 인덱스)
+        (out / "vocab.json").write_text(json.dumps(vocab, indent=2))  # vocab.json 파일로 저장
+        print(f"✅ 새로운 vocab 생성: {out / 'vocab.json'} (크기: {len(vocab)})")
 
     # Map to indices and export sequences by host (if available) or global  # 인덱스로 매핑하고 호스트별(가능한 경우) 또는 전역으로 시퀀스 내보내기
     df = df.sort_values(["timestamp", "line_no"], kind="stable", na_position="first")  # 타임스탬프와 라인 번호로 안정 정렬 (NA값은 앞쪽에)
