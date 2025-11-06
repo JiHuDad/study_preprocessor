@@ -708,6 +708,17 @@ with open('$RESULT_DIR/inference_report.md', 'w', encoding='utf-8') as f:
 print('✅ 종합 리포트 생성 완료')
 "
 
+# 향상된 리포트 생성 (예측 vs 실제 비교 포함)
+echo ""
+echo "📊 향상된 리포트 생성 중..."
+$PYTHON_CMD -m anomaly_log_detector.cli report --processed-dir "$RESULT_DIR" --with-samples 2>/dev/null
+
+if [ -f "$RESULT_DIR/report.md" ]; then
+    echo "✅ 향상된 리포트 생성 완료: $RESULT_DIR/report.md"
+else
+    echo "⚠️  향상된 리포트 생성 실패 (기본 리포트는 사용 가능)"
+fi
+
 # 종료 시간 및 소요 시간 계산
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
@@ -792,7 +803,10 @@ fi
 
 echo "🔍 상세 분석 명령어:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  📄 종합 리포트: cat $RESULT_DIR/inference_report.md"
+echo "  📄 기본 리포트: cat $RESULT_DIR/inference_report.md"
+if [ -f "$RESULT_DIR/report.md" ]; then
+    echo "  📊 향상된 리포트 (예측 vs 실제 비교 포함): cat $RESULT_DIR/report.md"
+fi
 
 # 로그 샘플 분석 리포트 추천
 if [ -f "$RESULT_DIR/log_samples_analysis/anomaly_analysis_report.md" ]; then
@@ -822,4 +836,7 @@ echo "   - ✅ DeepLog Enhanced 이상탐지 (알림 관리 포함)"
 echo "   - ✅ MS-CRED 컨볼루션 이상탐지"
 echo "   - ✅ 시간 기반 패턴 분석"
 echo "   - ✅ 이상 로그 샘플 추출 및 분석"
-echo "   - ✅ 종합 결과 리포트 생성"
+echo "   - ✅ 기본 리포트 생성 (inference_report.md)"
+if [ -f "$RESULT_DIR/report.md" ]; then
+    echo "   - ✅ 향상된 리포트 생성 (report.md - 예측 vs 실제 비교 포함)"
+fi
