@@ -296,11 +296,12 @@ from anomaly_log_detector.builders.deeplog import build_deeplog_inputs
 
 try:
     print('DeepLog 입력 생성 시작...')
-    
-    # DeepLog 입력 생성
+
+    # DeepLog 입력 생성 (학습된 vocab 재사용)
     build_deeplog_inputs(
         parsed_parquet='$RESULT_DIR/parsed.parquet',
-        out_dir='$RESULT_DIR'
+        out_dir='$RESULT_DIR',
+        vocab_path='$MODEL_DIR/vocab.json'
     )
     
     print('DeepLog 입력 생성 완료')
