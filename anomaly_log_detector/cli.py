@@ -258,9 +258,16 @@ def deeplog_infer_enhanced_cmd(
 @click.option("--out-dir", type=click.Path(file_okay=False, path_type=Path), required=True)  # 출력 폴더
 @click.option("--window-size", type=int, default=50)  # 윈도우 크기
 @click.option("--stride", type=int, default=25)  # 스트라이드
-def build_mscred_cmd(parsed_parquet: Path, out_dir: Path, window_size: int, stride: int) -> None:  # 생성 실행
+@click.option("--template-mapping-path", type=click.Path(dir_okay=False, path_type=Path), default=None, help="기존 template_mapping.json 경로 (추론 시 사용)")  # 템플릿 매핑 경로
+def build_mscred_cmd(parsed_parquet: Path, out_dir: Path, window_size: int, stride: int, template_mapping_path: Path | None) -> None:  # 생성 실행
     """MS-CRED 입력(윈도우 카운트) 생성."""  # 설명
-    build_mscred_window_counts(str(parsed_parquet), str(out_dir), window_size=window_size, stride=stride)  # 생성
+    build_mscred_window_counts(
+        str(parsed_parquet),
+        str(out_dir),
+        window_size=window_size,
+        stride=stride,
+        template_mapping_path=str(template_mapping_path) if template_mapping_path else None
+    )  # 생성
     click.echo(f"Built MS-CRED window counts under: {out_dir}")  # 완료 메시지
 
 
