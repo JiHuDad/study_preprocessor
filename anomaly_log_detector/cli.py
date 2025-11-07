@@ -290,14 +290,16 @@ def mscred_train_cmd(window_counts_parquet: Path, model_output: Path, epochs: in
 @main.command("mscred-infer")  # MS-CRED 추론
 @click.option("--window-counts", "window_counts_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # window_counts.parquet
 @click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # 모델 경로
-@click.option("--threshold", type=float, default=95.0, help="이상 탐지 임계값 (백분위수)")  # 임계 백분위수
-def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: float) -> None:  # 추론 실행
+@click.option("--threshold", type=float, default=None, help="수동 임계값 지정 (지정하지 않으면 학습 시 계산된 임계값 사용)")  # 수동 임계값
+@click.option("--threshold-method", type=click.Choice(['99percentile', '95percentile', '99.9percentile', '3sigma', 'mad']),
+              default='99percentile', help="학습 시 저장된 임계값 선택 방법 (기본값: 99percentile)")  # 임계값 선택 방법
+def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: float | None, threshold_method: str) -> None:  # 추론 실행
     """MS-CRED 이상 탐지 추론."""  # 설명
     from .mscred_model import infer_mscred  # 지연 임포트
-    
+
     out = Path(window_counts_parquet).with_name("mscred_infer.parquet")  # 출력 경로
-    results_df = infer_mscred(str(window_counts_parquet), str(model_path), str(out), threshold)  # 추론
-    
+    results_df = infer_mscred(str(window_counts_parquet), str(model_path), str(out), threshold, threshold_method)  # 추론
+
     anomaly_rate = results_df['is_anomaly'].mean()  # 이상률
     click.echo(f"Saved MS-CRED inference: {out}")  # 경로
     click.echo(f"Anomaly rate: {anomaly_rate:.3f} ({results_df['is_anomaly'].sum()}/{len(results_df)})")  # 요약

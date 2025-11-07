@@ -240,23 +240,23 @@ class MSCREDTrainer:  # 학습 관리 클래스
         
         train_losses = []  # 에폭별 학습 손실 기록
         val_losses = []  # 에폭별 검증 손실 기록
-        
+
         self.model.train()  # 학습 모드 설정
-        
+
         for epoch in tqdm(range(epochs), desc="MS-CRED 학습"):  # 에폭 반복
             # 학습  # 배치 반복으로 최적화
             epoch_train_loss = 0  # 에폭 학습 손실 누적
             for i in range(0, len(train_data), 32):  # 배치 크기 32  # 미니배치 학습
                 batch = train_data[i:i+32]  # 배치 슬라이스
-                
+
                 self.optimizer.zero_grad()  # 그래디언트 초기화
                 reconstructed = self.model(batch)  # 순전파
                 loss = F.mse_loss(reconstructed, batch)  # 재구성 손실(MSE)
                 loss.backward()  # 역전파
                 self.optimizer.step()  # 파라미터 업데이트
-                
+
                 epoch_train_loss += loss.item()  # 손실 누적
-            
+
             # 검증  # 평가 모드에서 손실 측정
             self.model.eval()  # 평가 모드 설정
             epoch_val_loss = 0  # 에폭 검증 손실 누적
@@ -266,37 +266,86 @@ class MSCREDTrainer:  # 학습 관리 클래스
                     reconstructed = self.model(batch)  # 순전파
                     loss = F.mse_loss(reconstructed, batch)  # 손실 계산
                     epoch_val_loss += loss.item()  # 누적
-            
+
             self.model.train()  # 다시 학습 모드로 전환
-            
+
             avg_train_loss = epoch_train_loss / (len(train_data) // 32 + 1)  # 평균 학습 손실
             avg_val_loss = epoch_val_loss / (len(val_data) // 32 + 1) if len(val_data) > 0 else 0  # 평균 검증 손실
-            
+
             train_losses.append(avg_train_loss)  # 기록 추가
             val_losses.append(avg_val_loss)  # 기록 추가
-            
+
             self.scheduler.step(avg_val_loss)  # Plateau 스케줄러 갱신
-            
+
             if epoch % 10 == 0:  # 10에폭마다 로그 출력
                 print(f"Epoch {epoch}: Train Loss = {avg_train_loss:.4f}, Val Loss = {avg_val_loss:.4f}")  # 진행 로그
-        
+
+        # 학습 완료 후 검증 데이터의 재구성 오차 수집 (임계값 계산용)
+        print("\n📊 임계값 계산을 위한 검증 데이터 재구성 오차 수집 중...")
+        self.model.eval()  # 평가 모드
+        val_reconstruction_errors = []  # 검증 데이터 재구성 오차 리스트
+
+        with torch.no_grad():  # 그래디언트 비활성화
+            for i in range(0, len(val_data), 32):  # 배치 반복
+                batch = val_data[i:i+32]  # 배치 슬라이스
+                reconstructed = self.model(batch)  # 재구성
+                errors = self.model.compute_reconstruction_error(batch, reconstructed)  # 샘플별 재구성 오차
+                val_reconstruction_errors.extend(errors.cpu().numpy())  # CPU로 이동 후 추가
+
+        # 임계값 계산 (정상 데이터 분포 기반)
+        val_errors_array = np.array(val_reconstruction_errors)
+        threshold_stats = {
+            # 백분위수 기반 임계값
+            'threshold_95': float(np.percentile(val_errors_array, 95.0)),
+            'threshold_99': float(np.percentile(val_errors_array, 99.0)),
+            'threshold_99_9': float(np.percentile(val_errors_array, 99.9)),
+            # 통계적 방법 (3-sigma)
+            'mean': float(np.mean(val_errors_array)),
+            'std': float(np.std(val_errors_array)),
+            'threshold_3sigma': float(np.mean(val_errors_array) + 3 * np.std(val_errors_array)),
+            # 중앙값 기반 (MAD - Median Absolute Deviation)
+            'median': float(np.median(val_errors_array)),
+            'mad': float(np.median(np.abs(val_errors_array - np.median(val_errors_array)))),
+            'threshold_mad': float(np.median(val_errors_array) + 3 * 1.4826 * np.median(np.abs(val_errors_array - np.median(val_errors_array)))),
+        }
+
+        print(f"✅ 임계값 계산 완료:")
+        print(f"   - 95 백분위수: {threshold_stats['threshold_95']:.4f}")
+        print(f"   - 99 백분위수: {threshold_stats['threshold_99']:.4f} (권장)")
+        print(f"   - 99.9 백분위수: {threshold_stats['threshold_99_9']:.4f}")
+        print(f"   - 3-sigma: {threshold_stats['threshold_3sigma']:.4f}")
+        print(f"   - MAD (3*1.4826): {threshold_stats['threshold_mad']:.4f}")
+
         return {
             'train_losses': train_losses,  # 학습 손실 목록
             'val_losses': val_losses,  # 검증 손실 목록
             'final_train_loss': train_losses[-1],  # 최종 학습 손실
             'final_val_loss': val_losses[-1],  # 최종 검증 손실
-            'num_templates': num_templates  # 사용된 템플릿 개수
+            'num_templates': num_templates,  # 사용된 템플릿 개수
+            'threshold_stats': threshold_stats,  # 임계값 통계 추가
+            'val_reconstruction_errors': val_reconstruction_errors,  # 검증 오차 목록 (선택적 분석용)
         }  # 통계 반환
     
-    def save_model(self, path: str | Path, num_templates: int):  # 체크포인트 저장
-        """모델 저장 (템플릿 개수 메타데이터 포함)"""  # 함수 설명
-        torch.save({
+    def save_model(self, path: str | Path, num_templates: int, threshold_stats: Optional[Dict] = None):  # 체크포인트 저장
+        """모델 저장 (템플릿 개수 및 임계값 메타데이터 포함)"""  # 함수 설명
+        checkpoint = {
             'model_state_dict': self.model.state_dict(),  # 모델 가중치
             'optimizer_state_dict': self.optimizer.state_dict(),  # 옵티마이저 상태
             'num_templates': num_templates,  # 학습 시 템플릿 개수 저장
-        }, path)  # 파일로 저장
+        }
+
+        # 임계값 통계 추가 (있는 경우)
+        if threshold_stats is not None:
+            checkpoint['threshold_stats'] = threshold_stats
+
+        torch.save(checkpoint, path)  # 파일로 저장
         print(f"✅ 모델 저장 완료: {path}")  # 저장 로그
         print(f"📊 저장된 템플릿 개수: {num_templates}")  # 메타데이터 로그
+
+        if threshold_stats is not None:
+            print(f"📊 저장된 임계값 정보:")
+            print(f"   - 99 백분위수 (권장): {threshold_stats['threshold_99']:.4f}")
+            print(f"   - 3-sigma: {threshold_stats['threshold_3sigma']:.4f}")
     
     def load_model(self, path: str | Path):  # 체크포인트 로드
         """모델 로드"""  # 함수 설명
@@ -324,10 +373,37 @@ class MSCREDInference:  # 추론 전용 클래스
             print(f"📊 학습 시 템플릿 개수: {self.num_templates}")  # 정보 출력
         else:  # 없을 경우 경고
             print("⚠️  경고: 모델에 템플릿 개수 메타데이터가 없습니다. 차원 불일치 문제가 발생할 수 있습니다.")  # 경고 출력
-        
+
+        # 학습 시 계산된 임계값 통계 로드
+        self.threshold_stats = checkpoint.get('threshold_stats', None)
+        if self.threshold_stats is not None:
+            print(f"📊 학습 시 계산된 임계값:")
+            print(f"   - 95 백분위수: {self.threshold_stats['threshold_95']:.4f}")
+            print(f"   - 99 백분위수: {self.threshold_stats['threshold_99']:.4f} (권장)")
+            print(f"   - 99.9 백분위수: {self.threshold_stats['threshold_99_9']:.4f}")
+            print(f"   - 3-sigma: {self.threshold_stats['threshold_3sigma']:.4f}")
+        else:
+            print("⚠️  경고: 모델에 임계값 정보가 없습니다. 추론 데이터 기반 임계값을 사용합니다.")
+
     def detect_anomalies(self, window_counts_path: str | Path,
-                        threshold_percentile: float = 95.0) -> pd.DataFrame:  # 이상 탐지 실행
-        """이상 탐지 수행"""  # 함수 설명
+                        threshold: Optional[float] = None,
+                        threshold_method: str = '99percentile') -> pd.DataFrame:  # 이상 탐지 실행
+        """이상 탐지 수행
+
+        Args:
+            window_counts_path: window_counts.parquet 파일 경로
+            threshold: 수동 임계값 (지정 시 이 값 사용, None이면 자동)
+            threshold_method: 자동 임계값 방법
+                - '99percentile': 학습 시 99 백분위수 (권장, 기본값)
+                - '95percentile': 학습 시 95 백분위수
+                - '99.9percentile': 학습 시 99.9 백분위수
+                - '3sigma': 학습 시 평균 + 3*표준편차
+                - 'mad': 학습 시 중앙값 + 3*1.4826*MAD
+                - 'inference_adaptive': 추론 데이터 기반 95 백분위수 (구 방식, 권장 안함)
+
+        Returns:
+            결과 DataFrame (window_idx, start_index, reconstruction_error, is_anomaly, threshold)
+        """
 
         # 데이터 준비  # 학습 시 템플릿 수에 맞춰 변환
         trainer = MSCREDTrainer(self.model, self.device)  # 트레이너 생성 (데이터 준비 재사용)
@@ -337,49 +413,90 @@ class MSCREDInference:  # 추론 전용 클래스
 
         if self.num_templates is not None and actual_num_templates != self.num_templates:  # 차이 존재 시
             print(f"⚠️  템플릿 개수가 학습 시와 다릅니다. 자동으로 조정되었습니다.")  # 경고 출력
-        
+
         print(f"📊 추론 데이터 형태: {data_tensor.shape}")  # 입력 텐서 형태 로그
-        
+
         # 재구성 오차 계산  # 배치별로 계산
         reconstruction_errors = []  # 오차 누적 리스트
-        
+
         with torch.no_grad():  # 그래디언트 비활성화 (추론)
             for i in range(0, len(data_tensor), 32):  # 배치 반복
                 batch = data_tensor[i:i+32]  # 배치 슬라이스
                 reconstructed = self.model(batch)  # 재구성 수행
                 errors = self.model.compute_reconstruction_error(batch, reconstructed)  # 오차 계산
                 reconstruction_errors.extend(errors.cpu().numpy())  # CPU로 이동 후 리스트에 추가
-        
-        # 임계값 계산  # 백분위수 기반 임계값
+
         errors_array = np.array(reconstruction_errors)  # 리스트를 배열로 변환
-        threshold = np.percentile(errors_array, threshold_percentile)  # 임계값 산출
-        
+
+        # 임계값 결정
+        if threshold is not None:
+            # 사용자 지정 임계값 사용
+            final_threshold = threshold
+            print(f"📌 사용자 지정 임계값 사용: {final_threshold:.4f}")
+        elif self.threshold_stats is not None:
+            # 학습 시 계산된 임계값 사용 (권장)
+            if threshold_method == '99percentile':
+                final_threshold = self.threshold_stats['threshold_99']
+                print(f"✅ 학습 시 99 백분위수 임계값 사용: {final_threshold:.4f} (권장)")
+            elif threshold_method == '95percentile':
+                final_threshold = self.threshold_stats['threshold_95']
+                print(f"✅ 학습 시 95 백분위수 임계값 사용: {final_threshold:.4f}")
+            elif threshold_method == '99.9percentile':
+                final_threshold = self.threshold_stats['threshold_99_9']
+                print(f"✅ 학습 시 99.9 백분위수 임계값 사용: {final_threshold:.4f}")
+            elif threshold_method == '3sigma':
+                final_threshold = self.threshold_stats['threshold_3sigma']
+                print(f"✅ 학습 시 3-sigma 임계값 사용: {final_threshold:.4f}")
+            elif threshold_method == 'mad':
+                final_threshold = self.threshold_stats['threshold_mad']
+                print(f"✅ 학습 시 MAD 임계값 사용: {final_threshold:.4f}")
+            elif threshold_method == 'inference_adaptive':
+                final_threshold = np.percentile(errors_array, 95.0)
+                print(f"⚠️  추론 데이터 기반 95 백분위수 사용: {final_threshold:.4f} (권장하지 않음)")
+            else:
+                # 잘못된 방법명, 기본값 사용
+                final_threshold = self.threshold_stats['threshold_99']
+                print(f"⚠️  알 수 없는 방법 '{threshold_method}', 99 백분위수 사용: {final_threshold:.4f}")
+        else:
+            # 폴백: 추론 데이터 기반 (구 방식)
+            final_threshold = np.percentile(errors_array, 95.0)
+            print(f"⚠️  학습 시 임계값 정보 없음. 추론 데이터 기반 95 백분위수 사용: {final_threshold:.4f}")
+            print(f"   (순환 논리 문제 가능성 있음 - 모델 재학습 권장)")
+
+        # 추론 데이터 통계 출력 (참고용)
+        print(f"📊 추론 데이터 재구성 오차 통계:")
+        print(f"   - 평균: {np.mean(errors_array):.4f}")
+        print(f"   - 중앙값: {np.median(errors_array):.4f}")
+        print(f"   - 표준편차: {np.std(errors_array):.4f}")
+        print(f"   - 최소: {np.min(errors_array):.4f}")
+        print(f"   - 최대: {np.max(errors_array):.4f}")
+
         # 결과 데이터프레임 생성  # 각 윈도우별 결과 구성
         results = []  # 결과 딕셔너리 목록
         for i, error in enumerate(reconstruction_errors):  # 각 오차에 대해 반복
-            is_anomaly = error > threshold  # 임계값 초과 여부
-            
+            is_anomaly = error > final_threshold  # 임계값 초과 여부
+
             # 원본 윈도우 정보 매핑  # 시작 인덱스 매핑
             if i < len(df):  # 데이터프레임 범위 내이면
                 start_index = df.iloc[i].get('start_index', i)  # 컬럼이 있으면 사용, 없으면 i
             else:  # 범위를 넘으면
                 start_index = i  # 인덱스 사용
-            
+
             results.append({  # 결과 레코드 추가
                 'window_idx': i,  # 윈도우 인덱스
                 'start_index': start_index,  # 시작 인덱스
                 'reconstruction_error': float(error),  # 재구성 오차
                 'is_anomaly': bool(is_anomaly),  # 이상 여부
-                'threshold': float(threshold)  # 사용 임계값
+                'threshold': float(final_threshold)  # 사용 임계값
             })  # 레코드 완료
-        
+
         results_df = pd.DataFrame(results)  # 결과를 데이터프레임으로 변환
-        
+
         # 통계 출력  # 요약 정보 표시
         anomaly_rate = results_df['is_anomaly'].mean()  # 이상 비율
-        print(f"📈 재구성 오차 임계값: {threshold:.4f} ({threshold_percentile}%)")  # 임계값 로그
+        print(f"📈 최종 임계값: {final_threshold:.4f}")  # 임계값 로그
         print(f"🚨 이상 탐지율: {anomaly_rate:.3f} ({results_df['is_anomaly'].sum()}/{len(results_df)})")  # 탐지율 로그
-        
+
         return results_df  # 결과 반환
 
 
@@ -395,25 +512,44 @@ def train_mscred(window_counts_path: str | Path, model_output_path: str | Path,
     # 학습 실행  # 지정 에폭만큼 학습
     training_stats = trainer.train(window_counts_path, epochs)  # 학습 통계 획득
 
-    # 모델 저장 (템플릿 개수 메타데이터 포함)  # 추후 추론 정합성 보장
+    # 모델 저장 (템플릿 개수 및 임계값 메타데이터 포함)  # 추후 추론 정합성 보장
     num_templates = training_stats['num_templates']  # 템플릿 수 추출
-    trainer.save_model(model_output_path, num_templates)  # 체크포인트 저장
+    threshold_stats = training_stats.get('threshold_stats')  # 임계값 통계 추출
+    trainer.save_model(model_output_path, num_templates, threshold_stats)  # 체크포인트 저장
 
     return training_stats  # 학습 결과 반환
 
 
-def infer_mscred(window_counts_path: str | Path, model_path: str | Path, 
-                output_path: str | Path, threshold_percentile: float = 95.0) -> pd.DataFrame:  # 단일 호출 추론 함수
-    """MS-CRED 이상 탐지 추론 함수"""  # 함수 설명
+def infer_mscred(window_counts_path: str | Path, model_path: str | Path,
+                output_path: str | Path,
+                threshold: Optional[float] = None,
+                threshold_method: str = '99percentile') -> pd.DataFrame:  # 단일 호출 추론 함수
+    """MS-CRED 이상 탐지 추론 함수
+
+    Args:
+        window_counts_path: window_counts.parquet 파일 경로
+        model_path: 학습된 모델 파일 경로
+        output_path: 결과 저장 경로
+        threshold: 수동 임계값 (None이면 자동)
+        threshold_method: 자동 임계값 방법 (기본: '99percentile')
+            - '99percentile': 학습 시 99 백분위수 (권장)
+            - '95percentile': 학습 시 95 백분위수
+            - '99.9percentile': 학습 시 99.9 백분위수
+            - '3sigma': 학습 시 평균 + 3*표준편차
+            - 'mad': 학습 시 중앙값 + 3*1.4826*MAD
+
+    Returns:
+        결과 DataFrame
+    """
     device = 'cuda' if torch.cuda.is_available() else 'cpu'  # 디바이스 선택
     print(f"🔧 사용 디바이스: {device}")  # 디바이스 로그
-    
+
     # 추론 실행  # 모델 로드 및 이상 탐지
     inference = MSCREDInference(model_path, device)  # 추론 객체 생성
-    results_df = inference.detect_anomalies(window_counts_path, threshold_percentile)  # 이상 탐지 실행
-    
+    results_df = inference.detect_anomalies(window_counts_path, threshold, threshold_method)  # 이상 탐지 실행
+
     # 결과 저장  # 파케 포맷으로 출력
     results_df.to_parquet(output_path, index=False)  # 파일 저장
     print(f"✅ MS-CRED 추론 결과 저장: {output_path}")  # 완료 로그
-    
+
     return results_df  # 결과 반환
