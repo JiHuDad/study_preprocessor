@@ -1046,7 +1046,7 @@ print("Baseline detection completed")
                     window_counts_path=str(window_counts_file),
                     model_path=str(model_file),
                     output_path=str(infer_file),
-                    threshold_percentile=95.0
+                    threshold_method='95percentile'
                 )
                 print(f"  ✅ MS-CRED 추론 완료 - 이상탐지율: {results_df['is_anomaly'].mean():.1%}")
                 
