@@ -448,7 +448,7 @@ try:
         window_counts_path='$RESULT_DIR/window_counts.parquet',
         model_path='$MODEL_DIR/mscred.pth',
         output_path=str(output_path),
-        threshold_percentile=95.0
+        threshold_method='95percentile'
     )
     
     print(f'MS-CRED 추론 완료: {len(df)} 윈도우 처리, 저장됨: {output_path}')
