@@ -518,14 +518,33 @@ int log_line_to_template_id(const VocabDict* vocab, const char* log_line) {
     if (!vocab || !log_line || vocab->vocab_size == 0) {
         return -1;
     }
-    
+
+    // Check for debug mode via environment variable
+    static int debug_mode = -1;  // -1: not checked, 0: off, 1: on
+    if (debug_mode == -1) {
+        debug_mode = getenv("LOG_PARSER_DEBUG") ? 1 : 0;
+    }
+
     // 로그 라인 정규화
     char normalized[MAX_LOG_LINE_LENGTH];
     normalize_log_line(log_line, normalized, sizeof(normalized));
-    
+
+    if (debug_mode) {
+        fprintf(stderr, "\n[DEBUG] Template matching:\n");
+        fprintf(stderr, "  Original: %s\n", log_line);
+        fprintf(stderr, "  Normalized: %s\n", normalized);
+    }
+
     // 가장 유사한 템플릿 찾기
     int best_index = -1;  // 배열 인덱스 (0-based)
     int best_similarity = -1;
+
+    // For debug: track top 5 matches
+    typedef struct {
+        int index;
+        int similarity;
+    } Match;
+    Match top_matches[5] = {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}};
 
     for (size_t i = 0; i < vocab->vocab_size; i++) {
         if (vocab->templates[i]) {
@@ -534,6 +553,38 @@ int log_line_to_template_id(const VocabDict* vocab, const char* log_line) {
                 best_similarity = similarity;
                 best_index = (int)i;  // 배열 인덱스 저장
             }
+
+            // Track top 5 for debug
+            if (debug_mode) {
+                for (int j = 0; j < 5; j++) {
+                    if (similarity > top_matches[j].similarity) {
+                        // Shift down
+                        for (int k = 4; k > j; k--) {
+                            top_matches[k] = top_matches[k-1];
+                        }
+                        top_matches[j].index = (int)i;
+                        top_matches[j].similarity = similarity;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (debug_mode) {
+        fprintf(stderr, "  Top 5 matches:\n");
+        for (int i = 0; i < 5 && top_matches[i].index >= 0; i++) {
+            int idx = top_matches[i].index;
+            int sim = top_matches[i].similarity;
+            const char* tpl = vocab->templates[idx];
+            const char* tpl_short = tpl;
+            char truncated[81];
+            if (strlen(tpl) > 80) {
+                strncpy(truncated, tpl, 77);
+                strcpy(truncated + 77, "...");
+                tpl_short = truncated;
+            }
+            fprintf(stderr, "    %d. [%d] sim=%d%% %s\n", i+1, idx, sim, tpl_short);
         }
     }
 
@@ -544,7 +595,20 @@ int log_line_to_template_id(const VocabDict* vocab, const char* log_line) {
     if (best_index >= 0) {
         if (best_similarity < 50) {
             // 유사도가 너무 낮음 (50% 미만)
+            if (debug_mode) {
+                fprintf(stderr, "  ❌ Best match below threshold (50%%): %d%% at index %d\n",
+                        best_similarity, best_index);
+            }
             return -1;
+        }
+
+        if (debug_mode) {
+            fprintf(stderr, "  ✅ Selected: index=%d, similarity=%d%%\n",
+                    best_index, best_similarity);
+        }
+    } else {
+        if (debug_mode) {
+            fprintf(stderr, "  ❌ No match found\n");
         }
     }
 
