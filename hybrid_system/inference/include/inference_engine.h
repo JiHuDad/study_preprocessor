@@ -241,6 +241,12 @@ void vocab_dict_destroy(VocabDict* vocab);
 VocabDict* vocab_dict_load_from_json(const char* vocab_path);
 
 /**
+ * 로그 파서 정리 (regex 패턴 등 전역 리소스 해제)
+ * 프로그램 종료 시 호출 권장
+ */
+void log_parser_cleanup(void);
+
+/**
  * 시퀀스 버퍼 생성
  * @param capacity 버퍼 용량
  * @return 시퀀스 버퍼 포인터 (실패시 NULL)

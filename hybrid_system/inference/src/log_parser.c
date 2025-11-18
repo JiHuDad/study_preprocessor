@@ -334,7 +334,13 @@ static void regex_replace_all(char* str, size_t str_size, regex_t* regex, const 
         remaining -= mask_len;
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            // Empty match detected - advance at least 1 char to prevent infinite loop
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -380,7 +386,12 @@ static void mask_device_numbers(char* str, size_t str_size) {
         remaining -= mask_len;
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -429,7 +440,12 @@ static void mask_pid_fields(char* str, size_t str_size) {
         }
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -562,7 +578,7 @@ void vocab_dict_destroy(VocabDict* vocab) {
     if (!vocab) {
         return;
     }
-    
+
     if (vocab->templates) {
         for (size_t i = 0; i < vocab->vocab_size; i++) {
             if (vocab->templates[i]) {
@@ -571,12 +587,17 @@ void vocab_dict_destroy(VocabDict* vocab) {
         }
         free(vocab->templates);
     }
-    
+
     if (vocab->template_ids) {
         free(vocab->template_ids);
     }
-    
+
     free(vocab);
+}
+
+void log_parser_cleanup(void) {
+    // Free compiled regex patterns
+    free_masking_patterns();
 }
 
 // JSON 파싱을 위한 간단한 함수들
@@ -756,6 +777,24 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
         }
     }
 
+    // CRITICAL VALIDATION: Indices must be 0, 1, 2, ..., temp_count-1
+    // ONNX model expects consecutive indices starting from 0
+    for (size_t i = 0; i < temp_count; i++) {
+        if (temp_templates[i].id != (int)i) {
+            fprintf(stderr, "ERROR: vocab.json has non-consecutive or non-zero-based indices!\n");
+            fprintf(stderr, "       Expected index %zu, but got %d\n", i, temp_templates[i].id);
+            fprintf(stderr, "       vocab.json must have indices: 0, 1, 2, ..., %zu\n", temp_count - 1);
+
+            // Cleanup allocated memory
+            for (size_t j = 0; j < temp_count; j++) {
+                free(temp_templates[j].template_str);
+            }
+            free(temp_templates);
+            vocab_dict_destroy(vocab);
+            return NULL;
+        }
+    }
+
     // Copy sorted templates to vocab
     for (size_t i = 0; i < temp_count && i < vocab->capacity; i++) {
         vocab->templates[i] = temp_templates[i].template_str;
@@ -765,6 +804,7 @@ VocabDict* vocab_dict_load_from_json(const char* vocab_path) {
 
     free(temp_templates);
 
-    printf("Loaded vocabulary: %zu templates (sorted by ID)\n", vocab->vocab_size);
+    printf("Loaded vocabulary: %zu templates (sorted by ID 0-%zu)\n",
+           vocab->vocab_size, vocab->vocab_size - 1);
     return vocab;
 }
