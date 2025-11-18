@@ -33,36 +33,86 @@ def check_vocab_json(vocab_path: str) -> dict:
 
     print(f"✅ Vocab loaded: {len(vocab)} templates")
 
-    # Check if indices are consecutive and zero-based
-    indices = sorted([int(k) for k in vocab.keys()])
-    expected_indices = list(range(len(indices)))
+    # Detect vocab format
+    sample_key = next(iter(vocab.keys())) if vocab else None
+    sample_value = next(iter(vocab.values())) if vocab else None
 
-    if indices != expected_indices:
-        print(f"❌ ERROR: Non-consecutive or non-zero-based indices!")
-        print(f"   Expected: 0, 1, 2, ..., {len(indices)-1}")
-        print(f"   Actual: {indices[:20]}...")
+    # Determine format:
+    # C format: {"0": "template_string", ...} - keys are numeric strings, values are templates
+    # Python format: {"template_string": 0, ...} - keys are templates, values are numeric
+    is_c_format = False
+    is_python_format = False
 
-        missing = set(expected_indices) - set(indices)
-        if missing:
-            print(f"   Missing indices: {sorted(missing)[:20]}...")
+    if sample_key and sample_value:
+        try:
+            int(sample_key)
+            is_c_format = isinstance(sample_value, str)
+        except ValueError:
+            is_python_format = isinstance(sample_value, int)
 
-        extra = set(indices) - set(expected_indices)
-        if extra:
-            print(f"   Extra indices: {sorted(extra)[:20]}...")
-    else:
-        print(f"✅ Indices are consecutive: 0 to {len(indices)-1}")
+    if is_c_format:
+        print("📋 Format: C format (index → template)")
 
-    # Show first and last few templates
-    print("\n=== First 5 templates ===")
-    for idx in sorted(indices)[:5]:
-        template = vocab[str(idx)]
-        print(f"  {idx}: {template[:80]}")
+        # Check if indices are consecutive and zero-based
+        try:
+            indices = sorted([int(k) for k in vocab.keys()])
+        except ValueError as e:
+            print(f"❌ ERROR: Cannot parse vocab keys as integers: {e}")
+            print(f"   Sample key: {sample_key}")
+            return vocab
 
-    if len(indices) > 5:
-        print(f"\n=== Last 5 templates ===")
-        for idx in sorted(indices)[-5:]:
+        expected_indices = list(range(len(indices)))
+
+        if indices != expected_indices:
+            print(f"❌ ERROR: Non-consecutive or non-zero-based indices!")
+            print(f"   Expected: 0, 1, 2, ..., {len(indices)-1}")
+            print(f"   Actual: {indices[:20]}...")
+
+            missing = set(expected_indices) - set(indices)
+            if missing:
+                print(f"   Missing indices: {sorted(missing)[:20]}...")
+
+            extra = set(indices) - set(expected_indices)
+            if extra:
+                print(f"   Extra indices: {sorted(extra)[:20]}...")
+        else:
+            print(f"✅ Indices are consecutive: 0 to {len(indices)-1}")
+
+        # Show first and last few templates
+        print("\n=== First 5 templates ===")
+        for idx in sorted(indices)[:5]:
             template = vocab[str(idx)]
-            print(f"  {idx}: {template[:80]}")
+            template_short = template[:80] if len(template) > 80 else template
+            print(f"  {idx}: {template_short}")
+
+        if len(indices) > 5:
+            print(f"\n=== Last 5 templates ===")
+            for idx in sorted(indices)[-5:]:
+                template = vocab[str(idx)]
+                template_short = template[:80] if len(template) > 80 else template
+                print(f"  {idx}: {template_short}")
+
+    elif is_python_format:
+        print("📋 Format: Python format (template → index)")
+        print("⚠️  WARNING: This is Python training format, not C inference format!")
+        print("   C engine expects: {\"0\": \"template\", \"1\": \"template\", ...}")
+        print("   But received: {\"template\": 0, \"template\": 1, ...}")
+        print("\n💡 Convert using: python scripts/convert_vocab_for_c.py")
+
+        # Show index distribution
+        indices = sorted(vocab.values())
+        print(f"\n=== Index range: {min(indices)} to {max(indices)} ({len(indices)} templates) ===")
+
+        # Show first 5 templates
+        print("\n=== First 5 templates (by index) ===")
+        sorted_vocab = sorted(vocab.items(), key=lambda x: x[1])
+        for template, idx in sorted_vocab[:5]:
+            template_short = template[:80] if len(template) > 80 else template
+            print(f"  {idx}: {template_short}")
+
+    else:
+        print("⚠️  Unknown vocab format")
+        print(f"   Sample: {sample_key} → {sample_value}")
 
     return vocab
 
