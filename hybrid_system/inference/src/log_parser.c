@@ -334,7 +334,13 @@ static void regex_replace_all(char* str, size_t str_size, regex_t* regex, const 
         remaining -= mask_len;
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            // Empty match detected - advance at least 1 char to prevent infinite loop
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -380,7 +386,12 @@ static void mask_device_numbers(char* str, size_t str_size) {
         remaining -= mask_len;
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -429,7 +440,12 @@ static void mask_pid_fields(char* str, size_t str_size) {
         }
 
         // Move source pointer past match
-        src += matches[0].rm_eo;
+        // CRITICAL: Prevent infinite loop on empty matches
+        size_t advance = matches[0].rm_eo;
+        if (advance == 0) {
+            advance = 1;
+        }
+        src += advance;
     }
 
     // Copy remaining text
@@ -562,7 +578,7 @@ void vocab_dict_destroy(VocabDict* vocab) {
     if (!vocab) {
         return;
     }
-    
+
     if (vocab->templates) {
         for (size_t i = 0; i < vocab->vocab_size; i++) {
             if (vocab->templates[i]) {
@@ -571,12 +587,17 @@ void vocab_dict_destroy(VocabDict* vocab) {
         }
         free(vocab->templates);
     }
-    
+
     if (vocab->template_ids) {
         free(vocab->template_ids);
     }
-    
+
     free(vocab);
+}
+
+void log_parser_cleanup(void) {
+    // Free compiled regex patterns
+    free_masking_patterns();
 }
 
 // JSON 파싱을 위한 간단한 함수들
