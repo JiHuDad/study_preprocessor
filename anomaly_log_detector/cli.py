@@ -26,6 +26,9 @@ from .builders.deeplog import (  # DeepLog 파이프라인 함수들
     infer_deeplog_enhanced, EnhancedInferenceConfig
 )
 from .builders.mscred import build_mscred_window_counts  # MS-CRED 입력 생성
+from .builders.logbert import (  # LogBERT 파이프라인 함수들
+    build_logbert_inputs, train_logbert, infer_logbert
+)
 from .synth import (  # 합성 로그 생성기들
     generate_synthetic_log,
     generate_training_data,
@@ -303,6 +306,86 @@ def mscred_infer_cmd(window_counts_parquet: Path, model_path: Path, threshold: f
     anomaly_rate = results_df['is_anomaly'].mean()  # 이상률
     click.echo(f"Saved MS-CRED inference: {out}")  # 경로
     click.echo(f"Anomaly rate: {anomaly_rate:.3f} ({results_df['is_anomaly'].sum()}/{len(results_df)})")  # 요약
+
+
+@main.command("build-logbert")  # LogBERT 입력 생성 명령
+@click.option("--parsed", "parsed_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # parsed.parquet 경로
+@click.option("--out-dir", type=click.Path(file_okay=False, path_type=Path), required=True)  # 출력 디렉토리
+@click.option("--max-seq-len", type=int, default=512, help="최대 시퀀스 길이")  # 최대 시퀀스 길이
+def build_logbert_cmd(parsed_parquet: Path, out_dir: Path, max_seq_len: int) -> None:  # LogBERT 입력 생성
+    """LogBERT 입력(vocab, sequences, special_tokens) 생성."""  # 설명
+    build_logbert_inputs(str(parsed_parquet), str(out_dir), max_seq_len=max_seq_len)  # 생성 실행
+    click.echo(f"Built LogBERT inputs under: {out_dir}")  # 완료 메시지
+
+
+@main.command("logbert-train")  # LogBERT 학습 명령
+@click.option("--seq", "sequences_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # sequences.parquet
+@click.option("--vocab", "vocab_json", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # vocab.json
+@click.option("--out", "model_out", type=click.Path(dir_okay=False, path_type=Path), required=True)  # 모델 저장 경로
+@click.option("--seq-len", type=int, default=128, help="시퀀스 길이")  # 시퀀스 길이
+@click.option("--epochs", type=int, default=10, help="학습 에폭 수")  # 에폭 수
+@click.option("--batch-size", type=int, default=32, help="배치 크기")  # 배치 크기
+@click.option("--lr", type=float, default=5e-5, help="학습률")  # 학습률
+@click.option("--mask-ratio", type=float, default=0.15, help="마스킹 비율")  # 마스킹 비율
+@click.option("--hidden-size", type=int, default=256, help="은닉층 크기")  # 은닉층 크기
+@click.option("--num-layers", type=int, default=4, help="Transformer 레이어 수")  # 레이어 수
+@click.option("--num-heads", type=int, default=8, help="Attention head 수")  # Attention head 수
+def logbert_train_cmd(
+    sequences_parquet: Path,
+    vocab_json: Path,
+    model_out: Path,
+    seq_len: int,
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    mask_ratio: float,
+    hidden_size: int,
+    num_layers: int,
+    num_heads: int
+) -> None:  # 학습 실행
+    """LogBERT 모델 학습 (Masked Language Modeling)."""  # 설명
+    path = train_logbert(
+        str(sequences_parquet),
+        str(vocab_json),
+        str(model_out),
+        seq_len=seq_len,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        mask_ratio=mask_ratio,
+        hidden_size=hidden_size,
+        num_layers=num_layers,
+        num_heads=num_heads
+    )  # 학습
+    click.echo(f"✅ Saved LogBERT model: {path}")  # 저장 경로 출력
+
+
+@main.command("logbert-infer")  # LogBERT 추론 명령
+@click.option("--seq", "sequences_parquet", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # sequences.parquet
+@click.option("--model", "model_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # 모델 경로
+@click.option("--vocab", "vocab_path", type=click.Path(exists=True, dir_okay=False, path_type=Path), required=True)  # vocab 경로
+@click.option("--threshold-percentile", type=float, default=95.0, help="이상 판정 임계값 백분위수")  # 임계값 백분위
+@click.option("--seq-len", type=int, default=128, help="시퀀스 길이")  # 시퀀스 길이
+def logbert_infer_cmd(
+    sequences_parquet: Path,
+    model_path: Path,
+    vocab_path: Path,
+    threshold_percentile: float,
+    seq_len: int
+) -> None:  # 추론 실행
+    """LogBERT 이상 탐지 추론."""  # 설명
+    df = infer_logbert(
+        str(sequences_parquet),
+        str(model_path),
+        str(vocab_path),
+        threshold_percentile=threshold_percentile,
+        seq_len=seq_len
+    )  # 추론 수행
+    out = Path(sequences_parquet).with_name("logbert_infer.parquet")  # 출력 경로
+    df.to_parquet(out, index=False)  # 저장
+    anomaly_rate = float(df["is_anomaly"].mean()) if len(df) > 0 else 0.0  # 이상률 계산
+    click.echo(f"✅ Saved inference: {out}")  # 결과 출력
+    click.echo(f"📊 Anomaly rate: {anomaly_rate:.3f} ({df['is_anomaly'].sum()}/{len(df)})")  # 요약
 
 
 def _generate_enhanced_report(processed_dir: Path, with_samples: bool = True) -> str:

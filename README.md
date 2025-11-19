@@ -1,6 +1,6 @@
 ### Anomaly Log Detector 사용 가이드
 
-**Anomaly Log Detector**는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 프레임워크입니다. DeepLog, MS-CRED, 그리고 통계적 베이스라인 방법을 제공합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
+**Anomaly Log Detector**는 커널/시스템 로그(.log) 파일에 전처리와 이상탐지를 적용하는 프레임워크입니다. DeepLog, LogBERT, MS-CRED, 그리고 통계적 베이스라인 방법을 제공합니다. 모든 예시는 `venv + pip` 기반으로 실행합니다.
 
 ## 🆕 **최신 업데이트 (2025-10-02)**
 
@@ -88,12 +88,19 @@ else:
 PY
 ```
 
-#### 4) DeepLog/MSCRED 입력 생성
+#### 4) DeepLog/LogBERT/MSCRED 입력 생성
 - DeepLog 입력(사전/시퀀스):
 ```
 alog-detect build-deeplog \
   --parsed /path/to/outdir/parsed.parquet \
   --out-dir /path/to/outdir
+```
+- LogBERT 입력(사전/시퀀스 + 특수 토큰):
+```
+alog-detect build-logbert \
+  --parsed /path/to/outdir/parsed.parquet \
+  --out-dir /path/to/outdir \
+  --max-seq-len 512
 ```
 - MS-CRED 입력(윈도우 카운트):
 ```
@@ -121,6 +128,19 @@ alog-detect deeplog-train \
 alog-detect deeplog-infer \
   --seq /path/to/outdir/sequences.parquet \
   --model .cache/deeplog.pth --k 3
+```
+- LogBERT 학습/추론 (BERT 기반):
+```
+alog-detect logbert-train \
+  --seq /path/to/outdir/sequences.parquet \
+  --vocab /path/to/outdir/vocab.json \
+  --out .cache/logbert.pth --seq-len 128 --epochs 10
+
+alog-detect logbert-infer \
+  --seq /path/to/outdir/sequences.parquet \
+  --model .cache/logbert.pth \
+  --vocab /path/to/outdir/vocab.json \
+  --threshold-percentile 95.0
 ```
 - MS-CRED 학습/추론:
 ```
@@ -231,15 +251,60 @@ cat inference_*/log_samples_analysis/anomaly_analysis_report.md
 - `parsed.parquet`: `raw`, `masked`, `template_id`, `template`, `timestamp`, `host` 등
 - `baseline_scores.parquet`: `score`, `is_anomaly`, `window_start_line`
 - `deeplog_infer.parquet`: `idx`, `target`, `in_topk` (top-k 위반 여부)
+- 🆕 `logbert_infer.parquet`: `seq_idx`, `avg_loss`, `is_anomaly`, `threshold` (BERT 기반 이상 점수)
 - `mscred_infer.parquet`: `window_idx`, `reconstruction_error`, `is_anomaly`, `threshold`
 - `report.md`: 상위 이상 윈도우와 기여 템플릿/요약 지표
 - 🆕 `anomaly_analysis_report.md`: 실제 이상 로그 샘플들과 상세 분석
 
 ## 🆕 새로운 이상탐지 방법
 
-### 🔬 MS-CRED 멀티스케일 분석 (NEW!)
+### 🤖 LogBERT - BERT 기반 로그 이상탐지 (NEW!)
 
-**특징**: 멀티스케일 컨볼루션 오토인코더로 윈도우 단위 패턴 분석  
+**특징**: Transformer 아키텍처 기반 양방향 컨텍스트 학습
+**장점**:
+- 양방향 컨텍스트로 정교한 패턴 학습
+- Masked Language Model(MLM) 방식으로 정상 로그 패턴 학습
+- 긴 시퀀스 의존성 포착 가능
+- 임베딩 공간에서 의미적 유사성 학습
+
+#### 🚀 LogBERT 사용법
+```bash
+# 1. LogBERT 입력 생성 (특수 토큰 포함)
+alog-detect build-logbert --parsed data/processed/parsed.parquet --out-dir data/processed
+
+# 2. 모델 학습 (Masked Language Modeling)
+alog-detect logbert-train \
+  --seq data/processed/sequences.parquet \
+  --vocab data/processed/vocab.json \
+  --out models/logbert.pth \
+  --seq-len 128 \
+  --epochs 10 \
+  --batch-size 32 \
+  --hidden-size 256 \
+  --num-layers 4 \
+  --num-heads 8
+
+# 3. 이상탐지 추론
+alog-detect logbert-infer \
+  --seq data/processed/sequences.parquet \
+  --model models/logbert.pth \
+  --vocab data/processed/vocab.json \
+  --threshold-percentile 95.0
+
+# 4. 결과 확인
+cat data/processed/logbert_infer.parquet
+```
+
+**주요 파라미터**:
+- `--seq-len`: 시퀀스 길이 (기본값: 128, BERT의 컨텍스트 윈도우)
+- `--hidden-size`: 은닉층 크기 (기본값: 256, 작은 모델용)
+- `--num-layers`: Transformer 레이어 수 (기본값: 4)
+- `--num-heads`: Attention head 수 (기본값: 8)
+- `--mask-ratio`: 학습 시 마스킹 비율 (기본값: 0.15, BERT 표준)
+
+### 🔬 MS-CRED 멀티스케일 분석
+
+**특징**: 멀티스케일 컨볼루션 오토인코더로 윈도우 단위 패턴 분석
 **장점**: 다양한 스케일의 패턴을 동시에 고려하여 미세한 이상도 탐지 가능
 
 #### 🚀 MS-CRED 사용법
