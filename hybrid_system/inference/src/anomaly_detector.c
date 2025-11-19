@@ -96,26 +96,32 @@ bool is_anomaly_topk(
         return true; // 안전한 기본값
     }
     
+    // Debug mode
+    static int debug_topk = -1;
+    if (debug_topk == -1) {
+        debug_topk = getenv("DEBUG_TOPK") ? 1 : 0;
+    }
+
     // Top-K 인덱스 찾기 (간단한 선택 정렬)
     int* top_indices = (int*)malloc(k * sizeof(int));
     float* top_values = (float*)malloc(k * sizeof(float));
-    
+
     if (!top_indices || !top_values) {
         free(top_indices);
         free(top_values);
         return true;
     }
-    
+
     // 초기화
     for (int i = 0; i < k; i++) {
         top_indices[i] = -1;
         top_values[i] = -INFINITY;
     }
-    
+
     // Top-K 찾기
     for (size_t i = 0; i < vocab_size; i++) {
         float value = predictions[i];
-        
+
         // 현재 Top-K에 삽입할 위치 찾기
         for (int j = 0; j < k; j++) {
             if (value > top_values[j]) {
@@ -124,26 +130,44 @@ bool is_anomaly_topk(
                     top_values[l] = top_values[l - 1];
                     top_indices[l] = top_indices[l - 1];
                 }
-                
+
                 top_values[j] = value;
                 top_indices[j] = (int)i;
                 break;
             }
         }
     }
-    
+
+    if (debug_topk) {
+        fprintf(stderr, "[DEBUG_TOPK] Top-%d indices: [", k);
+        for (int i = 0; i < k && i < 20; i++) {  // Show max 20
+            if (i > 0) fprintf(stderr, ", ");
+            fprintf(stderr, "%d", top_indices[i]);
+        }
+        if (k > 20) fprintf(stderr, ", ...");
+        fprintf(stderr, "]\n");
+        fprintf(stderr, "[DEBUG_TOPK] Actual: %d, In Top-%d: ", actual_template, k);
+    }
+
     // actual_template이 Top-K에 있는지 확인
     bool is_in_topk = false;
     for (int i = 0; i < k; i++) {
         if (top_indices[i] == actual_template) {
             is_in_topk = true;
+            if (debug_topk) {
+                fprintf(stderr, "YES (rank %d)\n", i+1);
+            }
             break;
         }
     }
-    
+
+    if (!is_in_topk && debug_topk) {
+        fprintf(stderr, "NO\n");
+    }
+
     free(top_indices);
     free(top_values);
-    
+
     return !is_in_topk; // Top-K에 없으면 이상
 }
 
@@ -337,6 +361,21 @@ InferenceResult inference_engine_process_log(
         );
         
         if (seq_length == (size_t)engine->seq_len) {
+            // Debug: Print input sequence
+            static int debug_seq = -1;
+            if (debug_seq == -1) {
+                debug_seq = getenv("DEBUG_SEQ") ? 1 : 0;
+            }
+
+            if (debug_seq) {
+                fprintf(stderr, "[DEBUG_SEQ] Input sequence (len=%d): [", engine->seq_len);
+                for (int i = 0; i < engine->seq_len; i++) {
+                    if (i > 0) fprintf(stderr, ", ");
+                    fprintf(stderr, "%d", sequence[i]);
+                }
+                fprintf(stderr, "]\n");
+            }
+
             // DeepLog 추론 실행
             InferenceResult infer_result = onnx_deeplog_infer(
                 engine->deeplog_model,
@@ -345,8 +384,14 @@ InferenceResult inference_engine_process_log(
                 engine->vocab->vocab_size,
                 predictions
             );
-            
+
             if (infer_result == IE_SUCCESS) {
+                // Debug mode check
+                static int debug_anomaly = -1;
+                if (debug_anomaly == -1) {
+                    debug_anomaly = getenv("DEBUG_ANOMALY") ? 1 : 0;
+                }
+
                 // Top-K 검사
                 bool is_anomaly = is_anomaly_topk(
                     predictions,
@@ -354,10 +399,17 @@ InferenceResult inference_engine_process_log(
                     template_id,
                     engine->top_k
                 );
-                
+
+                if (debug_anomaly) {
+                    fprintf(stderr, "[DEBUG_ANOMALY] Actual template: %d, Top-K=%d\n",
+                            template_id, engine->top_k);
+                    fprintf(stderr, "[DEBUG_ANOMALY] Result: %s\n",
+                            is_anomaly ? "ANOMALY ❌" : "NORMAL ✅");
+                }
+
                 result->is_anomaly = is_anomaly;
                 result->predicted_template = template_id;
-                
+
                 if (is_anomaly) {
                     result->confidence = 0.9f;
                     result->score = 0.9f;

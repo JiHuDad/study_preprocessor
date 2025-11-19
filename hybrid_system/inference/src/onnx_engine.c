@@ -295,26 +295,33 @@ InferenceResult onnx_deeplog_infer(
 
     // 출력 shape이 [batch, seq_len, vocab_size]인지 확인
     size_t last_position_offset = 0;
+
+    // Check for debug mode
+    static int debug_onnx = -1;
+    if (debug_onnx == -1) {
+        debug_onnx = getenv("DEBUG_ONNX") ? 1 : 0;
+    }
+
     if (output_dims_count == 3) {
         // Shape: [batch_size, seq_len, vocab_size]
         // 마지막 시퀀스 위치의 로짓 가져오기
         int64_t output_seq_len = output_shape[1];
         last_position_offset = (output_seq_len - 1) * vocab_size;
 
-        #ifdef DEBUG_ONNX
-        fprintf(stderr, "[DEBUG] DeepLog output shape: [%lld, %lld, %lld]\n",
-                output_shape[0], output_shape[1], output_shape[2]);
-        fprintf(stderr, "[DEBUG] Using last position offset: %zu (seq_len=%lld)\n",
-                last_position_offset, output_seq_len);
-        #endif
+        if (debug_onnx) {
+            fprintf(stderr, "[DEBUG_ONNX] DeepLog output shape: [%lld, %lld, %lld]\n",
+                    output_shape[0], output_shape[1], output_shape[2]);
+            fprintf(stderr, "[DEBUG_ONNX] Using last position offset: %zu (seq_len=%lld, vocab_size=%zu)\n",
+                    last_position_offset, output_seq_len, vocab_size);
+        }
     } else if (output_dims_count == 2) {
         // Shape: [batch_size, vocab_size] - 이미 마지막 위치만 출력
         last_position_offset = 0;
 
-        #ifdef DEBUG_ONNX
-        fprintf(stderr, "[DEBUG] DeepLog output shape: [%lld, %lld] (already last position)\n",
-                output_shape[0], output_shape[1]);
-        #endif
+        if (debug_onnx) {
+            fprintf(stderr, "[DEBUG_ONNX] DeepLog output shape: [%lld, %lld] (already last position)\n",
+                    output_shape[0], output_shape[1]);
+        }
     } else {
         fprintf(stderr, "ERROR: Unexpected output dimensions: %zu\n", output_dims_count);
         model->ort_api->ReleaseValue(input_tensor);
@@ -325,6 +332,38 @@ InferenceResult onnx_deeplog_infer(
 
     // 결과 복사: 마지막 시퀀스 위치의 로짓만 복사
     memcpy(predictions, output_data + last_position_offset, vocab_size * sizeof(float));
+
+    // Debug: Show top predictions
+    if (debug_onnx) {
+        fprintf(stderr, "[DEBUG_ONNX] Top 10 predictions:\n");
+
+        // Find top 10 indices
+        typedef struct { int idx; float val; } Pred;
+        Pred top[10];
+        for (int i = 0; i < 10; i++) {
+            top[i].idx = -1;
+            top[i].val = -1e30f;
+        }
+
+        for (size_t i = 0; i < vocab_size; i++) {
+            float val = predictions[i];
+            for (int j = 0; j < 10; j++) {
+                if (val > top[j].val) {
+                    // Shift down
+                    for (int k = 9; k > j; k--) {
+                        top[k] = top[k-1];
+                    }
+                    top[j].idx = (int)i;
+                    top[j].val = val;
+                    break;
+                }
+            }
+        }
+
+        for (int i = 0; i < 10 && top[i].idx >= 0; i++) {
+            fprintf(stderr, "  %2d. [%3d] = %.6f\n", i+1, top[i].idx, top[i].val);
+        }
+    }
 
     // 정리
     model->ort_api->ReleaseValue(input_tensor);
