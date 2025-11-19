@@ -23,6 +23,10 @@ IPV6 = re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b")  # IPv6 주�
 MAC = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")  # MAC 주소 패턴 (예: 00:1B:44:11:3A:B7)
 UUID = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b")  # UUID 패턴 (예: 550e8400-e29b-41d4-a716-446655440000)
 PID = re.compile(r"\b(?:pid|tid|uid|gid)=\d+\b")  # 프로세스/스레드 ID 필드 패턴 (예: pid=12345)
+# 날짜 패턴들 (메시지 본문에 포함된 날짜 마스킹)
+DATE_SYSLOG = re.compile(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\b")  # syslog 스타일 날짜 (예: Sep 14, Jan 1)
+DATE_ISO = re.compile(r"\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b")  # ISO 날짜 (예: 2024-09-14, 2024/09/14)
+DATE_DMY = re.compile(r"\b\d{1,2}[-/](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/]?\d{2,4}\b")  # 일-월-년 (예: 14-Sep-2024, 14/Sep/24)
 DECIMAL = re.compile(r"(?<![\w./-])-?\d+(?:\.\d+)?(?![\w./-])")  # 십진수 숫자 패턴 (단어나 경로가 아닌 독립적인 숫자)
 DEVICE_NUM = re.compile(r"\b([a-zA-Z]+)(\d+)\b")  # 디바이스 번호 패턴 (예: eth0, sda1)
 PATH = re.compile(r"(?:(?:/|~)[\w.\-_/]+)")  # 파일 경로 패턴 (예: /usr/bin/python, ~/home/file.txt)
@@ -41,8 +45,8 @@ DMESG_RE = re.compile(r"^\[\s*\d+\.\d+\]\s+(?P<msg>.*)$")  # 시간 정보와 �
 
 def mask_message(message: str, cfg: Optional["PreprocessConfig"] = None) -> str:
     """마스킹 규칙을 적용하여 카디널리티를 줄이는 함수.
-    
-    순서가 중요함: 구조적 토큰을 과도하게 마스킹하는 것을 피하기 위해 
+
+    순서가 중요함: 구조적 토큰을 과도하게 마스킹하는 것을 피하기 위해
     경로와 ID를 일반 숫자 치환 전에 적용해야 함.
     """
     cfg = cfg or PreprocessConfig()  # 설정이 제공되지 않으면 기본 설정 사용
@@ -50,6 +54,13 @@ def mask_message(message: str, cfg: Optional["PreprocessConfig"] = None) -> str:
 
     if cfg.mask_paths:  # 경로 마스킹이 활성화되어 있으면
         masked = PATH.sub("<PATH>", masked)  # 파일 경로를 <PATH>로 치환
+
+    # CRITICAL: 날짜를 숫자보다 먼저 마스킹해야 날짜의 숫자 부분이 따로 마스킹되지 않음
+    if cfg.mask_dates:  # 날짜 마스킹이 활성화되어 있으면
+        masked = DATE_ISO.sub("<DATE>", masked)  # ISO 날짜를 <DATE>로 치환 (2024-09-14)
+        masked = DATE_DMY.sub("<DATE>", masked)  # 일-월-년 형식을 <DATE>로 치환 (14-Sep-2024)
+        masked = DATE_SYSLOG.sub("<DATE>", masked)  # syslog 스타일 날짜를 <DATE>로 치환 (Sep 14)
+
     if cfg.mask_hex:  # 16진수 마스킹이 활성화되어 있으면
         masked = HEX_ADDR.sub("<HEX>", masked)  # 16진수 주소를 <HEX>로 치환
     if cfg.mask_ips:  # IP 주소 마스킹이 활성화되어 있으면
@@ -96,6 +107,7 @@ def parse_line(line: str) -> Tuple[Optional[datetime], Optional[str], Optional[s
 class PreprocessConfig:  # 전처리 설정을 저장하는 데이터 클래스
     drain_state_path: Optional[str] = None  # Drain3 상태 파일 경로 (선택적, 영속화를 위해 사용)
     mask_paths: bool = True  # 파일 경로 마스킹 여부
+    mask_dates: bool = True  # 날짜 마스킹 여부 (Sep 14, 2024-09-14 등)
     mask_hex: bool = True  # 16진수 주소 마스킹 여부
     mask_ips: bool = True  # IP 주소 마스킹 여부
     mask_mac: bool = True  # MAC 주소 마스킹 여부

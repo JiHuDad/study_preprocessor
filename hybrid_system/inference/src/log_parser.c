@@ -45,6 +45,9 @@ static regex_t regex_mac;
 static regex_t regex_uuid;
 static regex_t regex_pid;
 static regex_t regex_device;
+static regex_t regex_date_syslog;  // Sep 14, Jan 1
+static regex_t regex_date_iso;     // 2024-09-14, 2024/09/14
+static regex_t regex_date_dmy;     // 14-Sep-2024, 14/Sep/24
 static regex_t regex_decimal;
 static regex_t regex_path;
 static int regex_compiled = 0;
@@ -75,6 +78,14 @@ static void compile_masking_patterns(void) {
     // DEVICE_NUM: ([a-zA-Z]+)([0-9]+) - captures device name and number separately
     regcomp(&regex_device, "([a-zA-Z]+)([0-9]+)", REG_EXTENDED);
 
+    // DATE patterns (CRITICAL: must be before DECIMAL to avoid masking date numbers separately)
+    // SYSLOG date: Sep 14, Jan 1
+    regcomp(&regex_date_syslog, "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[[:space:]]+[0-9]{1,2}", REG_EXTENDED);
+    // ISO date: 2024-09-14, 2024/09/14
+    regcomp(&regex_date_iso, "[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}", REG_EXTENDED);
+    // Day-Month-Year: 14-Sep-2024, 14/Sep/24
+    regcomp(&regex_date_dmy, "[0-9]{1,2}[-/](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-/]?[0-9]{2,4}", REG_EXTENDED);
+
     // DECIMAL: -?[0-9]+(\.[0-9]+)?
     regcomp(&regex_decimal, "-?[0-9]+(\\.[0-9]+)?", REG_EXTENDED);
 
@@ -95,6 +106,9 @@ static void free_masking_patterns(void) {
     regfree(&regex_uuid);
     regfree(&regex_pid);
     regfree(&regex_device);
+    regfree(&regex_date_syslog);
+    regfree(&regex_date_iso);
+    regfree(&regex_date_dmy);
     regfree(&regex_decimal);
     regfree(&regex_path);
 
@@ -479,6 +493,12 @@ static void normalize_log_line(const char* input, char* output, size_t output_si
     if (cfg->mask_paths) {
         regex_replace_all(output, output_size, &regex_path, "<PATH>");
     }
+
+    // CRITICAL: Mask dates before numbers to prevent date components from being masked separately
+    // This fixes the issue where templates contain dates like "Sep 14" causing high unknown template rate
+    regex_replace_all(output, output_size, &regex_date_iso, "<DATE>");      // 2024-09-14
+    regex_replace_all(output, output_size, &regex_date_dmy, "<DATE>");      // 14-Sep-2024
+    regex_replace_all(output, output_size, &regex_date_syslog, "<DATE>");   // Sep 14
 
     if (cfg->mask_hex) {
         regex_replace_all(output, output_size, &regex_hex, "<HEX>");
