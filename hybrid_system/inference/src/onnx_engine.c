@@ -269,15 +269,68 @@ InferenceResult onnx_deeplog_infer(
         free(input_data);
         return IE_ERROR_ONNX_RUN;
     }
-    
-    // 결과 복사
-    memcpy(predictions, output_data, vocab_size * sizeof(float));
-    
+
+    // CRITICAL: DeepLog 모델 출력 shape은 [batch_size, seq_len, vocab_size]
+    // Python에서는 logits[:, -1, :]로 마지막 시퀀스 위치의 로짓만 사용
+    // 즉, (seq_len - 1) * vocab_size 오프셋에서 vocab_size만큼 복사해야 함
+
+    // 출력 shape 확인 (디버깅용)
+    OrtTensorTypeAndShapeInfo* output_info;
+    status = model->ort_api->GetTensorTypeAndShape(output_tensor, &output_info);
+    if (status) {
+        fprintf(stderr, "Failed to get output tensor info\n");
+        model->ort_api->ReleaseStatus(status);
+        model->ort_api->ReleaseValue(input_tensor);
+        model->ort_api->ReleaseValue(output_tensor);
+        free(input_data);
+        return IE_ERROR_ONNX_RUN;
+    }
+
+    size_t output_dims_count;
+    model->ort_api->GetDimensionsCount(output_info, &output_dims_count);
+
+    int64_t output_shape[4];  // 최대 4차원
+    model->ort_api->GetDimensions(output_info, output_shape, output_dims_count);
+    model->ort_api->ReleaseTensorTypeAndShapeInfo(output_info);
+
+    // 출력 shape이 [batch, seq_len, vocab_size]인지 확인
+    size_t last_position_offset = 0;
+    if (output_dims_count == 3) {
+        // Shape: [batch_size, seq_len, vocab_size]
+        // 마지막 시퀀스 위치의 로짓 가져오기
+        int64_t output_seq_len = output_shape[1];
+        last_position_offset = (output_seq_len - 1) * vocab_size;
+
+        #ifdef DEBUG_ONNX
+        fprintf(stderr, "[DEBUG] DeepLog output shape: [%lld, %lld, %lld]\n",
+                output_shape[0], output_shape[1], output_shape[2]);
+        fprintf(stderr, "[DEBUG] Using last position offset: %zu (seq_len=%lld)\n",
+                last_position_offset, output_seq_len);
+        #endif
+    } else if (output_dims_count == 2) {
+        // Shape: [batch_size, vocab_size] - 이미 마지막 위치만 출력
+        last_position_offset = 0;
+
+        #ifdef DEBUG_ONNX
+        fprintf(stderr, "[DEBUG] DeepLog output shape: [%lld, %lld] (already last position)\n",
+                output_shape[0], output_shape[1]);
+        #endif
+    } else {
+        fprintf(stderr, "ERROR: Unexpected output dimensions: %zu\n", output_dims_count);
+        model->ort_api->ReleaseValue(input_tensor);
+        model->ort_api->ReleaseValue(output_tensor);
+        free(input_data);
+        return IE_ERROR_ONNX_RUN;
+    }
+
+    // 결과 복사: 마지막 시퀀스 위치의 로짓만 복사
+    memcpy(predictions, output_data + last_position_offset, vocab_size * sizeof(float));
+
     // 정리
     model->ort_api->ReleaseValue(input_tensor);
     model->ort_api->ReleaseValue(output_tensor);
     free(input_data);
-    
+
     return IE_SUCCESS;
 }
 
