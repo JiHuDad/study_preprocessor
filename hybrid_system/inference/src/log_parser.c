@@ -116,6 +116,125 @@ static void free_masking_patterns(void) {
 }
 
 // ============================================================================
+// Template Matching with Wildcard Support
+// ============================================================================
+
+// Token types for wildcard matching
+typedef enum {
+    TOKEN_LITERAL,     // Regular word
+    TOKEN_WILDCARD,    // <*>
+    TOKEN_PLACEHOLDER  // <NUM>, <IP>, <PATH>, etc.
+} TokenType;
+
+typedef struct {
+    TokenType type;
+    char text[256];
+} Token;
+
+// Tokenize string with wildcard recognition
+static int tokenize_with_wildcards(const char* str, Token* tokens, int max_tokens) {
+    int token_count = 0;
+    const char* p = str;
+
+    while (*p && token_count < max_tokens) {
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        if (!*p) break;
+
+        // Check for wildcard/placeholder
+        if (*p == '<') {
+            const char* end = strchr(p, '>');
+            if (end) {
+                size_t len = end - p + 1;
+                if (len >= sizeof(tokens[token_count].text)) {
+                    len = sizeof(tokens[token_count].text) - 1;
+                }
+                strncpy(tokens[token_count].text, p, len);
+                tokens[token_count].text[len] = '\0';
+
+                // Determine type
+                if (strcmp(tokens[token_count].text, "<*>") == 0) {
+                    tokens[token_count].type = TOKEN_WILDCARD;
+                } else {
+                    tokens[token_count].type = TOKEN_PLACEHOLDER;
+                }
+
+                p = end + 1;
+                token_count++;
+                continue;
+            }
+        }
+
+        // Regular word
+        const char* word_start = p;
+        while (*p && !isspace(*p) && *p != '<') p++;
+
+        size_t len = p - word_start;
+        if (len >= sizeof(tokens[token_count].text)) {
+            len = sizeof(tokens[token_count].text) - 1;
+        }
+        strncpy(tokens[token_count].text, word_start, len);
+        tokens[token_count].text[len] = '\0';
+        tokens[token_count].type = TOKEN_LITERAL;
+        token_count++;
+    }
+
+    return token_count;
+}
+
+// Match with wildcard support: <*> matches any word
+static int wildcard_similarity(const char* normalized_log, const char* template_str) {
+    Token log_tokens[128];
+    Token template_tokens[128];
+
+    int log_count = tokenize_with_wildcards(normalized_log, log_tokens, 128);
+    int template_count = tokenize_with_wildcards(template_str, template_tokens, 128);
+
+    if (log_count == 0 && template_count == 0) return 100;
+    if (log_count == 0 || template_count == 0) return 0;
+
+    // Align tokens (wildcards match any token)
+    int matches = 0;
+    int i = 0, j = 0;
+
+    while (i < log_count && j < template_count) {
+        Token* log_tok = &log_tokens[i];
+        Token* tpl_tok = &template_tokens[j];
+
+        if (tpl_tok->type == TOKEN_WILDCARD) {
+            // <*> matches any single token
+            matches++;
+            i++;
+            j++;
+        } else if (tpl_tok->type == TOKEN_PLACEHOLDER) {
+            // <NUM>, <IP>, etc. - check if same placeholder
+            if (log_tok->type == TOKEN_PLACEHOLDER &&
+                strcmp(log_tok->text, tpl_tok->text) == 0) {
+                matches++;
+            } else if (log_tok->type == TOKEN_LITERAL) {
+                // Placeholder in template can match literal (lenient mode)
+                matches++;
+            }
+            i++;
+            j++;
+        } else {
+            // Both literals - must match exactly
+            if (strcmp(log_tok->text, tpl_tok->text) == 0) {
+                matches++;
+            }
+            i++;
+            j++;
+        }
+    }
+
+    // Calculate similarity
+    int max_len = log_count > template_count ? log_count : template_count;
+    if (max_len == 0) return 100;
+
+    return (matches * 100) / max_len;
+}
+
+// ============================================================================
 // 개선된 유사도 알고리즘
 // ============================================================================
 
@@ -316,8 +435,15 @@ static double hybrid_similarity(const char* s1, const char* s2) {
 }
 
 // 레거시 인터페이스 유지 (int 반환)
-// 새로운 hybrid_similarity를 사용하되, int로 변환
+// CRITICAL: Use wildcard matching for vocab templates, fallback to hybrid similarity
 static int string_similarity(const char* s1, const char* s2) {
+    // Check if s2 (vocab template) contains wildcards
+    if (strstr(s2, "<*>") != NULL) {
+        // Vocab template has Drain3 wildcards - use wildcard matching
+        return wildcard_similarity(s1, s2);
+    }
+
+    // No wildcards - use standard hybrid similarity
     double similarity = hybrid_similarity(s1, s2);
 
     // 0.0 ~ 1.0을 0 ~ 100으로 변환
